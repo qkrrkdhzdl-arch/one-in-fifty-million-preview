@@ -158,8 +158,34 @@
     return { upkeep: 0, rent: 0 };
   }
 
+  const BIG_COSTS = [
+    { at: 45, key: "edu", need: l => l.kids > 0, amt: 2200 },
+    { at: 52, key: "uni", need: l => l.kids > 0, amt: 3000 },
+    { at: 62, key: "wed", need: l => l.kids > 0, amt: 3200 },
+    { at: 55, key: "care", need: l => l.parents.mother || l.parents.father, amt: 1400 },
+    { at: 70, key: "med", need: () => true, amt: 1200 },
+    { at: 79, key: "med2", need: () => true, amt: 1600 }
+  ];
+
+  function lifeCycleCost(life) {
+    life.paid = life.paid || {};
+    const nom = NOMINAL(life.year);
+    for (const c of BIG_COSTS) {
+      if (life.age === c.at && !life.paid[c.key] && c.need(life)) {
+        life.paid[c.key] = 1;
+        const amt = Math.round(c.amt * nom);
+        let need = amt;
+        const fromCash = Math.min(life.cash, need); life.cash -= fromCash; need -= fromCash;
+        const fromAssets = Math.min(life.assets, need); life.assets -= fromAssets; need -= fromAssets;
+        if (need > 0) life.debt += need;
+        life.lastBigCost = amt;
+      }
+    }
+  }
+
   function yearEconomics(life) {
     updateIncome(life);
+    lifeCycleCost(life);
     if (life.age < 19) { life.expenses = 0; return; }  // the household carries a child's costs
     const nom = NOMINAL(life.year);
     let exp = (620 + (life.married ? 420 : 0) + life.kids * 460) * nom;
@@ -181,7 +207,7 @@
       const repay = Math.min(life.debt, Math.round(net * 0.55));
       life.debt -= repay;
       const left = net - repay;
-      const saveRate = { safe: 0.20, stock: 0.17, coin: 0.14, none: 0.22 }[life.alloc] || 0.18;
+      const saveRate = { safe: 0.15, stock: 0.13, coin: 0.10, none: 0.17 }[life.alloc] || 0.14;
       const save = left * saveRate;
       life.cash += Math.round(save * (life.alloc === "safe" ? 0.75 : 0.25));
       life.assets += Math.round(save * (life.alloc === "safe" ? 0.25 : 0.75));
@@ -195,7 +221,7 @@
     }
 
     const m = macroFor(life.year);
-    const stockR = { safe: 0.028, stock: R() < 0.22 ? -0.12 : 0.058, coin: R() < 0.5 ? -0.3 : 0.3, none: 0.02 }[life.alloc] || 0.03;
+    const stockR = { safe: 0.026, stock: R() < 0.2 ? -0.1 : 0.05, coin: R() < 0.5 ? -0.28 : 0.26, none: 0.02 }[life.alloc] || 0.03;
     if (life.assets > 0) life.assets = Math.round(life.assets * (1 + stockR));
     if (life.assets < 0) life.assets = 0;
     if (life.home === "own") {
@@ -399,7 +425,7 @@
   // ---------- death ----------
   function hazard(life) {
     const a = life.age;
-    if (a < 30) return 0.0012;
+    if (a < 30) return 0.00025;
     if (a < 45) return 0.0018 + (a - 30) * 0.0003;
     const g = 0.0009 * Math.exp(0.083 * (a - 45));
     const hm = clamp(1 + (55 - life.stats.health) / 30, 0.45, 3.4);
