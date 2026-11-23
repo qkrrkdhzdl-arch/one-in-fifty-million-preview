@@ -366,6 +366,7 @@
     APP.yearT = 0; APP.hold = 600; APP.queue = []; APP.qi = 0; APP.pendingDeath = null;
     go('life');
     renderLifeShell();
+    if (fromSave && life.feed.length) renderFeedAll();
     if (!fromSave && !life.feed.length) {
       pushFeed(0, { ko: `${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 태어났습니다.` }, 'note');
       pushFeed(0, { ko: `같은 1초에 태어난 네 사람과 함께 이 세상에 나왔습니다.` });
@@ -635,6 +636,13 @@
     li.innerHTML = `<span class="a">${item.age}세</span><span class="x">${item.text}${item.src ? `<span class="f">${item.src}</span>` : ''}</span>`;
     ul.appendChild(li);
     while (ul.children.length > 240) ul.removeChild(ul.firstChild);
+    ul.scrollTop = ul.scrollHeight;
+  }
+
+  function renderFeedAll() {
+    const ul = $('#feed'); if (!ul) return;
+    ul.innerHTML = (APP.life.feed || []).slice(-240).map(f =>
+      `<li class="${f.kind || ''}"><span class="a">${f.age}세</span><span class="x">${f.text}${f.src ? `<span class="f">${f.src}</span>` : ''}</span></li>`).join('');
     ul.scrollTop = ul.scrollHeight;
   }
 
