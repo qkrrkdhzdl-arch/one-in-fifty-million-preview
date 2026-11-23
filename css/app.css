@@ -328,3 +328,8 @@ textarea.refl:focus{outline:2px solid rgba(30,106,74,.3);border-color:var(--jade
 .rc-row b{text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);font-weight:600}
 .rc-note{font-size:10px;color:var(--ink-3);margin-top:10px;line-height:1.6}
 @media(max-width:899px){.region-chart{display:none}}
+
+.lang-mini{padding:3px 9px;border-radius:999px;border:1px solid var(--line-2);font-size:11px;font-family:var(--mono);color:var(--ink-3);background:rgba(255,255,255,.5);margin-left:8px}
+.lang-mini:active{background:var(--paper-2)}
+.rec-lang{position:absolute;top:26px;right:20px}
+.rec-head{position:relative}

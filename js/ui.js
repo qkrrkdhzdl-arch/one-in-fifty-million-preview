@@ -170,6 +170,7 @@
         <span class="hud-age">${life.age}<span style="font-size:12px;font-weight:600">${t("ageUnit")}</span></span>
         <span class="hud-year">${life.year}</span>
         <span class="hud-stage">${stageTag()}</span>
+        <button class="lang-mini" id="hud-lang">${U.lang() === "ko" ? "EN" : "한"}</button>
       </div>
       <div class="meters">
         ${["health", "happiness", "knowledge", "relation"].map(k => `
@@ -184,6 +185,8 @@
         <span>${t("home")} <b>${t("home" + { none: "None", wolse: "Wolse", jeonse: "Jeonse", own: "Own" }[life.home])}</b></span>
         ${life.job !== "none" ? `<span>${t("job")} <b>${U.lang() === "ko" ? E.JOB_KO[life.job] : E.JOB_EN[life.job]}</b></span>` : ""}
       </div>`;
+    const lb = $("#hud-lang");
+    if (lb) lb.onclick = () => setLang(U.lang() === "ko" ? "en" : "ko");
   }
 
   function renderPeerStrip() {
@@ -557,6 +560,7 @@
         <div class="rec-head">
           <div class="kicker">${t("recordEn")}</div>
           <h2>${t("record")}</h2>
+          <button class="lang-mini rec-lang" id="rec-lang">${U.lang() === "ko" ? "EN" : "한"}</button>
           <div class="sub">${life.birthYear} — ${dod} · ${U.lang() === "ko" ? "대한민국" : "REPUBLIC OF KOREA"}</div>
         </div>
         <div class="rec-name">
@@ -654,6 +658,7 @@
         <div class="modal-foot"><button class="primary" id="m-close">${t("close")}</button></div>`);
       $("#m-close").onclick = closeModal;
     });
+    const rl = $("#rec-lang"); if (rl) rl.onclick = () => setLang(U.lang() === "ko" ? "en" : "ko");
     $("#rec-again").onclick = () => { APP.life = E.createLife(); renderBirth(); screen("birth"); };
     $("#rec-share").onclick = showShare;
   }
