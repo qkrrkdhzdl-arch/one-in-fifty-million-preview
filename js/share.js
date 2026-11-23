@@ -246,12 +246,6 @@
     g.fillText(trim(g, U.L(type.line), W - pad * 2 - 110), pad, y0 + 82);
     drawFlower(g, W - pad - 46, y0 + 34, 38, type);
 
-    if (format === "916") {
-      const desc = U.L(type.desc);
-      g.fillStyle = "#4e4a41"; g.font = `400 24px ${KFONT}`;
-      wrapText(g, desc, pad, sy - 24, W - pad * 2, 38, 5);
-      sy += 150;
-    }
     // stats
     const avgH = Math.round(life.history.reduce((a, b) => a + b.happiness, 0) / Math.max(1, life.history.length));
     const nw = window.ENGINE.netWorth(life);
@@ -262,6 +256,11 @@
       [L === "ko" ? "향년" : "Age", life.death.age + ""]
     ];
     let sy = y0 + 140 + (format === "916" ? 90 : 0);
+    if (format === "916") {
+      g.fillStyle = "#4e4a41"; g.font = `400 24px ${KFONT}`;
+      wrapText(g, U.L(type.desc), pad, sy - 10, W - pad * 2, 38, 5);
+      sy += 190;
+    }
     g.strokeStyle = "#ddd4c0"; g.beginPath(); g.moveTo(pad, sy - 26); g.lineTo(W - pad, sy - 26); g.stroke();
     stats.forEach((s, k) => {
       const x = pad + k * ((W - pad * 2) / 4);
