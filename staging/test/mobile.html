@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>390px 미리보기 · 5천만 분의 1</title>
+<style>
+  html,body{margin:0;background:#2a2824;font-family:-apple-system,"Apple SD Gothic Neo",sans-serif;color:#c9c0ad}
+  .wrap{display:flex;gap:40px;justify-content:center;padding:28px 20px;align-items:flex-start;flex-wrap:wrap}
+  .phone{width:390px;height:844px;border-radius:38px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.5);border:10px solid #111;background:#000}
+  iframe{width:100%;height:100%;border:0;display:block}
+  .cap{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#8d8474;margin-bottom:10px;text-align:center}
+  .note{max-width:300px;font-size:12px;line-height:1.8;color:#8d8474;padding-top:20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <div class="cap">390 × 844 · iPhone</div>
+    <div class="phone"><iframe id="ph" title="mobile preview"></iframe>
+<script>const q = new URLSearchParams(location.search);
+document.getElementById("ph").src = "../index.html?b=" + Date.now() + (q.get("seed") ? "&seed=" + q.get("seed") : "");</script></div>
+  </div>
+  <div class="note">
+    모바일 레이아웃 검수용 프레임입니다. 실제 배포 화면은 ../index.html 입니다.
+  </div>
+</div>
+</body>
+</html>
