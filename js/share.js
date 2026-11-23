@@ -194,8 +194,9 @@
     const panelW = (W - pad * 2 - gap) / 2;
     const panelH = Math.round(panelW * 2 / 3);
     const capH = 58;
-    const rowStep = panelH + capH + gap;
-    const gridTop = format === "916" ? 214 : 190;
+    const step = format === "916" ? 96 : gap;
+    const rowStep = panelH + capH + step;
+    const gridTop = format === "916" ? 232 : 190;
     const gridBottom = gridTop + rowStep + panelH + capH;
 
     // header
@@ -236,7 +237,7 @@
     }
 
     // life type block
-    const y0 = gridBottom + (format === "916" ? 78 : 52);
+    const y0 = gridBottom + (format === "916" ? 120 : 52);
     g.fillStyle = "#857e70"; g.font = `700 12px ${MONO}`;
     g.fillText(L === "ko" ? "삶의 결 / SHAPE OF A LIFE" : "SHAPE OF A LIFE / 삶의 결", pad, y0);
     g.fillStyle = "#1d1c19"; g.font = `800 40px ${KFONT}`;
@@ -245,6 +246,12 @@
     g.fillText(trim(g, U.L(type.line), W - pad * 2 - 110), pad, y0 + 82);
     drawFlower(g, W - pad - 46, y0 + 34, 38, type);
 
+    if (format === "916") {
+      const desc = U.L(type.desc);
+      g.fillStyle = "#4e4a41"; g.font = `400 24px ${KFONT}`;
+      wrapText(g, desc, pad, sy - 24, W - pad * 2, 38, 5);
+      sy += 150;
+    }
     // stats
     const avgH = Math.round(life.history.reduce((a, b) => a + b.happiness, 0) / Math.max(1, life.history.length));
     const nw = window.ENGINE.netWorth(life);
@@ -254,7 +261,7 @@
       [L === "ko" ? "순자산 상위" : "Wealth", (100 - window.ENGINE.wealthPercentile(nw)) + "%"],
       [L === "ko" ? "향년" : "Age", life.death.age + ""]
     ];
-    const sy = y0 + 140 + (format === "916" ? 40 : 0);
+    let sy = y0 + 140 + (format === "916" ? 90 : 0);
     g.strokeStyle = "#ddd4c0"; g.beginPath(); g.moveTo(pad, sy - 26); g.lineTo(W - pad, sy - 26); g.stroke();
     stats.forEach((s, k) => {
       const x = pad + k * ((W - pad * 2) / 4);
@@ -271,6 +278,20 @@
     g.fillText("1in50m", W - pad, H - 38);
     g.textAlign = "left";
     return canvas;
+  }
+
+  function wrapText(g, text, x, y, maxW, lh, maxLines) {
+    const words = String(text).split(/\s+/);
+    let line = "", lines = 0;
+    for (const w of words) {
+      const test = line ? line + " " + w : w;
+      if (g.measureText(test).width > maxW && line) {
+        g.fillText(line, x, y); y += lh; lines++;
+        line = w;
+        if (lines >= maxLines - 1) break;
+      } else line = test;
+    }
+    if (line && lines < maxLines) g.fillText(line, x, y);
   }
 
   function trim(g, text, maxW) {
