@@ -64,7 +64,7 @@
   function koreanName(sex) {
     const sur = wpick(C.surnames, x => x[2]);
     const given = sex === "f" ? pick(C.givenF) : pick(C.givenM);
-    return { ko: sur[0] + given, en: given + " " + sur[1] };
+    return { ko: sur[0] + given[0], en: given[1] + " " + sur[1] };
   }
 
   function createLife(opt = {}) {
@@ -196,8 +196,10 @@
   }
 
   // ---------- events ----------
-  function matchEvent(e, life) {
-    if (life.age < e.age[0] || life.age > e.age[1]) return false;
+  function matchEvent(e, life, pad) {
+    const p = pad || 0;
+    if (life.age < e.age[0] - p || life.age > e.age[1] + p) return false;
+    if (e.yr && (life.year < e.yr[0] || life.year > e.yr[1])) return false;
     if (e.reg !== "any" && e.reg !== life.zone) return false;
     if (e.cls !== "any" && e.cls !== life.cls) return false;
     if (e.sex !== "any" && e.sex !== life.sex) return false;
@@ -236,13 +238,16 @@
 
   function pickEvents(life, count) {
     const out = [];
-    const pool = C.events.filter(e => matchEvent(e, life));
+    const recent = (x) => (life.lastSeen && life.lastSeen[x.id] != null) ? (life.age - life.lastSeen[x.id]) : 99;
     for (let i = 0; i < count; i++) {
-      const cand = pool.filter(e => !out.includes(e) && (life.seen[e.id] || 0) < 2);
-      if (!cand.length) break;
-      const e = wpick(cand, x => x.w * (1 / (1 + (life.seen[x.id] || 0) * 1.6)) * (x.age[1] === x.age[0] ? 1.3 : 1));
+      let pool = C.events.filter(e => matchEvent(e, life) && !out.includes(e) && recent(e) > 7);
+      if (!pool.length) pool = C.events.filter(e => matchEvent(e, life, 3) && !out.includes(e) && recent(e) > 4);
+      if (!pool.length) pool = C.events.filter(e => matchEvent(e, life, 8) && !out.includes(e) && recent(e) > 2);
+      if (!pool.length) break;
+      const e = wpick(pool, x => x.w * (1 / (1 + (life.seen[x.id] || 0) * 1.2)) * (x.age[1] === x.age[0] ? 1.25 : 1));
       out.push(e);
       life.seen[e.id] = (life.seen[e.id] || 0) + 1;
+      life.lastSeen = life.lastSeen || {}; life.lastSeen[e.id] = life.age;
     }
     return out;
   }
@@ -252,7 +257,10 @@
       life.stats[k] = clamp(life.stats[k] + (e.st[k] || 0), 0, 100);
     }
     if (e.money) {
-      if (e.money > 0) life.cash += e.money;
+      if (life.age < 19) {
+        // a minor does not carry the household's costs; only pocket money reaches them
+        if (e.money > 0) life.cash += Math.round(e.money * 0.05);
+      } else if (e.money > 0) life.cash += e.money;
       else {
         const need = -e.money;
         const fromCash = Math.min(life.cash, need);

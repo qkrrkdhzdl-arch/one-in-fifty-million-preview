@@ -96,7 +96,7 @@
         <p class="birth-sub">${t("birthSub")}</p>
         <div class="sheet">
           <div class="sheet-main">
-            <div class="sheet-name">${U.L(life.name)}<small>${U.lang() === "ko" ? life.name.en : life.name.ko}</small></div>
+            <div class="sheet-name">${U.L(life.name)}${U.lang() === "ko" ? "" : `<small>${life.name.ko}</small>`}</div>
             <p class="sheet-sentence">${t("born", { y: life.birthYear, r: U.L(life.region), d: U.L(life.district) })}</p>
           </div>
           <div class="kv">
@@ -144,7 +144,8 @@
     const age = APP.life.age;
     if (APP.life.pendingDecision) return t("pausedAtDecision");
     if (APP.ff) return t("fastForwarding");
-    return t(U.stage(age));
+    const s = t(U.stage(age));
+    return APP.life.year > 2026 ? s + (APP.lang === "ko" ? " · 시나리오" : " · scenario") : s;
   }
 
   function updateHud() {
@@ -374,7 +375,7 @@
 
     if (res.death) { endLife(); return; }
     if (res.decision) {
-      APP.playing = false; APP.ff = false; renderControls();
+      APP.playing = false; renderControls();
       showDecision(res.decision);
       return;
     }
@@ -422,7 +423,8 @@
       APP.life.pendingDecision = null;
       updateHud(); renderSide(); renderFocus();
       U.toast(`${t("decide")}: ${U.L(ch.t)}`);
-      APP.playing = true; schedule(650); renderControls();
+      if (!APP.auto) APP.ff = false;
+      APP.playing = true; schedule(APP.ff ? 260 : 650); renderControls();
     });
     if (APP.auto) {
       setTimeout(() => {
