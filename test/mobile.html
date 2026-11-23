@@ -2,27 +2,47 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"/>
-<title>검수 — 390×844</title>
+<title>검수 — 모바일</title>
 <style>
   html,body{margin:0;background:#DDE5E1;font-family:system-ui,sans-serif}
-  .bar{display:flex;gap:12px;align-items:center;padding:10px 16px;font:600 13px "IBM Plex Mono",monospace;color:#13212A}
+  .bar{display:flex;gap:12px;align-items:center;padding:10px 16px;font:600 13px "IBM Plex Mono",monospace;color:#13212A;flex-wrap:wrap}
+  .bar a{color:#8C1D3C;text-decoration:none;border-bottom:1px solid #C9B4BA}
   .wrap{padding:0 16px 24px}
-  iframe{width:390px;height:844px;border:1px solid #B9C6C1;border-radius:10px;background:#EBF0ED;display:block}
+  iframe{border:1px solid #B9C6C1;border-radius:10px;background:#EBF0ED;display:block}
+  #st.bad{color:#B23A2B}
 </style>
 </head>
 <body>
-<div class="bar"><span>390 × 844 · iPhone 14 Pro</span><span id="st"></span></div>
+<div class="bar">
+  <span id="lbl">390 × 844 · iPhone 14 Pro</span>
+  <span id="st"></span>
+  <span>
+    <a href="?w=360">360</a> ·
+    <a href="?w=390">390</a> ·
+    <a href="?w=430">430</a> ·
+    <a href="?w=390&h=780">390@780</a>
+  </span>
+</div>
 <div class="wrap"><iframe id="ph" title="mobile preview"></iframe></div>
 <script>
+  const q = new URLSearchParams(location.search);
+  const W = +(q.get('w') || 390), H = +(q.get('h') || 844);
   const f = document.getElementById('ph');
-  // 검수할 때마다 최신 배포본을 새로 받는다(브라우저 캐시 회피)
+  f.style.width = W + 'px'; f.style.height = H + 'px';
+  document.getElementById('lbl').textContent = W + ' × ' + H + (W === 390 && H === 844 ? ' · iPhone 14 Pro' : '');
   f.src = '../index.html?_=' + Date.now();
-  f.addEventListener('load', () => {
+  // 넘침을 1초마다 스스로 재서 상단에 표시한다(검수용)
+  setInterval(() => {
     try {
-      const w = f.contentWindow;
-      document.getElementById('st').textContent = 'errs: ' + JSON.stringify((w.__errs || []).slice(0, 3));
+      const d = f.contentDocument, w = f.contentWindow;
+      const sw = d.documentElement.scrollWidth, cw = d.documentElement.clientWidth;
+      const over = sw > cw + 1;
+      const errs = (w.__errs || []).length;
+      const st = document.getElementById('st');
+      st.textContent = 'vw ' + w.innerWidth + ' · doc ' + sw + '/' + cw + (over ? ' · 넘침!' : ' · 넘침 없음') + ' · errs ' + errs;
+      st.className = (over || errs) ? 'bad' : '';
     } catch (e) { document.getElementById('st').textContent = 'cross-origin'; }
-  });
+  }, 1000);
 </script>
 </body>
 </html>

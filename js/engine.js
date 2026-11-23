@@ -207,6 +207,10 @@
     const baseGpa = baseGma + 2 + ri(0, 4);
     const gmaAlive = gpSetup !== "gone" && !(gpSetup === "one" && R() < 0.55);
     const gpaAlive = gpSetup !== "gone" && (gpSetup === "one" ? !gmaAlive : R() < 0.58);
+    const gpHouse = koreanName("f");
+    const gpSur = gpHouse.ko.slice(0, 1);
+    const gpGmaName = gpHouse.ko;
+    const gpGpaName = gpSur + pick(C.givenM)[0];
 
     // 아동기의 집안 풍경: 이 아이가 자란 집의 매일
     const COAST = ["busan", "ulsan", "incheon", "jeonnam", "gyeongnam", "jeju", "gangwon"];
@@ -277,8 +281,8 @@
     life.family = {
       mother: parents.mother ? { name: "어머니", alive: true, age: motherAge, health: 66 + ri(-8, 10), relation: 68 + ri(-8, 8), job: mJob, income: mIncome } : null,
       father: parents.father ? { name: "아버지", alive: true, age: fatherAge, health: 64 + ri(-8, 10), relation: 62 + ri(-10, 8), job: fJob, income: fIncome } : null,
-      gma: gmaAlive ? { name: "할머니", side: gpSide, alive: true, age: baseGma, health: 52 + ri(-8, 14), relation: (gpSetup === "cohabit" || gpSetup === "raised" ? 76 : gpSetup === "near" ? 68 : gpSetup === "holiday" ? 62 : 56) + ri(-6, 8), job: gpSetup === "raised" ? "양육" : "—", income: 0 } : null,
-      gpa: gpaAlive ? { name: "할아버지", side: gpSide, alive: true, age: baseGpa, health: 50 + ri(-8, 14), relation: (gpSetup === "cohabit" || gpSetup === "raised" ? 70 : gpSetup === "near" ? 62 : gpSetup === "holiday" ? 56 : 50) + ri(-6, 8), job: "—", income: 0 } : null,
+      gma: gmaAlive ? { name: gpGmaName, side: gpSide, alive: true, age: baseGma, health: 52 + ri(-8, 14), relation: (gpSetup === "cohabit" || gpSetup === "raised" ? 76 : gpSetup === "near" ? 68 : gpSetup === "holiday" ? 62 : 56) + ri(-6, 8), job: gpSetup === "raised" ? "양육" : "—", income: 0 } : null,
+      gpa: gpaAlive ? { name: gpGpaName, side: gpSide, alive: true, age: baseGpa, health: 50 + ri(-8, 14), relation: (gpSetup === "cohabit" || gpSetup === "raised" ? 70 : gpSetup === "near" ? 62 : gpSetup === "holiday" ? 56 : 50) + ri(-6, 8), job: "—", income: 0 } : null,
       spouse: null,
       children: []
     };

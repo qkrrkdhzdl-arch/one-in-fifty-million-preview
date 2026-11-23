@@ -323,6 +323,20 @@
     const share = regionShare().find(x => x.r.id === life.region.id);
     const el = $('#screen-birth');
     const parentAge = `${life.familyAges.mother != null ? '어머니 ' + life.familyAges.mother + '세' : ''}${life.familyAges.mother != null && life.familyAges.father != null ? ' · ' : ''}${life.familyAges.father != null ? '아버지 ' + life.familyAges.father + '세' : ''}`;
+    // 집안의 배경: 이 아이가 어디서, 누구와 자라는가
+    const g = life.bg || {};
+    const side = g.gpSide === 'maternal' ? '외가' : '친가';
+    const gma = life.family.gma, gpa = life.family.gpa;
+    const gpLabel = !gma && !gpa ? '안 계심' : side + ' · ' + [gma ? '할머니 ' + gma.age + '세' : '', gpa ? '할아버지 ' + gpa.age + '세' : ''].filter(Boolean).join(' · ');
+    const gpStory = {
+      cohabit: `${side} 할머니가 같은 집에서 함께 삽니다.`,
+      near: `${side} 할머니가 두 정거장 거리에 삽니다.`,
+      holiday: `${side} 할머니는 명절에 내려가는 시골에 삽니다.`,
+      far: `조부모는 멀리 살고, 안부는 전화로만 오갑니다.`,
+      one: `조부모 중 한 분만 계십니다.`,
+      gone: `태어날 때 조부모는 이미 계시지 않았습니다.`,
+      raised: `부모 없이 할머니 손에서 자랍니다.`
+    }[g.gpSetup] || '';
     el.innerHTML = `<div class="wrap"><div class="rollbox">
       <div class="roller" style="min-height:0;padding:18px 0 6px"><div class="lbl">출생 신고</div>
         <div class="meta">${life.region.ko} · ${life.district.ko} · 확률 ${(share ? share.pct : 0).toFixed(1)}%</div></div>
@@ -332,7 +346,7 @@
           ${guillocheSVG()}
           <div class="lbl">이름</div>
           <h2>${life.name.ko}</h2>
-          <p class="story">${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 ${life.sex === 'f' ? '여자아이' : '남자아이'}로 태어났습니다. ${life.family === 'single' ? '한부모 가정입니다.' : life.siblings ? `위로 형제자매 ${life.siblings}명이 있습니다.` : '첫아이입니다.'} 가족은 ${life.region.ko}에서 살아갑니다.</p>
+          <p class="story">${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 ${life.sex === 'f' ? '여자아이' : '남자아이'}로 태어났습니다. ${life.family === 'single' ? '한부모 가정입니다.' : life.siblings ? `위로 형제자매 ${life.siblings}명이 있습니다.` : '첫아이입니다.'} 가족은 ${life.region.ko}에서 살아갑니다. ${gpStory}</p>
           <p class="certpace">기대수명까지 살면 약 ${Math.round(e0 * YEAR_MS[APP.pace] / 60000)}분이 걸려요 (1년 ≈ ${Math.round(YEAR_MS[APP.pace] / 1000)}초). 사는 동안 일시정지와 배속이 되고, 중간에 닫아도 이 브라우저에 저장됩니다.</p>
           <div class="fields">
             <div><span>성별</span><b>${life.sex === 'f' ? '여성' : '남성'}</b></div>
@@ -341,6 +355,7 @@
             <div><span>가정 형편</span><b>${CLASS_KO[life.cls]} ${CLASS_DOT[life.cls]}</b></div>
             <div><span>부모 나이</span><b>${parentAge || '—'}</b></div>
             <div><span>형제자매</span><b>${life.siblings ? life.siblings + '명' : '없음'}</b></div>
+            <div><span>조부모</span><b>${gpLabel}</b></div>
             <div><span>기대수명</span><b>${e0}세</b></div>
             <div><span>5세 전 사망 확률</span><b>${eraStats(life.birthYear).u5}</b></div>
             <div><span>1인당 GDP(PPP)</span><b>${eraStats(life.birthYear).gdp}</b></div>
