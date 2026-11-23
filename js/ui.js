@@ -892,6 +892,7 @@
           </div>
         </div>
 
+        ${window.COLORCARD ? window.COLORCARD.html(life) : ''}
         <section class="rec-sec">
           <h3>이 삶의 결 <span class="lbl">16가지 결 중 하나</span></h3>
           <p class="lead">${U.L(type.line)}</p>
@@ -936,6 +937,7 @@
       </div>
     </div></div>`;
 
+    if (window.COLORCARD) window.COLORCARD.mount(el, life);
     // 지도
     const g = $('#recGrid');
     if (g) {
