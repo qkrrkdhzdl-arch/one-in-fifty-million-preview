@@ -56,13 +56,18 @@
   }
 
   function caption(life) {
+    const U = window.U;
+    const en = U && U.lang() === 'en';
+    const L = (ko, e) => (en ? e : ko);
     const m = mode(life);
-    const place = `${life.region.ko} ${life.district.ko}`;
-    const where = m === 'city' ? '아파트 골목' : m === 'field' ? '논밭 사이 집' : '동네 골목';
-    let home = life.home === 'own' ? '내 집' : life.home === 'jeonse' ? '전세 살이' : life.home === 'wolse' ? '월세 살이' : (life.age < 19 ? '부모님 집' : '얹혀 사는 집');
-    if (life.age >= 65) home = life.home === 'own' ? '내 집, 은퇴' : home;
-    const who = life.age < 19 ? (life.family === 'single' ? '한부모와 함께' : '가족과 함께')
-      : life.married ? (life.kids ? '식구들과 함께' : '배우자와 함께') : '혼자';
+    const place = en
+      ? ((life.district.en || '').toLowerCase().startsWith((life.region.en || '').toLowerCase()) ? life.district.en : `${life.district.en || life.district.ko}, ${life.region.en || life.region.ko}`)
+      : `${life.region.ko} ${life.district.ko}`;
+    const where = m === 'city' ? L('아파트 골목', 'a street of flats') : m === 'field' ? L('논밭 사이 집', 'a house among the fields') : L('동네 골목', 'a neighbourhood lane');
+    let home = life.home === 'own' ? L('내 집', 'your own home') : life.home === 'jeonse' ? L('전세 살이', 'a jeonse lease') : life.home === 'wolse' ? L('월세 살이', 'a rented room') : (life.age < 19 ? L('부모님 집', "your parents' home") : L('얹혀 사는 집', 'a room in someone else\'s house'));
+    if (life.age >= 65) home = life.home === 'own' ? L('내 집, 은퇴', 'your own home, retired') : home;
+    const who = life.age < 19 ? (life.family === 'single' ? L('한부모와 함께', 'with one parent') : L('가족과 함께', 'with family'))
+      : life.married ? (life.kids ? L('식구들과 함께', 'with the household') : L('배우자와 함께', 'with a spouse')) : L('혼자', 'alone');
     return `${place} · ${where} · ${home} · ${who}`;
   }
 

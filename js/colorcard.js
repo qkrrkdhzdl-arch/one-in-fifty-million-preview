@@ -3,8 +3,13 @@
    픽셀 꽃 한 송이와 둘레 여덟 낱말, 색 이름과 16진수. */
 (function () {
   'use strict';
+  const en = () => (window.U ? window.U.lang() === 'en' : false);
+  const L = (ko, e) => (en() ? e : ko);
   const PALETTE = ['#C284F6', '#8FC7A6', '#E8B96A', '#7FA8D9', '#D98FA0', '#A79BE0', '#8FD3C7', '#E09A6B'];
   const NAMES = ['라벤더색', '연두색', '살구색', '하늘색', '분홍색', '보라색', '청록색', '주황색'];
+  const NAMES_EN = ['lavender', 'pale green', 'apricot', 'sky blue', 'rose', 'violet', 'teal', 'amber'];
+  // 여덟 낱말의 영어 이름
+  const W_EN = { 곁: 'nearness', 바람: 'wandering', 뿌리: 'roots', 물결: 'drifting', 오늘: 'today', 내일: 'tomorrow', 고요: 'stillness', 일: 'work' };
 
   function hash(str) {
     let h = 7;
@@ -34,10 +39,17 @@
     const ring = [];
     words.forEach(w => { ring.push(w); ring.push(opposite[w]); });
     const i = hash(words.join('')) % PALETTE.length;
-    return { name: NAMES[i], hex: PALETTE[i], words: ring };
+    return { name: NAMES[i], nameEn: NAMES_EN[i], hex: PALETTE[i], words: ring };
   }
 
   function desc(stats, words) {
+    if (en()) {
+      const a = W_EN[words[0]] || words[0], b = W_EN[words[1]] || words[1];
+      const lead = `This life leaned a little towards ${a}.`;
+      if (stats.happiness >= 65) return `${lead} More years held laughter than not, and ${b} was never far away.`;
+      if (stats.health >= 65) return `${lead} The body held out for a long time, and because of it ${b} could be seen through to the end.`;
+      return `${lead} Some years were hard, but ${b} was the ground this life stood on.`;
+    }
     const a = words[0], b = words[1];
     const jong = w => { const c = String(w).slice(-1).charCodeAt(0); return c >= 0xac00 && c <= 0xd7a3 ? (c - 0xac00) % 28 !== 0 : false; };
     const eul = w => jong(w) ? '을' : '를';
@@ -53,12 +65,12 @@
     const soft = hexToRgba(lc.hex, .12);
     const words = lc.words || derive(life.stats).words;
     return `<section class="rec-sec colorcard" style="--cc:${lc.hex};--cc-soft:${soft}">
-      <h3>이 삶의 색 <span class="lbl">결 하나, 색 하나</span></h3>
+      <h3>${L('이 삶의 색', 'The colour of this life')} <span class="lbl">${L('결 하나, 색 하나', 'one shape, one colour')}</span></h3>
       <div class="cc-stage">
         <canvas class="cc-flower" width="240" height="240"></canvas>
-        ${words.slice(0, 8).map((w, i) => `<span class="cc-w cc-w${i + 1}">${w}</span>`).join('')}
+        ${words.slice(0, 8).map((w, i) => `<span class="cc-w cc-w${i + 1}">${en() ? (W_EN[w] || w) : w}</span>`).join('')}
       </div>
-      <p class="cc-name"><b style="background:${lc.hex}"></b>${lc.name} 결 <span class="mono">${lc.hex}</span></p>
+      <p class="cc-name"><b style="background:${lc.hex}"></b>${en() ? (lc.nameEn || lc.name) : lc.name}${L(' 결', '')} <span class="mono">${lc.hex}</span></p>
       <p class="cc-desc">${desc(life.stats, words)}</p>
     </section>`;
   }

@@ -12,11 +12,14 @@
   const F = { title: '700 84px ' + serif, name: '700 64px ' + serif,
     label: '600 24px ' + mono, body: '400 30px ' + sans, big: '700 128px ' + serif };
   const EMPTY = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+  const en = () => (window.U ? window.U.lang() === 'en' : false);
+  const L = (ko, e) => (en() ? e : ko);
   const num = (v, fallback = 0) => Number.isFinite(Number(v)) ? Number(v) : fallback;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, num(v)));
   const str = v => v == null ? '' : String(v);
   const comma = n => Math.round(num(n)).toLocaleString('ko-KR');
   function eok(man) {
+    if (en() && window.U) return window.U.money(num(man));
     const n = Math.round(Math.abs(num(man))), a = Math.floor(n / 10000), b = n % 10000;
     return (num(man) < 0 ? '−' : '') + (a ? comma(a) + '억 ' : '') + comma(b) + '만원';
   }
@@ -82,20 +85,20 @@
   function chrome(g) {
     g.save(); g.font = '600 22px ' + mono; g.fillStyle = C.teal;
     let x = M;
-    for (const ch of Array.from('5천만 분의 1')) {
+    for (const ch of Array.from(en() ? 'ONE IN FIFTY MILLION' : '5천만 분의 1')) {
       g.fillText(ch, x, 91); x += g.measureText(ch).width + 2;
     }
     g.restore();
     text(g, '1in50m', W - M, 91, '400 22px ' + mono, C.muted, 'right');
-    text(g, '#5천만분의1', M, 1230, '400 20px ' + mono, C.muted);
+    text(g, en() ? '#OneInFiftyMillion' : '#5천만분의1', M, 1230, '400 20px ' + mono, C.muted);
     text(g, '1in50m.kr', W - M, 1230, '400 20px ' + mono, C.muted, 'right');
     line(g, M, 1254, W - M, 1254);
   }
   function normalize(input, extra) {
     const l = Object.assign({}, input || {});
-    l.name = Object.assign({ ko: '이름 없는 사람', en: '' }, l.name);
-    l.region = Object.assign({ id: '', ko: '대한민국' }, l.region);
-    l.district = Object.assign({ ko: '' }, l.district);
+    l.name = Object.assign({ ko: '이름 없는 사람', en: 'Unnamed' }, l.name);
+    l.region = Object.assign({ id: '', ko: '대한민국', en: 'Korea' }, l.region);
+    l.district = Object.assign({ ko: '', en: '' }, l.district);
     l.stats = Object.assign({ health: 50, happiness: 50, knowledge: 50, relation: 50 }, l.stats);
     l.history = Array.isArray(l.history) ? l.history.filter(Boolean) : [];
     l.feed = Array.isArray(l.feed) ? l.feed.filter(Boolean) : [];
@@ -103,18 +106,34 @@
     l.birthYear = num(l.birthYear, 2026); l.age = Math.max(0, num(l.age));
     l._extra = extra && typeof extra === 'object' ? extra : {};
     if (!l.typeName) {
-      try { l.typeName = window.ENGINE.lifeType(l).name.ko; } catch (_) {}
+      try { const t = window.ENGINE.lifeType(l); l.typeName = en() ? t.name.en : t.name.ko; } catch (_) {}
     }
-    l.typeName = l.typeName || '삶의 결'; return l;
+    l.typeName = l.typeName || L('삶의 결', 'Shape of a life');
+    if (!l.region.en && window.CONTENT) {
+      const r = (window.CONTENT.regions || []).find(x => x.id === l.region.id);
+      if (r) l.region.en = r.en;
+    }
+    if (!l.district.en && window.CONTENT && window.CONTENT.regions) {
+      for (const r of window.CONTENT.regions) for (const d of (r.districts || [])) if (d[0] === l.district.ko) l.district.en = d[1];
+    }
+    return l;
   }
   const lastAge = l => Math.max(0, Math.floor(num(l.death && l.death.age, l.age)));
   const lastYear = l => num(l.death && l.death.year, num(l.year, l.birthYear + lastAge(l)));
   const wealth = l => num(l.cash) + num(l.assets) + num(l.homeValue) + num(l.deposit) - num(l.debt);
   const JOB = { none: '', office: '사무직', trade: '기술·생산직', public: '공공기관', self: '자영업', free: '프리랜서', farm: '농림어업' };
+  const JOB_EN = { none: '', office: 'office work', trade: 'skilled trades', public: 'public service', self: 'a small business', free: 'freelance work', farm: 'farming' };
   const EDU = { none: '', high: '고등학교', college: '전문대', university: '대학교', grad: '대학원' };
-  const labelOf = v => typeof v === 'string'
-    ? (JOB[v] != null ? JOB[v] : EDU[v] != null ? EDU[v] : v)
-    : v && (v.ko || (v.name && (v.name.ko || v.name))) || '';
+  const EDU_EN = { none: '', high: 'high school', college: 'a two-year college', university: 'university', grad: 'graduate school' };
+  const labelOf = v => {
+    if (typeof v === 'string') {
+      if (JOB[v] != null) return L(JOB[v], JOB_EN[v]);
+      if (EDU[v] != null) return L(EDU[v], EDU_EN[v]);
+      return en() ? ((window.CAUSE_EN && window.CAUSE_EN[v]) || v) : v;
+    }
+    if (!v) return '';
+    return en() ? (v.en || v.ko || '') : (v.ko || (v.name && (v.name.ko || v.name)) || '');
+  };
   function survival(l) {
     try {
       const points = window.ENGINE.survivalCurve(l);
@@ -136,7 +155,11 @@
     return points[points.length - 1][1];
   }
   function provinceCount(l) {
-    const groups = ['서울|서울특별시', '부산|부산광역시', '대구|대구광역시', '인천|인천광역시',
+    const groups = en()
+      ? ['Seoul', 'Busan', 'Daegu', 'Incheon', 'Gwangju', 'Daejeon', 'Ulsan', 'Sejong',
+         'Gyeonggi', 'Gangwon', 'Chungbuk|North Chungcheong', 'Chungnam|South Chungcheong',
+         'Jeonbuk|North Jeolla', 'Jeonnam|South Jeolla', 'Gyeongbuk|North Gyeongsang', 'Gyeongnam|South Gyeongsang', 'Jeju']
+      : ['서울|서울특별시', '부산|부산광역시', '대구|대구광역시', '인천|인천광역시',
       '광주|광주광역시', '대전|대전광역시', '울산|울산광역시', '세종|세종특별자치시',
       '경기|경기도', '강원|강원도|강원특별자치도', '충북|충청북도', '충남|충청남도',
       '전북|전라북도|전북특별자치도', '전남|전라남도', '경북|경상북도', '경남|경상남도', '제주|제주도|제주특별자치도'];
@@ -144,21 +167,26 @@
     const scan = s => groups.forEach((p, i) => {
       if (new RegExp('(?:^|\\s)(?:' + p + ')(?=\\s|[에으로로에서의,·.]|$)').test(str(s))) seen.add(i);
     });
-    scan(l.region.ko);
-    l.feed.filter(f => /이사|이주|전입|정착|거주/.test(str(f.text))).forEach(f => scan(f.text));
+    scan(en() ? (l.region.en || l.region.ko) : l.region.ko);
+    l.feed.filter(f => (en() ? /moved|move to|settled|relocat/i : /이사|이주|전입|정착|거주/).test(str(f.text))).forEach(f => scan(f.text));
     return Math.max(1, seen.size);
   }
 
   function typeOf(l) {
-    try { return window.ENGINE.lifeType(l); } catch (_) { return { name: { ko: '삶의 결' }, line: { ko: '' }, desc: { ko: '' }, axis: '' }; }
+    try { return window.ENGINE.lifeType(l); } catch (_) { return { name: { ko: '삶의 결', en: 'A shape of life' }, line: { ko: '', en: '' }, desc: { ko: '', en: '' }, axis: '' }; }
   }
   function summary(l) {
     const t = typeOf(l);
-    const born = (l.feed.find(f => num(f.age, -1) === 0) || {}).text || '';
-    const school = (l.feed.find(f => /졸업|진학|입학/.test(str(f.text))) || {}).text || '';
+    const plain = f => f && !f.kind && !/decision|결정:/.test(str(f.text));
+    const born = (l.feed.find(f => num(f.age, -1) === 0 && plain(f)) || {}).text || '';
+    const school = (l.feed.find(f => plain(f) && num(f.age, 0) >= 6 && num(f.age, 0) <= 26 &&
+      (en() ? /graduat|enrolled|admission|accepted at|first day of school|university entrance/i : /졸업|진학|입학/).test(str(f.text))) || {}).text || '';
     const job = labelOf(l.lastJob || l.job);
-    const end = l.death ? `${lastAge(l)}세에 ${labelOf(l.death.cause)}으로 세상을 떠났다.` : '지금도 살아간다.';
-    return [born, school, job ? `${job}으로 일했다.` : '', end].filter(Boolean).join(' ');
+    const end = l.death
+      ? (en() ? `Died in ${lastYear(l)} at ${lastAge(l)}, of ${String(labelOf(l.death.cause)).toLowerCase()}.` : `${lastAge(l)}세에 ${labelOf(l.death.cause)}으로 세상을 떠났다.`)
+      : L('지금도 살아간다.', 'Still living.');
+    const part = (t) => t ? (/[.!?]$/.test(t) ? t : t + '.') : '';
+    return [part(born), part(school), job ? (en() ? `Worked in ${job}.` : `${job}으로 일했다.`) : '', end].filter(Boolean).join(' ');
   }
   function lastTxt(l) {
     try {
@@ -169,23 +197,23 @@
   function peersAges(l) {
     return l.peers.map(p => {
       const ms = (p.milestones || []).filter(m => m && m.death);
-      return ms.length ? ms[ms.length - 1].age + '세' : '—';
+      return ms.length ? ms[ms.length - 1].age + (en() ? '' : '세') : '—';
     }).join(' · ');
   }
 
   function record(g, l) {
-    text(g, l.name.ko, M, 210, F.name);
-    text(g, `${l.region.ko} · ${l.birthYear}–${lastYear(l)} · 향년 ${lastAge(l)}세`, M, 258, F.label, C.sub);
+    text(g, en() ? l.name.en : l.name.ko, M, 210, F.name);
+    text(g, en() ? `${l.region.en} · ${l.birthYear}–${lastYear(l)} · aged ${lastAge(l)}` : `${l.region.ko} · ${l.birthYear}–${lastYear(l)} · 향년 ${lastAge(l)}세`, M, 258, F.label, C.sub);
     text(g, l.typeName, M, 318, '600 30px ' + sans, C.red);
     g.save(); g.font = '400 35px ' + sans; g.fillStyle = C.ink;
     wrap(g, summary(l), M, 386, W - M * 2, 54, 4); g.restore();
     const nw = wealth(l);
     const happy = l.history.reduce((b, h) => (num(h.happiness, 0) > num(b.happiness, 0) ? h : b), l.history[0] || { age: 0, happiness: 0 });
     const cells = [
-      ['남긴 재산', eok(nw)],
-      ['가장 행복했던 해', num(happy.age) + '세'],
-      ['자녀', l.kids ? l.kids + '명' : '없음'],
-      ['살아 본 시·도', provinceCount(l) + '곳']
+      [L('남긴 재산', 'Left behind'), eok(nw)],
+      [L('가장 행복했던 해', 'Happiest year'), num(happy.age) + (en() ? '' : '세')],
+      [L('자녀', 'Children'), l.kids ? l.kids + (en() ? '' : '명') : L('없음', 'none')],
+      [L('살아 본 시·도', 'Provinces lived in'), provinceCount(l) + (en() ? '' : '곳')]
     ];
     cells.forEach(([k, v], i) => {
       const x = M + (i % 2) * 468, y = 660 + Math.floor(i / 2) * 128;
@@ -193,22 +221,26 @@
       text(g, v, x, y + 44, '700 34px ' + serif, C.ink);
     });
     line(g, M, 940, W - M, 940);
-    text(g, '같은 1초에 태어난 네 사람', M, 990, F.label, C.teal);
+    text(g, L('같은 1초에 태어난 네 사람', 'FOUR BORN THE SAME SECOND'), M, 990, F.label, C.teal);
     text(g, peersAges(l), M, 1040, '400 30px ' + sans, C.sub);
-    text(g, '누구도 어디서 태어날지 고르지 않았다.', M, 1120, '400 28px ' + sans, C.muted);
+    text(g, L('누구도 어디서 태어날지 고르지 않았다.', 'No one chose where they were born.'), M, 1120, '400 28px ' + sans, C.muted);
   }
 
   function birth(g, l) {
     g.save(); g.globalAlpha = .06; g.fillStyle = C.red;
     g.beginPath(); g.arc(W - 120, 300, 260, 0, Math.PI * 2); g.fill(); g.restore();
-    text(g, '출생', M, 200, F.label, C.teal);
-    text(g, l.name.ko, M, 300, F.name);
+    text(g, L('출생', 'BIRTH'), M, 200, F.label, C.teal);
+    text(g, en() ? l.name.en : l.name.ko, M, 300, F.name);
     g.save(); g.font = '400 40px ' + sans; g.fillStyle = C.ink;
-    wrap(g, `${l.birthYear}년 ${l.region.ko} ${l.district.ko}에서 ${l.sex === 'f' ? '여자아이' : '남자아이'}로 태어났다.`, M, 380, W - M * 2, 62, 3);
+    wrap(g, en()
+      ? `Born in ${l.district.en || l.district.ko}, ${l.region.en || l.region.ko}, ${l.birthYear}, a ${l.sex === 'f' ? 'girl' : 'boy'}.`
+      : `${l.birthYear}년 ${l.region.ko} ${l.district.ko}에서 ${l.sex === 'f' ? '여자아이' : '남자아이'}로 태어났다.`, M, 380, W - M * 2, 62, 3);
     g.restore();
-    text(g, `${l.birthYear}년 이 나라에서 태어난 254,341명 중 한 명`, M, 620, '400 32px ' + sans, C.sub);
+    text(g, L(`${l.birthYear}년 이 나라에서 태어난 254,341명 중 한 명`, `One of the 254,341 children born in Korea in ${l.birthYear}`), M, 620, '400 32px ' + sans, C.sub);
     line(g, M, 690, W - M, 690);
-    const rows = [['출생지', `${l.region.ko} ${l.district.ko}`], ['가정 형편', { high: '넉넉한 편', mid: '보통', low: '어려운 편' }[l.cls] || '보통'], ['기대수명', '83세 안팎']];
+    const CLS = en() ? { high: 'comfortable', mid: 'middle', low: 'tight' } : { high: '넉넉한 편', mid: '보통', low: '어려운 편' };
+    const rows = [[L('출생지', 'Born in'), en() ? `${l.district.en || l.district.ko}, ${l.region.en || l.region.ko}` : `${l.region.ko} ${l.district.ko}`],
+      [L('가정 형편', 'Household'), CLS[l.cls] || CLS.mid], [L('기대수명', 'Life expectancy'), L('83세 안팎', 'about 83')]];
     rows.forEach(([k, v], i) => {
       text(g, k, M, 760 + i * 92, F.label, C.muted);
       text(g, v, M, 800 + i * 92, '600 32px ' + sans, C.ink);
@@ -218,20 +250,22 @@
   function color(g, l) {
     const t = typeOf(l);
     const st = l.stats;
-    const hue = ['곁', '일', '뿌리', '바람', '고요', '물결', '오늘', '내일'];
+    const hue = en()
+      ? ['nearness', 'work', 'roots', 'wandering', 'stillness', 'drifting', 'today', 'tomorrow']
+      : ['곁', '일', '뿌리', '바람', '고요', '물결', '오늘', '내일'];
     const pairs = [
       [st.relation >= 55 ? hue[0] : hue[1], st.relation >= 55 ? hue[1] : hue[0], st.relation],
       [st.knowledge >= 50 ? hue[2] : hue[3], st.knowledge >= 50 ? hue[3] : hue[2], st.knowledge],
       [st.health >= 55 ? hue[4] : hue[5], st.health >= 55 ? hue[5] : hue[4], st.health],
       [st.happiness >= 55 ? hue[6] : hue[7], st.happiness >= 55 ? hue[7] : hue[6], st.happiness]
     ];
-    text(g, '이 삶의 결', M, 200, F.label, C.teal);
+    text(g, L('이 삶의 결', 'SHAPE OF A LIFE'), M, 200, F.label, C.teal);
     text(g, l.typeName, M, 290, '700 56px ' + serif, C.ink);
     g.save(); g.font = '400 32px ' + sans; g.fillStyle = C.sub;
     wrap(g, labelOf(t.line), M, 356, W - M * 2, 48, 2); g.restore();
     roundRect(g, M, 470, 220, 220, 8, C.red, null);
     text(g, '#8C1D3C', M + 250, 570, F.label, C.muted);
-    text(g, '이 삶이 기운 쪽', M + 250, 610, '400 30px ' + sans, C.sub);
+    text(g, L('이 삶이 기운 쪽', 'Where it leaned'), M + 250, 610, '400 30px ' + sans, C.sub);
     const left = M + 250, track = 300;
     pairs.forEach(([a, b, v], i) => {
       const y = 730 + i * 96;
@@ -241,7 +275,7 @@
       const p = clamp(v, 0, 100) / 100;
       dot(g, left + (W - M - left) * (0.12 + p * 0.76), y + 19, 8, C.red);
     });
-    text(g, '네 쌍의 낱말로 보면 이 이름에 가장 가까웠어요.', M, 1160, '400 26px ' + sans, C.muted);
+    text(g, L('네 쌍의 낱말로 보면 이 이름에 가장 가까웠어요.', 'Four pairs of words, and this was the nearest name.'), M, 1160, '400 26px ' + sans, C.muted);
   }
 
   function map(g, l) {
@@ -250,8 +284,8 @@
     const rows = Math.ceil(n / cols);
     const top = 320, bottom = 1030;
     const size = Math.floor(Math.min((W - M * 2 - gap * (cols - 1)) / cols, (bottom - top - gap * (rows - 1)) / rows));
-    text(g, '인생 지도', M, 200, F.label, C.teal);
-    text(g, `${n}칸 · 한 칸이 1년`, M, 250, '400 28px ' + sans, C.sub);
+    text(g, L('인생 지도', 'LIFE MAP'), M, 200, F.label, C.teal);
+    text(g, L(`${n}칸 · 한 칸이 1년`, `${n} cells, one year each`), M, 250, '400 28px ' + sans, C.sub);
     for (let a = 0; a < n; a++) {
       const h = l.history.find(x => num(x.age) === a);
       const hp = num(h && h.happiness, 50);
@@ -261,17 +295,17 @@
       if (a === n - 1) { g.strokeStyle = C.red; g.lineWidth = 4; g.strokeRect(cx + 2, cy + 2, size - 4, size - 4); }
     }
     const ly = top + rows * (size + gap) + 22;
-    [['#F3E2B3', '덜 행복'], ['#B9CFA8', ''], ['#7FBF86', ''], ['#0B5C63', '더 행복']].forEach(([c, t], i) => {
+    [[ '#F3E2B3', L('덜 행복', 'less happy')], ['#B9CFA8', ''], ['#7FBF86', ''], ['#0B5C63', L('더 행복', 'happier')]].forEach(([c, t], i) => {
       roundRect(g, M + i * 84, ly, 60, 16, 2, c, null);
       if (t) text(g, t, M + i * 84 + (i === 0 ? 70 : -70), ly + 46, '400 24px ' + sans, C.muted);
     });
-    text(g, '테두리 칸 = 마지막 해', M, ly + 110, '400 26px ' + sans, C.muted);
+    text(g, L('테두리 칸 = 마지막 해', 'The outlined cell is the last year'), M, ly + 110, '400 26px ' + sans, C.muted);
   }
 
   function curve(g, l) {
     const pts = survival(l);
-    text(g, '생존 곡선', M, 200, F.label, C.teal);
-    text(g, '같은 해, 같은 곳에서 태어난 사람들', M, 250, '400 28px ' + sans, C.sub);
+    text(g, L('생존 곡선', 'SURVIVAL CURVE'), M, 200, F.label, C.teal);
+    text(g, L('같은 해, 같은 곳에서 태어난 사람들', 'Everyone born the same year, in the same place'), M, 250, '400 28px ' + sans, C.sub);
     const x0 = M + 40, y0 = 330, w = W - M * 2 - 60, h = 520;
     for (let i = 0; i <= 4; i++) {
       const y = y0 + h * i / 4;
@@ -289,23 +323,23 @@
     const mx = x0 + w * clamp(age, 0, 100) / 100, my = y0 + h * (1 - yv / 100);
     line(g, mx, y0, mx, y0 + h, C.red, 2);
     dot(g, mx, my, 10, C.red);
-    text(g, `${age}세 · ${Math.round(yv)}% 생존`, mx + 16, my - 12, '600 26px ' + sans, C.red);
+    text(g, L(`${age}세 · ${Math.round(yv)}% 생존`, `age ${age} · ${Math.round(yv)}% alive`), mx + 16, my - 12, '600 26px ' + sans, C.red);
     for (let a = 0; a <= 100; a += 20) text(g, a, x0 + w * a / 100, y0 + h + 40, '400 22px ' + mono, C.muted, 'center');
   }
 
   function death(g, l) {
     const d = l.death || {};
-    text(g, '마지막 순간', M, 200, F.label, C.teal);
-    text(g, '향년', M, 380, '600 40px ' + sans, C.muted);
+    text(g, L('마지막 순간', 'THE LAST MOMENT'), M, 200, F.label, C.teal);
+    text(g, L('향년', 'AGED'), M, 380, '600 40px ' + sans, C.muted);
     const ageTxt = String(lastAge(l));
     text(g, ageTxt, M - 8, 560, F.big, C.ink);
     g.save(); g.font = F.big; const ageW = g.measureText(ageTxt).width; g.restore();
-    text(g, '세', M - 8 + ageW + 14, 560, '600 44px ' + sans, C.sub);
+    text(g, L('세', 'years'), M - 8 + ageW + 14, 560, '600 44px ' + sans, C.sub);
     line(g, M, 640, W - M, 640);
-    text(g, `사인 · ${labelOf(d.cause) || '노환'}`, M, 710, '600 34px ' + sans, C.ink);
+    text(g, `${L('사인', 'Cause')} · ${labelOf(d.cause) || L('노환', 'old age')}`, M, 710, '600 34px ' + sans, C.ink);
     g.save(); g.font = '400 34px ' + sans; g.fillStyle = C.sub;
-    wrap(g, lastTxt(l) || '잠든 채로 아침이 오지 않았다.', M, 790, W - M * 2, 52, 4); g.restore();
-    text(g, `${l.name.ko} · ${l.birthYear}–${lastYear(l)} · ${l.region.ko}`, M, 1060, F.label, C.muted);
+    wrap(g, lastTxt(l) || L('잠든 채로 아침이 오지 않았다.', 'The morning did not come.'), M, 790, W - M * 2, 52, 4); g.restore();
+    text(g, en() ? `${l.name.en} · ${l.birthYear}–${lastYear(l)} · ${l.region.en}` : `${l.name.ko} · ${l.birthYear}–${lastYear(l)} · ${l.region.ko}`, M, 1060, F.label, C.muted);
   }
 
   const DRAW = { record, birth, color, map, curve, death };

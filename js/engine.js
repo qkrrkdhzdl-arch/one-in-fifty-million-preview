@@ -600,7 +600,7 @@
   function addChild(life) {
     const sex = R() < 0.5 ? "f" : "m";
     const nm = koreanName(sex);
-    const k = { name: nm.ko, sex, age: 0, alive: true, health: 74 + ri(-8, 12), relation: 78 + ri(-6, 8), job: "—", edu: "none" };
+    const k = { name: nm.ko, nameEn: nm.en, sex, age: 0, alive: true, health: 74 + ri(-8, 12), relation: 78 + ri(-6, 8), job: "—", edu: "none" };
     life.family.children.push(k);
     life.flags.childrenCount = life.family.children.filter(x => x.alive !== false).length;
     life.kids = life.flags.childrenCount;
@@ -861,7 +861,7 @@
     if (!life.family.spouse || !life.family.spouse.alive) {
       const sex = life.sex === "f" ? "m" : "f";
       const nm = koreanName(sex);
-      life.family.spouse = { name: nm.ko, sex, alive: true, age: life.age + ri(-2, 3), health: 72 + ri(-8, 10), relation: 74 + ri(-6, 8), job: pick(["회사원", "교사", "간호사", "자영업", "공무원", "프리랜서"]), income: 0 };
+      life.family.spouse = { name: nm.ko, nameEn: nm.en, sex, alive: true, age: life.age + ri(-2, 3), health: 72 + ri(-8, 10), relation: 74 + ri(-6, 8), job: pick(["회사원", "교사", "간호사", "자영업", "공무원", "프리랜서"]), income: 0 };
       life.family.spouse.income = Math.round((life.income || 2600) * (0.6 + R() * 0.5));
     }
   }
@@ -1273,7 +1273,7 @@
     for (const who of ["father", "mother"]) {
       const p = f[who];
       if (!p) continue;
-      out.push({ who, role: who === "father" ? "아버지" : "어머니", name: p.name, alive: p.alive, age: p.age,
+      out.push({ who, role: who === "father" ? "아버지" : "어머니", name: p.name, nameEn: p.nameEn || "", alive: p.alive, age: p.age,
         health: Math.round(p.health), relation: Math.round(p.relation), job: p.alive ? p.job : "—", income: p.income || 0 });
     }
     for (const who of ["gpa", "gma"]) {
@@ -1281,15 +1281,15 @@
       if (!p) continue;
       const base = who === "gma" ? "할머니" : "할아버지";
       const side = p.side === "maternal" ? "외가" : "친가";
-      out.push({ who, role: base + " · " + side, name: p.name, alive: p.alive, age: p.age,
+      out.push({ who, role: base + " · " + side, name: p.name, nameEn: p.nameEn || "", alive: p.alive, age: p.age,
         health: Math.round(p.health), relation: Math.round(p.relation), job: p.alive ? (p.job || "—") : "—", income: 0 });
     }
     if (f.spouse) {
-      out.push({ who: "spouse", role: "배우자", name: f.spouse.name, alive: f.spouse.alive, age: f.spouse.age,
+      out.push({ who: "spouse", role: "배우자", name: f.spouse.name, nameEn: f.spouse.nameEn || "", alive: f.spouse.alive, age: f.spouse.age,
         health: Math.round(f.spouse.health), relation: Math.round(f.spouse.relation), job: f.spouse.alive ? f.spouse.job : "—", income: f.spouse.income || 0 });
     }
     (f.children || []).forEach((k, i) => {
-      out.push({ who: "child" + i, role: "자녀", name: k.name, alive: k.alive, age: k.age,
+      out.push({ who: "child" + i, role: "자녀", name: k.name, nameEn: k.nameEn || "", alive: k.alive, age: k.age,
         health: Math.round(k.health), relation: Math.round(k.relation), job: k.job, income: 0 });
     });
     return out;
