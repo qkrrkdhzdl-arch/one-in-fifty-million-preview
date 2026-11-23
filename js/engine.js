@@ -163,6 +163,64 @@
     const baseHealth = 58 + (cls === "high" ? 4 : cls === "low" ? -3 : 0) + ri(-5, 5);
     const motherAge = parents.mother ? 30 + ri(0, 7) : null;
     const fatherAge = parents.father ? 32 + ri(0, 8) : null;
+
+    // ---------- 집안의 배경 (v2.2) ----------
+    // 같은 해 같은 동네에 태어나도 아버지의 일, 어머니의 일, 조부모와의 거리는 집집마다 다르다.
+    // 이 배경이 아동기의 장면을 정하고, 그 장면이 다시 청년·중년의 사정으로 이어진다.
+    const pickW = (list) => {
+      let s = 0; for (const x of list) s += x[1];
+      let r = R() * s;
+      for (const x of list) { r -= x[1]; if (r <= 0) return x[0]; }
+      return list[list.length - 1][0];
+    };
+    const FJOBS = zone === "rural"
+      ? [["농사", 34], ["기술직", 16], ["운수·건설", 18], ["공무원", 8], ["가게", 16], ["회사원", 8]]
+      : cls === "high"
+      ? [["회사원", 36], ["전문직", 18], ["가게", 20], ["공무원", 12], ["기술직", 14]]
+      : cls === "low"
+      ? [["일용·건설", 20], ["기술직", 26], ["운수·건설", 18], ["가게", 16], ["회사원", 20]]
+      : [["회사원", 34], ["기술직", 20], ["가게", 16], ["공무원", 10], ["운수·건설", 12], ["전문직", 8]];
+    const M_OLD = [["전업주부", 56], ["가게", 12], ["교사", 9], ["농사", 12], ["간호사", 4], ["회사원", 7]];
+    const M_NEW = [["전업주부", 30], ["회사원", 17], ["교사", 10], ["간호사", 8], ["가게", 15], ["공무원", 6],
+                   ["농사", zone === "rural" ? 16 : 2], ["일용·서비스", 6]];
+    const fJob = pickW(FJOBS);
+    const mJob = pickW(era === "old" ? M_OLD : M_NEW);
+    const fIncome = { "회사원": cls === "high" ? 540 : cls === "low" ? 235 : 330,
+      "전문직": 660, "가게": 300 + ri(-80, 160), "공무원": 330, "기술직": 285,
+      "운수·건설": 265, "일용·건설": 205, "농사": 185 }[fJob] || 300;
+    const mIncome = mJob === "전업주부" ? 0 : Math.round(({ "교사": 360, "간호사": 330, "공무원": 315,
+      "회사원": 300, "가게": 240, "농사": 150, "일용·서비스": 160 }[mJob] || 240) * (0.85 + R() * 0.3));
+
+    // 조부모: 어느 쪽(친가·외가)과 얼마나 가까이 사는지
+    const gpSide = R() < 0.62 ? "paternal" : "maternal";
+    const gpRoll = R();
+    let gpSetup;
+    if (family === "grand") gpSetup = "raised";
+    else if (family === "care") gpSetup = "gone";
+    else if (gpRoll < 0.08) gpSetup = "cohabit";
+    else if (gpRoll < 0.26) gpSetup = "near";
+    else if (gpRoll < 0.60) gpSetup = "holiday";
+    else if (gpRoll < 0.74) gpSetup = "far";
+    else if (gpRoll < 0.88) gpSetup = "one";
+    else gpSetup = "gone";
+    const baseGma = (gpSide === "paternal" ? (fatherAge || 33) + 26 : (motherAge || 30) + 25) + ri(-3, 4);
+    const baseGpa = baseGma + 2 + ri(0, 4);
+    const gmaAlive = gpSetup !== "gone" && !(gpSetup === "one" && R() < 0.55);
+    const gpaAlive = gpSetup !== "gone" && (gpSetup === "one" ? !gmaAlive : R() < 0.58);
+
+    // 아동기의 집안 풍경: 이 아이가 자란 집의 매일
+    const COAST = ["busan", "ulsan", "incheon", "jeonnam", "gyeongnam", "jeju", "gangwon"];
+    let childArc;
+    if (family === "grand") childArc = "grand";
+    else if (family === "single") childArc = "single";
+    else if (fJob === "가게" || mJob === "가게") childArc = "shopkid";
+    else if (fJob === "농사") childArc = "farmkid";
+    else if (COAST.indexOf(region.id) >= 0 && R() < 0.22) childArc = "seatown";
+    else if (zone === "rural") childArc = "citytown";
+    else if (fJob === "운수·건설" && R() < 0.55) childArc = "movehouse";
+    else if (mJob !== "전업주부" && R() < 0.34) childArc = "latchkey";
+    else childArc = "city";
+
     const life = {
       seed, name: { ko: name.ko, en: name.en }, sex, region, district: { ko: district[0], en: district[1], char: district[2] },
       zone, cls, birthYear, cohort, era, family, siblings, singleParent, parents,
@@ -172,6 +230,11 @@
         mother: parents.mother ? 76 + ri(-8, 12) : null,
         father: parents.father ? 72 + ri(-9, 12) : null
       },
+      gpDeath: {
+        gma: gmaAlive ? 78 + ri(-9, 14) : null,
+        gpa: gpaAlive ? 76 + ri(-11, 13) : null
+      },
+      bg: { gpSetup, gpSide, childArc, fJob, mJob },
       stats: (function () {
         const ability = clamp(Math.round((28 + ri(-6, 8)) * 0.35 + (8 + ri(0, 6)) * 0.65), 8, 40);
         return {
@@ -203,16 +266,22 @@
       inherited: false, majorChosen: false, roleChosen: false, chronic: false,
       contestWin: false, albaExp: 0, spec: 0,
       dating: false, wantChild: false, hospitalized: false, recovering: false,
-      empType: "none", investStyle: "safe"
+      empType: "none", investStyle: "safe",
+      gpSetup, gpSide, childArc, gmaAlive, gpaAlive,
+      gpNone: gpSetup === "gone", gpNear: gpSetup === "cohabit" || gpSetup === "near" || gpSetup === "raised",
+      gpFar: gpSetup === "holiday" || gpSetup === "far",
+      fJob, mJob, famShop: fJob === "가게" || mJob === "가게", famFarm: fJob === "농사",
+      momWorks: mJob !== "전업주부"
     };
     life.spendMode = { food: "normal", leisure: "normal", living: "normal", health: "normal" };
     life.family = {
-      mother: parents.mother ? { name: "어머니", alive: true, age: motherAge, health: 66 + ri(-8, 10), relation: 68 + ri(-8, 8), job: "전업주부", income: 0 } : null,
-      father: parents.father ? { name: "아버지", alive: true, age: fatherAge, health: 64 + ri(-8, 10), relation: 62 + ri(-10, 8), job: "회사원", income: 320 } : null,
+      mother: parents.mother ? { name: "어머니", alive: true, age: motherAge, health: 66 + ri(-8, 10), relation: 68 + ri(-8, 8), job: mJob, income: mIncome } : null,
+      father: parents.father ? { name: "아버지", alive: true, age: fatherAge, health: 64 + ri(-8, 10), relation: 62 + ri(-10, 8), job: fJob, income: fIncome } : null,
+      gma: gmaAlive ? { name: "할머니", side: gpSide, alive: true, age: baseGma, health: 52 + ri(-8, 14), relation: (gpSetup === "cohabit" || gpSetup === "raised" ? 76 : gpSetup === "near" ? 68 : gpSetup === "holiday" ? 62 : 56) + ri(-6, 8), job: gpSetup === "raised" ? "양육" : "—", income: 0 } : null,
+      gpa: gpaAlive ? { name: "할아버지", side: gpSide, alive: true, age: baseGpa, health: 50 + ri(-8, 14), relation: (gpSetup === "cohabit" || gpSetup === "raised" ? 70 : gpSetup === "near" ? 62 : gpSetup === "holiday" ? 56 : 50) + ri(-6, 8), job: "—", income: 0 } : null,
       spouse: null,
       children: []
     };
-    if (life.family.father && life.family.father.job === "회사원") life.family.father.income = cls === "high" ? 520 : cls === "low" ? 210 : 330;
     // four peers born the same day
     const pool = C.peers.slice().sort(() => R() - 0.5).slice(0, 4);
     life.peers = pool.map(p => ({ ...p, name: p.name, age: 0, alive: true, milestoneAge: 0 }));
@@ -544,6 +613,34 @@
     const out = [];
     const fa = life.familyAges || {};
     const fam = life.family;
+    // 조부모: 해마다 한 살씩, 아프고, 떠난다
+    for (const w of ["gma", "gpa"]) {
+      const gp = fam[w];
+      if (!gp || !gp.alive) continue;
+      gp.age = (gp.age || 0) + 1;
+      gp.health = clamp(gp.health - (gp.age > 78 ? 2.3 : gp.age > 68 ? 1.0 : 0.45), 0, 100);
+      const limit = (life.gpDeath && life.gpDeath[w]) || 250;
+      const risk = gp.age >= limit ? 1 : clamp(Math.pow(Math.max(0, gp.age - 68) / 42, 4) * 0.6 + (gp.health < 22 ? 0.34 : gp.health < 38 ? 0.12 : 0.002), 0, 1);
+      if (R() < risk) {
+        gp.alive = false;
+        life.flags[w + "Alive"] = false;
+        const other = w === "gma" ? fam.gpa : fam.gma;
+        if (!(other && other.alive)) life.flags.gpNone = true;
+        out.push(w === "gma" ? {
+          id: "fam_gma", ic: "🕯", src: "src_death", cat: "family",
+          t: { ko: "할머니의 장례", en: "Your Grandmother's Funeral" },
+          b: { ko: "할머니가 새벽에 돌아가셨다. 상주가 아닌데도 마당에서 국을 끓이고 손님을 맞았다. 상을 치르고 나니 그 집의 부엌이 가장 넓게 느껴졌다.", en: "Your grandmother died before dawn. Though not the chief mourner, you cooked in the yard and greeted visitors. After the funeral, the kitchen in that house seemed the largest room of all." },
+          st: { health: -2, happiness: -8, knowledge: 0, relation: 4, reputation: 0, spec: 0, stress: 7 }, money: -320, inc: 0,
+          set: { flags: { gmaAlive: false } }
+        } : {
+          id: "fam_gpa", ic: "🕯", src: "src_death", cat: "family",
+          t: { ko: "할아버지의 빈의자", en: "Your Grandfather's Empty Chair" },
+          b: { ko: "할아버지가 병원에서 돌아오지 못했다. 라디오와 안경, 담배 냄새가 남은 방을 정리하며 서랍에서 동전 봉지를 찾았다.", en: "Your grandfather did not come back from the hospital. Clearing the room that still smelled of radio and tobacco, you found a pouch of coins in a drawer." },
+          st: { health: -2, happiness: -7, knowledge: 0, relation: 3, reputation: 0, spec: 0, stress: 6 }, money: -280, inc: 0,
+          set: { flags: { gpaAlive: false } }
+        });
+      }
+    }
     if (fam.mother && fam.mother.alive) {
       fam.mother.age = (fam.mother.age || 0) + 1;
       fam.mother.health = clamp(fam.mother.health - (fam.mother.age > 70 ? 1.9 : 0.55), 0, 100);
@@ -1056,6 +1153,8 @@
       empType: life.flags.empType || empTypeOf(life),
       married: !!life.flags.married, dating: !!life.flags.dating, widowed: !!life.flags.widowed,
       fatherAlive: !!life.flags.fatherAlive, motherAlive: !!life.flags.motherAlive,
+      gmaAlive: !!life.flags.gmaAlive, gpaAlive: !!life.flags.gpaAlive, gpNone: !!life.flags.gpNone,
+      gpSetup: life.flags.gpSetup, childArc: life.flags.childArc,
       spouseAlive: !!(life.family.spouse && life.family.spouse.alive),
       kids: life.flags.childrenCount || 0,
       recovering: !!life.flags.recovering, hospitalized: !!life.flags.hospitalized
@@ -1173,6 +1272,14 @@
       out.push({ who, role: who === "father" ? "아버지" : "어머니", name: p.name, alive: p.alive, age: p.age,
         health: Math.round(p.health), relation: Math.round(p.relation), job: p.alive ? p.job : "—", income: p.income || 0 });
     }
+    for (const who of ["gpa", "gma"]) {
+      const p = f[who];
+      if (!p) continue;
+      const base = who === "gma" ? "할머니" : "할아버지";
+      const side = p.side === "maternal" ? "외가" : "친가";
+      out.push({ who, role: base + " · " + side, name: p.name, alive: p.alive, age: p.age,
+        health: Math.round(p.health), relation: Math.round(p.relation), job: p.alive ? (p.job || "—") : "—", income: 0 });
+    }
     if (f.spouse) {
       out.push({ who: "spouse", role: "배우자", name: f.spouse.name, alive: f.spouse.alive, age: f.spouse.age,
         health: Math.round(f.spouse.health), relation: Math.round(f.spouse.relation), job: f.spouse.alive ? f.spouse.job : "—", income: f.spouse.income || 0 });
@@ -1212,6 +1319,23 @@
     life.spendMode = life.spendMode || { food: "normal", leisure: "normal", living: "normal", health: "normal" };
     if (life.flags.dating == null) life.flags.dating = false;
     if (life.flags.investStyle == null) life.flags.investStyle = life.alloc || "safe";
+    // v2.1 이전 저장본: 집안 배경이 없으면 가장 흔한 배경으로 채우고 조부모를 만든다
+    if (!life.flags.gpSetup) {
+      life.flags.gpSetup = "holiday"; life.flags.gpSide = "paternal";
+      life.flags.childArc = life.family.mother ? "city" : "single";
+      life.flags.gpNone = false; life.flags.gpNear = false; life.flags.gpFar = true;
+      life.flags.gmaAlive = !!(life.family.gma && life.family.gma.alive);
+      life.flags.gpaAlive = !!(life.family.gpa && life.family.gpa.alive);
+      life.flags.fJob = (life.family.father && life.family.father.job) || "회사원";
+      life.flags.mJob = (life.family.mother && life.family.mother.job) || "전업주부";
+      life.flags.famShop = life.flags.fJob === "가게" || life.flags.mJob === "가게";
+      life.flags.famFarm = life.flags.fJob === "농사";
+      life.flags.momWorks = life.flags.mJob !== "전업주부";
+      if (!life.family.gma && !life.family.gpa && life.family.mother) {
+        life.family.gma = { name: "할머니", side: "paternal", alive: true, age: (life.family.mother.age || 30) + 25, health: 52, relation: 60, job: "—", income: 0 };
+      }
+    }
+    life.gpDeath = life.gpDeath || { gma: 82, gpa: 80 };
     syncStats(life);
     life.expenseItems = life.expenseItems || { housing: 0, food: 0, living: 0, education: 0, care: 0, taxInterest: 0, leisure: 0, health: 0 };
     return life;
@@ -1231,7 +1355,8 @@
     meal:    { cost: 30, label: "가족 외식", rel: 4, st: { happiness: 2, stress: -2 } },
     trip:    { cost: 220, label: "가족 여행", rel: 8, st: { happiness: 5, stress: -5, health: 1 } },
     spouse:  { cost: 25, label: "배우자와 시간", spouseRel: 6, st: { happiness: 3, stress: -2.5 } },
-    child:   { cost: 40, label: "자녀와 시간", childRel: 6, st: { happiness: 3, stress: -2 } }
+    child:   { cost: 40, label: "자녀와 시간", childRel: 6, st: { happiness: 3, stress: -2 } },
+    grand:   { cost: 25, label: "조부모 문안", who: ["gma", "gpa"], health: 4, rel: 5, st: { happiness: 1.5, stress: -1.2 } }
   };
   function careAction(life, kind) {
     const self = SELF_CARE[kind], fam = FAMILY_CARE[kind], def = self || fam;

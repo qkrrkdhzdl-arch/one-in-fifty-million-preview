@@ -163,7 +163,7 @@
     <div class="wrap">
       <div class="hero">
         <div class="herotext">
-          <div class="kicker">v2.1 · 무료 인생 시뮬레이션 · 17개 시·도 62개 시군구 · 사건 656종 · 결정 42장 · 일상 결정 28장</div>
+          <div class="kicker">v2.2 · 무료 인생 시뮬레이션 · 17개 시·도 62개 시군구 · 사건 769종 · 결정 43장 · 일상 결정 28장</div>
           <h1>5천만<br>분의 <em>1</em></h1>
           <p class="lede">2025년, 이 나라에서 254,341명이 태어났습니다. 그중 한 명이 되어 한 번뿐인 삶을 끝까지 살아봅니다. 어느 동네, 누구의 아이로 태어날지는 고를 수 없습니다. 당신이 그랬던 것처럼.</p>
           <div class="counter">
@@ -717,7 +717,8 @@
   const CARE_HINT = {
     checkup: '부모님 두 분의 건강을 크게 올립니다(70만).', tonic: '부모님 건강을 조금 올리고 관계도 좋아집니다(35만).',
     meal: '가족과 한 끼. 관계와 기분이 오릅니다(30만).', trip: '가족 여행. 관계가 크게 오르고 스트레스가 풀립니다(220만).',
-    spouse: '배우자와 시간을 냅니다. 관계와 기분이 오릅니다(25만).', child: '자녀와 시간을 냅니다. 관계와 기분이 오릅니다(40만).'
+    spouse: '배우자와 시간을 냅니다. 관계와 기분이 오릅니다(25만).', child: '자녀와 시간을 냅니다. 관계와 기분이 오릅니다(40만).',
+    grand: '조부모를 찾아뵙고 안부를 묻습니다(25만).'
   };
   const SELF_HINT = { exercise: '몸을 만들고 스트레스를 풉니다', checkup: '이상 신호를 미리 잡습니다', rest: '잠과 쉼으로 회복합니다', supplement: '꾸준한 보충', dental: '치아와 잇몸' };
 
@@ -730,12 +731,13 @@
       if (k === 'spouse' && !(life.family.spouse && life.family.spouse.alive)) return '';
       if (k === 'child' && !(life.flags.childrenCount > 0)) return '';
       if ((k === 'checkup' || k === 'tonic') && !(life.flags.fatherAlive || life.flags.motherAlive)) return '';
+      if (k === 'grand' && !(life.flags.gmaAlive || life.flags.gpaAlive)) return '';
       return `<button type="button" class="careb" data-care="${k}" ${av(k) ? 'disabled' : ''}>
         <span class="cb-t">${d.label}</span>
         <span class="cb-c">${av(k) ? '올해 완료' : U.money(d.cost)}</span>
         <span class="cb-n">${CARE_HINT[k]}</span></button>`;
     };
-    const html = ['checkup', 'tonic', 'meal', 'trip', 'spouse', 'child'].map(row).join('');
+    const html = ['checkup', 'tonic', 'meal', 'trip', 'spouse', 'child', 'grand'].map(row).join('');
     return `<div class="carebox"><h3 class="careh">가족 돌보기 <span class="lbl">돈을 써서 지금 올립니다</span></h3>
       <div class="caregrid">${html || '<p class="hint">지금 돌볼 가족이 없습니다.</p>'}</div></div>`;
   }
