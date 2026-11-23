@@ -920,8 +920,6 @@
     if (ch.money && age >= 19) out.push(U.money(ch.money));
     if (ch.inc) out.push(`소득 ${ch.inc > 0 ? '+' : ''}${Math.round(ch.inc * 100)}%`);
     if (ch.set && ch.set.job && ch.set.job !== 'none') out.push(JOB_KO[ch.set.job] || '');
-    if (ch.set && ch.set.role) out.push(ROLE_KO[ch.set.role] || '');
-    if (ch.set && ch.set.major) out.push(MAJOR_KO[ch.set.major] || '');
     if (ch.set && ch.set.home) out.push(HOME_KO[ch.set.home] || '');
     return out.filter(Boolean).join(' · ');
   }

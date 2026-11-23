@@ -267,7 +267,7 @@
   }
 
   // ---------- economy ----------
-  const JOB_BASE = { none: 0, office: 3900, trade: 3150, public: 3450, self: 2750, free: 2550, farm: 2300 };
+  const JOB_BASE = { none: 0, office: 3400, trade: 2900, public: 3150, self: 2500, free: 2280, farm: 2100 };
   const JOB_KO = { none: "무직", office: "사무·관리직", trade: "기술·생산직", public: "공무원·공공기관", self: "자영업", free: "프리랜서", farm: "농림어업" };
   const JOB_EN = { none: "No paid work", office: "Office and management", trade: "Skilled trades and production", public: "Public service", self: "Self-employed", free: "Freelance", farm: "Farming and fishing" };
 
@@ -301,8 +301,8 @@
       const baseJob = role ? (JOB_BASE[role.job] || 0) : (JOB_BASE[life.job] || 0);
       const rmul = role ? role.mul : 1;
       let labor = baseJob * rmul * eduMul(life.edu) * zoneMul(life.zone) * ageCurve(life.age);
-      labor *= 1 + clamp(life.stats.spec, 0, 100) * 0.009;         // 역량·스펙
-      labor *= 1 + clamp(life.stats.reputation - 40, -40, 60) * 0.0016;  // 평판
+      labor *= 1 + clamp(life.stats.spec, 0, 100) * 0.005;         // 역량·스펙
+      labor *= 1 + clamp(life.stats.reputation - 40, -40, 60) * 0.0010;  // 평판
       labor *= 1 + (life.wageBonus || 0);
       if (life.sex === "f") labor *= 0.93;                          // 측정된 성별 임금격차
       labor *= wagePeakFactor(life);
