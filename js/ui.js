@@ -190,6 +190,7 @@
           <div class="ctarow" style="margin-top:24px">
             <button class="cta" id="startBtn">태어나기</button>
             ${saved && saved.life && !saved.life.death ? `<button class="ghost" id="resumeBtn">이어하기 · ${saved.life.age}세 ${saved.life.name.ko}</button>` : ''}
+            ${saved && saved.life && saved.life.death ? `<button class="ghost" id="lastRecBtn">지난 삶 기록 보기 · ${saved.life.death.age}세 ${saved.life.name.ko}</button>` : ''}
             <span class="ctahint">설정은 그대로 두고 바로 태어나도 괜찮아요.</span>
           </div>
           <p class="warnline">죽음과 질병, 사고도 실제 통계대로 일어납니다. 장면은 그리지 않고, 도움받을 곳을 함께 알려 드립니다. 15세 이상에게 맞춘 시뮬레이션이에요.
@@ -226,6 +227,8 @@
     });
     $('#themeBtn').onclick = toggleTheme;
     $('#startBtn').onclick = () => startBirth($('#homeSel').value);
+    const lr = $('#lastRecBtn');
+    if (lr) lr.onclick = () => { APP.life = saved.life; go('record'); renderRecord(); };
     const rb = $('#resumeBtn');
     if (rb) rb.onclick = () => { APP.life = saved.life; APP.pace = saved.pace || APP.pace; beginLife(true); };
   }
