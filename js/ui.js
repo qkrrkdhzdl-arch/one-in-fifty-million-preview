@@ -346,10 +346,13 @@
     screen("life");
     // year 0 opening
     const open = { age: 0, year: life.birthYear, events: [], isNew: true };
-    const e0 = C.events.filter(x => x.age[0] === 0 && x.age[1] === 0 &&
-      (x.reg === "any" || x.reg === life.zone) && (x.cls === "any" || x.cls === life.cls) &&
-      (x.sex === "any" || x.sex === life.sex) && (x.era === "any" || x.era === life.era));
-    open.events = (e0.length ? e0 : C.events.filter(x => x.age[0] === 0)).slice(0, 1);
+    const birthOk = (x) => x.age[0] === 0 && (x.reg === "any" || x.reg === life.zone) &&
+      (x.cls === "any" || x.cls === life.cls) && (x.sex === "any" || x.sex === life.sex) &&
+      (x.era === "any" || x.era === life.era) && (!x.yr || (life.year >= x.yr[0] && life.year <= x.yr[1]));
+    let e0 = C.events.filter(x => x.age[0] === 0 && x.age[1] === 0 && birthOk(x));
+    if (!e0.length) e0 = C.events.filter(birthOk);
+    if (!e0.length) e0 = C.events.filter(x => x.age[0] === 0);
+    open.events = e0.slice(0, 1);
     open.quiet = open.events.length ? null : C.quiet[0];
     open.events.forEach(ev => {
       ["health", "happiness", "knowledge", "relation"].forEach(k => life.stats[k] = Math.max(0, Math.min(100, life.stats[k] + (ev.st[k] || 0))));
