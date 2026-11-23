@@ -115,6 +115,34 @@
     });
   }
 
+  function drawCertMap(canvas, life) {
+    if (!canvas) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = canvas.clientWidth || 420, h = Math.round(w * 0.52);
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    const g = canvas.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    const poly = [[.30,.09],[.44,.05],[.53,.10],[.58,.17],[.54,.23],[.62,.27],[.66,.36],[.64,.46],
+      [.61,.55],[.58,.63],[.55,.72],[.50,.80],[.44,.86],[.38,.80],[.33,.72],[.29,.63],[.26,.52],
+      [.28,.42],[.24,.34],[.26,.24],[.27,.16]];
+    const jeju = [[.17,.86],[.23,.87],[.24,.91],[.18,.92]];
+    const inside = (x, y) => {
+      const test = (pts) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) c = !c; } return c; };
+      return test(poly) || test(jeju);
+    };
+    for (let y = 2; y < h; y += 7) for (let x = 2; x < w; x += 7) {
+      const ins = inside(x / w, y / h);
+      g.beginPath(); g.arc(x, y, ins ? 1.2 : 0.8, 0, Math.PI * 2);
+      g.fillStyle = ins ? 'rgba(94,110,114,.38)' : 'rgba(94,110,114,.10)'; g.fill();
+    }
+    const p = MAP_POS[life.region.id] || [.45, .5];
+    g.beginPath(); g.arc(w * p[0], h * p[1], 7, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(15,110,104,.16)'; g.fill();
+    g.beginPath(); g.arc(w * p[0], h * p[1], 3.4, 0, Math.PI * 2);
+    g.fillStyle = '#0F6E68'; g.fill();
+  }
+
   function renderCover() {
     const saved = loadSave();
     const share = regionShare();
@@ -245,13 +273,18 @@
   }
 
   function lifeExpectancy(life) {
-    // 시·도 유형과 형편으로 기대수명을 근사한다(통계청 2024 생명표 기반)
-    let e0 = 83.5;
-    if (life.zone === 'metro') e0 += 1.1; else if (life.zone === 'rural') e0 -= 0.8;
-    if (life.cls === 'high') e0 += 3.2; else if (life.cls === 'low') e0 -= 3.4;
-    if (life.sex === 'f') e0 += 3.0;
-    if (life.birthYear < 2000) e0 -= 4.5; else if (life.birthYear < 2015) e0 -= 1.5;
+    // 통계청 생명표(2024) 기준값에 지역 유형·형편·출생 세대 차이를 더해 근사한다
+    let e0 = life.sex === 'f' ? 86.4 : 80.6;                 // 전국 기대수명
+    if (life.zone === 'metro') e0 += 0.4; else if (life.zone === 'rural') e0 -= 0.6;
+    if (life.cls === 'high') e0 += 1.8; else if (life.cls === 'low') e0 -= 2.2;
+    if (life.birthYear < 1990) e0 -= 5.5; else if (life.birthYear < 2005) e0 -= 3.0; else if (life.birthYear < 2020) e0 -= 1.2;
     return Math.round(e0 * 10) / 10;
+  }
+  function eraStats(birthYear) {
+    if (birthYear < 1990) return { u5: '1.4%', gdp: '$7,900', label: '1990년' };
+    if (birthYear < 2005) return { u5: '0.7%', gdp: '$16,300', label: '2000년대' };
+    if (birthYear < 2020) return { u5: '0.4%', gdp: '$28,600', label: '2010년대' };
+    return { u5: '0.3%', gdp: '$36,200', label: '2025년' };
   }
 
   function certNo(life) {
@@ -297,10 +330,12 @@
             <div><span>부모 나이</span><b>${parentAge || '—'}</b></div>
             <div><span>형제자매</span><b>${life.siblings ? life.siblings + '명' : '없음'}</b></div>
             <div><span>기대수명</span><b>${e0}세</b></div>
-            <div><span>5세 전 사망 확률</span><b>0.3%</b></div>
-            <div><span>1인당 GDP</span><b>$36,200</b></div>
+            <div><span>5세 전 사망 확률</span><b>${eraStats(life.birthYear).u5}</b></div>
+            <div><span>1인당 GDP(PPP)</span><b>${eraStats(life.birthYear).gdp}</b></div>
           </div>
-          <div class="odds-line">${life.birthYear}년 ${life.region.ko}에서 태어난 아이 가운데 ${life.cls === 'high' ? '상위 20%' : life.cls === 'low' ? '하위 30%' : '중간 50%'} 가정 출생은 약 ${life.cls === 'high' ? '20%' : life.cls === 'low' ? '30%' : '50%'}입니다. 같은 해 이 나라에서 태어난 아이 ${(254341).toLocaleString()}명 중 한 명입니다.</div>
+                    <figure class="certmap"><canvas id="certMap"></canvas>
+            <figcaption>${life.region.ko} ${life.district.ko}는 여기에 있어요.</figcaption></figure>
+          <div class="odds-line">${life.birthYear}년 ${life.region.ko} ${life.district.ko}에서 태어난 아이 가운데 ${life.cls === 'high' ? '상위 20%' : life.cls === 'low' ? '하위 30%' : '중간 40%'} 가정 출신은 ${life.cls === 'high' ? '다섯 중 하나꼴' : life.cls === 'low' ? '셋 중 하나꼴' : '열에 넷꼴'}입니다. 같은 해 이 나라에서 태어난 아이 254,341명 중 한 명입니다.</div>
           <div class="certcomps"><span class="lbl">같은 1초에 태어난 네 사람</span>
             <ul>${life.peers.map(p => `<li><b>${p.name}</b><span>${p.reg} · ${p.sex === 'f' ? '여' : '남'}</span></li>`).join('')}</ul>
           </div>
@@ -311,6 +346,7 @@
         </div>
       </div>
     </div></div>`;
+    drawCertMap($('#certMap'), life);
     $('#beginBtn').onclick = () => beginLife(false);
     $('#shareBirthBtn').onclick = () => openShare('birth', true);
   }
