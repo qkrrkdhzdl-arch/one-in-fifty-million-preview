@@ -45,7 +45,7 @@
   /* ---------- 저장/복원 ---------- */
   function save() {
     try {
-      if (!APP.life) { localStorage.removeItem('oifm2_life'); return; }
+      if (!APP.life) return;   // 화면을 닫을 때 지난 삶을 지우지 않는다(새로 시작할 때만 비운다)
       const l = APP.life;
       const slim = Object.assign({}, l, { yearLog: (l.yearLog || []).slice(-6), feed: (l.feed || []).slice(-400) });
       localStorage.setItem('oifm2_life', JSON.stringify({ life: slim, screen: APP.screen, pace: APP.pace }));
