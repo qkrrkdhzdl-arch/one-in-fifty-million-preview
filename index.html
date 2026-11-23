@@ -711,7 +711,7 @@
           badgeEn: "Response · Economic Shock",
           titleKo: `${y24}년 · 24세, 회사의 희망퇴직 공고`,
           titleEn: `${y24} · Age 24, Voluntary Layoff Notice`,
-          bodyKo: `첫 직장에 들어간 지 14개월째. 화요일 아침 사내 게시판에 희망퇴직 공고가 떴다. 14세 때 비워 둔 시간(${L.skippedTime.join(", ") || "없음"})이 문득 떠오른다.`,
+          bodyKo: `첫 직장에 들어간 지 14개월째. 화요일 아침 사내 게시판에 희망퇴직 공고가 떴다. ${L.skippedTime.length ? `14세 때 비워 둔 시간(${L.skippedTime.join(", ")})이 문득 떠오른다.` : "14세 때 채운 시간표가 문득 떠오른다."}`,
           bodyEn: `Fourteen months into your first job. Tuesday morning, a voluntary buyout notice goes up. You think of what you skipped at 14 (${L.skippedTime.join(", ") || "none"}).`,
           choices: [
             {
@@ -884,8 +884,8 @@
               id: "renegotiate",
               titleKo: "집주인(또는 가족)과 조건 재협의를 요청한다 — 이사비 380만 원 대비",
               titleEn: "Request renegotiation — prepare ₩3.8M moving cost",
-              metaKo: "장부에 '재협의' 기록 · 이사비 380만 원",
-              metaEn: "Logs 'Renegotiated' · ₩3.8M moving cost",
+              metaKo: "장부에 '재협의' 기록 · 마음 부담 완화",
+              metaEn: "Logs 'Renegotiated' · relief",
               ratios: [33, 46, 21],
               sidenoteKo: "재협의는 출구가 아니라 요청이다. 상대가 받아야 성립한다.",
               sidenoteEn: "Renegotiation is a request, not an exit; the other party must agree.",
