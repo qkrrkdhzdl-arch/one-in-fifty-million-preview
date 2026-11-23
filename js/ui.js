@@ -75,14 +75,22 @@
     const g = canvas.getContext('2d');
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, w, h);
-    // 배경 점 격자
-    const grid = 13;
-    for (let y = 6; y < h; y += grid) {
-      for (let x = 6; x < w; x += grid) {
-        const inside = (x > w * .17 && x < w * .66 && y > h * .05 && y < h * .95);
+    // 대한민국 실루엣(거친 다각형) 안쪽에만 점을 찍는다
+    const poly = [[.30,.09],[.44,.05],[.53,.10],[.58,.17],[.54,.23],[.62,.27],[.66,.36],[.64,.46],
+      [.61,.55],[.58,.63],[.55,.72],[.50,.80],[.44,.86],[.38,.80],[.33,.72],[.29,.63],[.26,.52],
+      [.28,.42],[.24,.34],[.26,.24],[.27,.16]];
+    const jeju = [[.17,.86],[.23,.87],[.24,.91],[.18,.92]];
+    const inside = (x, y) => {
+      const test = (pts) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) c = !c; } return c; };
+      return test(poly) || test(jeju);
+    };
+    const grid = 12;
+    for (let y = 4; y < h; y += grid) {
+      for (let x = 4; x < w; x += grid) {
+        const ins = inside(x / w, y / h);
         g.beginPath();
-        g.arc(x, y, inside ? 1.5 : 1, 0, Math.PI * 2);
-        g.fillStyle = inside ? 'rgba(94,110,114,.30)' : 'rgba(94,110,114,.13)';
+        g.arc(x, y, ins ? 1.6 : 1, 0, Math.PI * 2);
+        g.fillStyle = ins ? 'rgba(94,110,114,.34)' : 'rgba(94,110,114,.10)';
         g.fill();
       }
     }
@@ -119,7 +127,7 @@
       <div class="hero">
         <div class="herotext">
           <div class="kicker">v1.0 · 무료 인생 시뮬레이션 · 대한민국 17개 시·도 62개 시군구 · 15세 이상</div>
-          <h1>5천만 분의<br><em>1</em></h1>
+          <h1>5천만<br>분의 <em>1</em></h1>
           <p class="lede">2025년, 이 나라에서 254,341명이 태어났습니다. 그중 한 명이 되어 한 번뿐인 삶을 끝까지 살아봅니다. 어느 동네, 누구의 아이로 태어날지는 고를 수 없습니다. 당신이 그랬던 것처럼.</p>
           <div class="counter">
             <div><strong>254,341</strong><span>2025년 출생아</span></div>
@@ -127,14 +135,14 @@
             <div><strong>17</strong><span>시·도 · 62개 시군구</span></div>
           </div>
           <div class="heroopts">
-            <div class="optgroup"><span class="lbl">태어날 때</span>
+            <div class="optgroup wide"><span class="lbl">태어날 때</span>
               <div class="seg" data-seg="cohort">
                 ${[['now', '지금'], ['w2000', '2000년대'], ['w1990', '1990년대'], ['any', '아무 때나']].map(([k, v]) =>
                   `<button data-v="${k}" aria-pressed="${(localStorage.getItem('oifm2_cohort') || 'now') === k}">${v}</button>`).join('')}
               </div>
               <span class="hint">지난 세대는 그 시절 통계와 사건으로 살아갑니다.</span>
             </div>
-            <div class="optgroup"><span class="lbl">한 번의 인생 길이</span>
+            <div class="optgroup wide"><span class="lbl">한 번의 인생 길이</span>
               <div class="seg" data-seg="pace">
                 ${[['fast', '빠르게 · 6.5초/년'], ['normal', '보통 · 10초/년'], ['deep', '깊게 · 14.5초/년']].map(([k, v]) =>
                   `<button data-v="${k}" aria-pressed="${APP.pace === k}">${v}</button>`).join('')}
@@ -170,7 +178,7 @@
                 <span class="ot"><i style="width:${Math.max(3, restPct / maxPct * 100)}%;background:var(--rule)"></i></span>
                 <span class="ov">${restPct.toFixed(1)}%</span></div>
             </div>
-            <p class="hint" style="margin-top:12px">서울·경기 두 곳에서만 네 명 중 한 명이 태어납니다. 이 비중대로 뽑히고, 원하면 직접 고를 수도 있어요.</p>
+            <p class="hint" style="margin-top:12px">서울·경기에서만 두 명 중 한 명 가까이(44.5%)가 태어납니다. 이 비중대로 뽑히고, 원하면 직접 고를 수도 있어요.</p>
           </div>
         </div>
       </div>
