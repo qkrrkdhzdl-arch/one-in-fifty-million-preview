@@ -18,7 +18,8 @@
   <div>
     <div class="cap">390 × 844 · iPhone</div>
     <div class="phone"><iframe id="ph" title="mobile preview"></iframe>
-<script>document.getElementById("ph").src="../index.html?b="+Date.now();</script></div>
+<script>const q = new URLSearchParams(location.search);
+document.getElementById("ph").src = "../index.html?b=" + Date.now() + (q.get("seed") ? "&seed=" + q.get("seed") : "");</script></div>
   </div>
   <div class="note">
     모바일 레이아웃 검수용 프레임입니다. 실제 배포 화면은 ../index.html 입니다.
