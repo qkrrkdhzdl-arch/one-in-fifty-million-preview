@@ -736,9 +736,16 @@
     let out = '';
     for (let i = 0; i < s.length;) {
       let hit = null;
+      const prevCh = i > 0 ? s[i - 1] : '';
+      const hangul = (ch) => ch && /[\uac00-\ud7a3]/.test(ch);
       for (const g of GLOSS) {
         if (used[g.ko]) continue;
-        if (s.startsWith(g.ko, i)) { hit = g; break; }
+        if (!s.startsWith(g.ko, i)) continue;
+        // 낱말 경계를 지킨다('여수시' 안의 '수시'를 주석으로 만들지 않는다)
+        if (hangul(prevCh) && hangul(g.ko[0])) continue;
+        const after = s[i + g.ko.length] || '';
+        if (hangul(g.ko[g.ko.length - 1]) && hangul(after)) continue;
+        hit = g; break;
       }
       if (hit) {
         used[hit.ko] = 1;
