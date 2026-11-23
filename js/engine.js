@@ -703,6 +703,8 @@
     const sp = fam.spouse;
     if (sp && sp.alive && sp.age > 62 && R() < clamp(Math.pow((sp.age - 62) / 45, 3) * 0.5 + (sp.health < 30 ? 0.2 : 0), 0, 0.5)) {
       sp.alive = false; life.flags.spouseAlive = false; life.flags.widowed = true;
+      // 사별한 뒤에도 married가 1로 남아 기록 화면이 '배우자와 함께 살았습니다'로 끝나던 문제
+      life.flags.married = false; life.married = 0;
       out.push({
         id: "fam_spouse", ic: "🕯", src: "src_death", cat: "family",
         t: { ko: "배우자의 빈자리", en: "The Empty Chair" },
