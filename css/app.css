@@ -206,7 +206,14 @@ a{color:var(--jade)}
 .speed-group{display:flex;background:var(--paper-2);border-radius:999px;padding:2px}
 .speed-group button{padding:5px 8px;border-radius:999px;font-size:11px;font-family:var(--mono);color:var(--ink-3);font-weight:600}
 .speed-group button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1)}
-@media(max-width:400px){.speed-group button{padding:5px 6px}.btn-pill{padding:8px 10px;font-size:11.5px}}
+@media(max-width:430px){
+  .controls{gap:5px;padding-left:10px;padding-right:10px;overflow-x:hidden}
+  .ctl{gap:4px;min-width:0}
+  .btn-round{width:34px;height:34px;font-size:14px}
+  .btn-pill{padding:7px 9px;font-size:11px}
+  .speed-group{padding:2px}
+  .speed-group button{padding:4px 5px;font-size:10.5px}
+}
 
 /* modal */
 .modal-bg{position:fixed;inset:0;z-index:60;background:rgba(29,28,25,.42);display:flex;align-items:flex-end;justify-content:center;padding:0;animation:fade .18s both}
