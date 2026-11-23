@@ -201,8 +201,8 @@
     <div class="wrap">
       <div class="hero">
         <div class="herotext">
-          <div class="kicker">${L('v2.2 · 무료 인생 시뮬레이션 · 17개 시·도 62개 시군구 · 사건 769종 · 결정 44장 · 일상 결정 28장',
-                            'v2.2 · a free life simulation · 17 provinces, 62 districts · 769 events · 44 decisions · 28 everyday choices')}</div>
+          <div class="kicker">${L('v3.0 · 무료 인생 시뮬레이션 · 17개 시·도 62개 시군구 · 태어난 집 25종 · 사건 1,040종 · 연인 후보 48명',
+                            'v3.0 · a free life simulation · 17 provinces, 62 districts · 25 kinds of home · 1,040 events · 48 possible partners')}</div>
           <h1>${en() ? 'One in<br>Fifty <em>Million</em>' : '5천만<br>분의 <em>1</em>'}</h1>
           ${ en() ? '<p lang="ko" style="font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--ink3);margin:10px 0 0">5천만 분의 1 · the Korean title</p>' : ''}
           <p class="lede">${L('2025년, 이 나라에서 254,341명이 태어났습니다. 그중 한 명이 되어 한 번뿐인 삶을 끝까지 살아봅니다. 어느 동네, 누구의 아이로 태어날지는 고를 수 없습니다. 당신이 그랬던 것처럼.',
