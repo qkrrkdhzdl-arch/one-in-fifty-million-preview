@@ -376,9 +376,13 @@
   }
 
   function pickDeathCause(life) {
+    if (life.age < 40) {
+      // a young death is rare; it is almost always an accident, suicide, or a childhood cancer
+      const young = C.deaths.filter(d => /사고|자살|암/.test(d.cause));
+      return wpick(young, d => d.cause === "사고" ? 5 : d.cause === "암" ? 3 : 2);
+    }
     const bucket = life.age >= 90 ? "90" : life.age >= 75 ? "75" : "60";
-    const cause = wpick(C.deaths, d => (d.weight[bucket] || 1) * (life.stats.health < 40 && /암|심장|뇌혈관|폐렴|패혈/.test(d.cause) ? 1.4 : 1));
-    return cause;
+    return wpick(C.deaths, d => (d.weight[bucket] || 1) * (life.stats.health < 40 && /암|심장|뇌혈관|폐렴|패혈/.test(d.cause) ? 1.4 : 1));
   }
 
   function makeDeath(life, cause) {

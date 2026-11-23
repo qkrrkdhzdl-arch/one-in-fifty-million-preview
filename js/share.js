@@ -63,9 +63,10 @@
     for (let i = 0; i < 4; i++) px(g, 0, bands[i], 36, bands[i + 1] - bands[i], pal.sky[i], cell);
     // sun / moon
     const sunX = spec.sunX != null ? spec.sunX : 27, sunY = spec.time === "night" ? 4 : 5;
-    const sr = spec.time === "night" ? 1.5 : 2.2;
-    for (let yy = -Math.ceil(sr); yy <= sr; yy++) for (let xx = -Math.ceil(sr); xx <= sr; xx++) {
-      if (xx * xx + yy * yy <= sr * sr) px(g, sunX + xx, sunY + yy, 1, 1, pal.sun, cell);
+    const sr = spec.time === "night" ? 1.6 : 2.2;
+    for (let yy = -Math.ceil(sr); yy <= sr; yy++) {
+      const half = Math.round(Math.sqrt(Math.max(0, sr * sr - yy * yy)) * 10) / 10;
+      if (half > 0) px(g, sunX - half, sunY + yy, half * 2, 1, pal.sun, cell);
     }
     // far hills
     const rr = rng(spec.seed || 7);
@@ -158,19 +159,23 @@
   }
 
   function captions(life) {
-    const hs = life.history;
     const pickEvent = (a, b) => {
-      const list = life.events.filter(e => e.age >= a && e.age <= b);
-      return list.length ? list[Math.floor(list.length / 2)] : null;
+      const list = (life.yearLog || []).map(y => ({ age: y.age, ev: y.events && y.events[0] }))
+        .filter(x => x.ev && x.age >= a && x.age <= b);
+      return list.length ? list[Math.floor(list.length / 2)].ev : null;
     };
     const t1 = pickEvent(18, 34), t2 = pickEvent(42, 62), t3 = pickEvent(63, 120);
     const L = U.lang();
+    const never = { ko: "닿지 못한 시간", en: "years never reached" };
+    const cap1 = life.death.age >= 18 ? (t1 ? (L === "ko" ? t1.t.ko : t1.t.en) : (L === "ko" ? "스물과 서른 사이" : "twenties and thirties")) : never[L];
+    const cap2 = life.death.age >= 42 ? (t2 ? (L === "ko" ? t2.t.ko : t2.t.en) : (L === "ko" ? "쉰과 예순 사이" : "fifties and sixties")) : never[L];
+    const cap3 = life.death.age >= 63 ? (t3 ? (L === "ko" ? t3.t.ko : t3.t.en) : (L === "ko" ? "마지막 몇 해" : "the last years")) : never[L];
     return [
       { ko: `${life.birthYear}년 · ${life.region.ko} ${life.district.ko}`, en: `${life.birthYear} · ${life.district.en}, ${life.region.en}`,
         koT: "태어난 날", enT: "The day you were born" },
-      { ko: t1 ? t1.t.ko : "스물과 서른 사이", en: t1 ? t1.t.en : "Twenties and thirties", koT: "전환점", enT: "The turning point" },
-      { ko: t2 ? t2.t.ko : "쉰과 예순 사이", en: t2 ? t2.t.en : "Fifties and sixties", koT: "집과 사람", enT: "House and people" },
-      { ko: t3 ? t3.t.ko : "마지막 몇 해", en: t3 ? t3.t.en : "The last years", koT: "노년", enT: "Old age" }
+      { ko: cap1, en: cap1, koT: "전환점", enT: "The turning point" },
+      { ko: cap2, en: cap2, koT: "집과 사람", enT: "House and people" },
+      { ko: cap3, en: cap3, koT: "노년", enT: "Old age" }
     ];
   }
 
@@ -188,7 +193,7 @@
     const gap = 16;
     const panelW = (W - pad * 2 - gap) / 2;
     const panelH = Math.round(panelW * 2 / 3);
-    const capH = 52;
+    const capH = 58;
     const rowStep = panelH + capH + gap;
     const gridTop = format === "916" ? 214 : 190;
     const gridBottom = gridTop + rowStep + panelH + capH;
@@ -201,7 +206,10 @@
     g.textAlign = "left";
     g.fillStyle = "#857e70"; g.font = `600 14px ${MONO}`;
     g.fillText(L === "ko" ? "5천만 분의 1 · 인생 기록" : "ONE IN FIFTY MILLION · A LIFE RECORD", pad + 72, pad + 12);
-    g.fillStyle = "#1d1c19"; g.font = `800 44px ${KFONT}`;
+    g.fillStyle = "#1d1c19";
+    let nf = 44;
+    do { g.font = `800 ${nf}px ${KFONT}`; nf -= 2; }
+    while (g.measureText(L === "ko" ? life.name.ko : life.name.en).width > (W - pad * 2 - 300) && nf > 22);
     g.fillText(L === "ko" ? life.name.ko : life.name.en, pad + 72, pad + 54);
 
     g.textAlign = "right";

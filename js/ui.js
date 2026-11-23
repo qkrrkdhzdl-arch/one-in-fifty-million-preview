@@ -595,10 +595,10 @@
           <div class="section-head"><h3>${t("chartSurvival")}</h3><span>${life.death.age}${t("ageUnit")}</span></div>
           <div class="chart">${window.CHARTS.survival(life)}<div class="cap">${U.lang() === "ko" ? "국가데이터처 「2025 한국의 사회지표」 2024년 기대수명 83.7년" : "Life expectancy 83.7 years (2024), Statistics Korea"}</div></div>
         </div>
-        <div class="section">
+        ${life.history.some(h => h.income > 0) ? `<div class="section">
           <div class="section-head"><h3>${t("chartIncome")}</h3><span>${t("chartIncomeNote")}</span></div>
           <div class="chart">${window.CHARTS.income(life)}</div>
-        </div>
+        </div>` : ""}
 
         <div class="section">
           <div class="section-head"><h3>${t("endStats")}</h3><span></span></div>
