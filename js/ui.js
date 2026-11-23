@@ -277,7 +277,7 @@
     const items = entry.events || [];
     let out = `<div class="yearblock ${entry.isNew ? "new" : ""}">
       <div class="year-head"><span class="y">${entry.year}</span><span class="a">${entry.age}${t("ageUnit")}</span></div>`;
-    if (!items.length) out += `<div style="font-size:12.5px;color:var(--ink-3)">${t("eventNone")}</div>`;
+    if (!items.length) out += `<div style="font-size:12.5px;color:var(--ink-3);line-height:1.7">${U.L(entry.quiet || C.quiet[0])}</div>`;
     items.forEach(e => {
       const d = [];
       ["health", "happiness", "knowledge", "relation"].forEach(k => {
@@ -346,8 +346,11 @@
     screen("life");
     // year 0 opening
     const open = { age: 0, year: life.birthYear, events: [], isNew: true };
-    const e = C.events.filter(x => x.age[0] === 0 && x.age[1] === 0);
-    open.events = e.slice(0, 1);
+    const e0 = C.events.filter(x => x.age[0] === 0 && x.age[1] === 0 &&
+      (x.reg === "any" || x.reg === life.zone) && (x.cls === "any" || x.cls === life.cls) &&
+      (x.sex === "any" || x.sex === life.sex) && (x.era === "any" || x.era === life.era));
+    open.events = (e0.length ? e0 : C.events.filter(x => x.age[0] === 0)).slice(0, 1);
+    open.quiet = open.events.length ? null : C.quiet[0];
     open.events.forEach(ev => {
       ["health", "happiness", "knowledge", "relation"].forEach(k => life.stats[k] = Math.max(0, Math.min(100, life.stats[k] + (ev.st[k] || 0))));
     });
@@ -368,7 +371,8 @@
     if (!APP.playing || APP.modalOpen || APP.screen !== "life") return;
     const life = APP.life;
     const res = E.tick(life);
-    const entry = { age: life.age, year: life.year, events: res.events || [], isNew: true };
+    const entry = { age: life.age, year: life.year, events: res.events || [], isNew: true,
+      quiet: (res.events && res.events.length) ? null : C.quiet[Math.floor(Math.random() * C.quiet.length)] };
     life.yearLog.push(entry);
     appendYear(entry);
     updateHud(); renderSide(); renderPeerStrip(); renderFocus();
