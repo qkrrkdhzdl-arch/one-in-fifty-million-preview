@@ -156,7 +156,7 @@
     const t = typeOf(l);
     const born = (l.feed.find(f => num(f.age, -1) === 0) || {}).text || '';
     const school = (l.feed.find(f => /졸업|진학|입학/.test(str(f.text))) || {}).text || '';
-    const job = labelOf(l.job);
+    const job = labelOf(l.lastJob || l.job);
     const end = l.death ? `${lastAge(l)}세에 ${labelOf(l.death.cause)}으로 세상을 떠났다.` : '지금도 살아간다.';
     return [born, school, job ? `${job}으로 일했다.` : '', end].filter(Boolean).join(' ');
   }

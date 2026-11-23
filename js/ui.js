@@ -1023,7 +1023,7 @@
             <h1>${life.name.ko}</h1>
             <p class="rec-life">${life.birthYear} – ${life.year} · 향년 ${d.age}세 · ${life.region.ko} ${life.district.ko}</p>
             <p class="rec-color"><b style="background:${colorHex(type)}"></b>${U.L(type.name)}</p>
-            <p class="rec-story">${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 태어났습니다. ${life.edu && life.edu !== 'none' ? EDU_KO[life.edu] + '를 마쳤습니다. ' : ''}${life.job !== 'none' ? JOB_KO[life.job] + '으로 일했습니다. ' : ''}${life.married ? '배우자와 함께 살았습니다. ' : '배우자 없이 살았습니다. '}${life.kids ? `아이 ${life.kids}명을 키웠습니다. ` : ''}${d.age}세에 ${cause}${josa(cause, '으로', '로')} 세상을 떠났습니다.</p>
+            <p class="rec-story">${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 태어났습니다. ${life.edu && life.edu !== 'none' ? EDU_KO[life.edu] + '를 마쳤습니다. ' : ''}${(life.lastJob || life.job) !== 'none' ? JOB_KO[life.lastJob || life.job] + '으로 일했습니다. ' : ''}${life.married ? '배우자와 함께 살았습니다. ' : '배우자 없이 살았습니다. '}${life.kids ? `아이 ${life.kids}명을 키웠습니다. ` : ''}${d.age}세에 ${cause}${josa(cause, '으로', '로')} 세상을 떠났습니다.</p>
             <p class="rec-cause">사인 · ${cause}</p>
             <p class="rec-cause-note">${causeNote(cause)}</p>
             ${helpLine(cause) ? `<p class="rec-note" style="margin-top:4px">${helpLine(cause)}</p>` : ''}
@@ -1031,7 +1031,7 @@
           <div>
             <div class="rec-fields" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:0;border-top:0">
               <div><span>최종 학력</span><b>${EDU_KO[life.edu] || '—'}</b></div>
-              <div><span>마지막 일</span><b>${JOB_KO[life.job] || '—'}${life.retired ? ' · 은퇴' : ''}</b></div>
+              <div><span>마지막 일</span><b>${JOB_KO[life.lastJob || life.job] || '—'}${life.retired ? ' · 은퇴' : ''}</b></div>
               <div><span>함께한 사람</span><b>${life.married ? '배우자' : '없음'}</b></div>
               <div><span>자녀</span><b>${life.kids ? life.kids + '명' : '없음'}</b></div>
               <div><span>가장 행복했던 해</span><b>${happy.age}세 (${life.birthYear + happy.age}년)</b></div>
@@ -1078,7 +1078,7 @@
           <h3>소득과 재산의 흐름 <span class="lbl">만 원</span></h3>
           <div class="chartbox">${window.CHARTS && window.CHARTS.wealth ? window.CHARTS.wealth(life) : ''}</div>
           <div class="chartbox" style="margin-top:10px">${window.CHARTS && window.CHARTS.income ? window.CHARTS.income(life) : ''}</div>
-          <p class="lead">위는 순자산, 아래는 그해 연 소득이 같은 해 태어난 사람들 사이에서 놓인 위치(상위 %)입니다.</p>
+          <p class="lead">위는 순자산, 아래는 그해 연 소득이 같은 해 태어난 사람들 사이에서 놓인 백분위(높을수록 많음)입니다.</p>
         </section>
 
         <div class="rec-foot">

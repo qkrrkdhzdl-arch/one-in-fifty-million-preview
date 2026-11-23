@@ -299,6 +299,8 @@ ul,ol{padding:0;list-style:none}
 .peerlist .pd{grid-column:1/-1;font-size:12.5px;color:var(--ink2);word-break:keep-all}
 .peerlist .pd em{font-style:normal;color:var(--ink3)}
 .chartbox canvas{display:block;width:100%;height:auto}
+.chartbox svg{display:block;width:100%;height:auto}
+@media (max-width:800px){.chartbox svg text{font-size:14px}}
 .legend{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:11.5px;color:var(--ink3)}
 .legend span::before{content:'';display:inline-block;width:14px;height:2px;margin-right:5px;vertical-align:3px;background:var(--c)}
 
@@ -376,7 +378,7 @@ ul,ol{padding:0;list-style:none}
   .rec-head{grid-template-columns:1fr;gap:8px}
   .rec-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
   .rec-body{padding:18px 16px 22px}
-  #screen-record{padding-block:14px calc(96px + env(safe-area-inset-bottom,0px))}
+  #screen-record{padding-block:14px calc(124px + env(safe-area-inset-bottom,0px))}
   .rec-foot{position:fixed;left:0;right:0;bottom:0;margin:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
     background:var(--card);border-top:1px solid var(--rule);box-shadow:0 -10px 24px -18px rgba(19,33,42,.5);z-index:30}
   .rec-foot .cta,.rec-foot .ghost{flex:1 1 auto;text-align:center}

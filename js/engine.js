@@ -106,7 +106,7 @@
       parentDeath: { mother: 78 + ri(-8, 10), father: 74 + ri(-9, 10) },
       stats: { health: clamp(baseHealth, 30, 80), happiness: 56 + ri(-6, 8), knowledge: 28 + ri(-6, 8), relation: 60 + ri(-8, 6) },
       cash: cls === "high" ? ri(200, 600) : cls === "low" ? ri(0, 40) : ri(40, 160),
-      assets: 0, homeValue: 0, deposit: 0, debt: 0, home: "none", job: "none", edu: "none",
+      assets: 0, homeValue: 0, deposit: 0, debt: 0, home: "none", job: "none", lastJob: "", edu: "none",
       married: 0, kids: 0, care: 0, retired: 0,
       income: 0, expenses: 0, alloc: "safe", focus: "balance",
       events: [], seen: {}, decisions: [], history: [], reflections: [],
@@ -387,7 +387,10 @@
     const s = ch.set || {};
     if (s.edu) life.edu = s.edu;
     if (s.path) { life.flags.path = s.path; }
-    if (s.job) { life.job = s.job; }
+    if (s.job) {
+      if (s.job === "none" && life.job !== "none") life.lastJob = life.job;  // 은퇴 뒤에도 마지막 일은 남긴다
+      life.job = s.job;
+    }
     if (s.home) {
       if (s.home !== life.home) life.moves++;
       life.home = s.home;

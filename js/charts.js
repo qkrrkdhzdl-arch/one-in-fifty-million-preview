@@ -57,7 +57,7 @@
     });
     return `<svg viewBox="0 0 ${w} ${h}" role="img">${axes(w, h, pad)}${bars}${labels}
       <text x="${pad.l - 5}" y="${pad.t + 4}" font-size="10" fill="#5F6E72" text-anchor="end" font-family="IBM Plex Mono, monospace">100</text>
-      <text x="${w - pad.r}" y="${pad.t + 4}" font-size="10" fill="#5F6E72" text-anchor="end" font-family="IBM Plex Mono, monospace">상위 %</text>
+      <text x="${w - pad.r}" y="${pad.t + 4}" font-size="10" fill="#5F6E72" text-anchor="end" font-family="IBM Plex Mono, monospace">백분위</text>
     </svg>`;
   }
 
