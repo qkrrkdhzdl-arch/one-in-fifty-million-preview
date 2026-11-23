@@ -7,7 +7,7 @@
 
   /* 한 해의 길이(1× 기준). 사용자 지시: 1×는 약 10초, 빠르게 6~7초, 깊게 14~15초. */
   const YEAR_MS = { fast: 6500, normal: 10000, deep: 14500 };
-  const SPEEDS = [1, 2, 4, 8, 16];
+  const SPEEDS = [1, 2, 4, 8, 12, 16];
   const CLASS_KO = { high: '넉넉한 편', mid: '보통', low: '어려운 편' };
   const CLASS_DOT = { high: '●●●●○', mid: '●●●○○', low: '●●○○○' };
   const HOME_KO = { none: '얹혀 삶', wolse: '월세', jeonse: '전세', own: '내 집' };

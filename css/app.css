@@ -245,7 +245,7 @@ ul,ol{padding:0;list-style:none}
 .spend .keys span::before{content:'';display:inline-block;width:8px;height:8px;margin-right:4px;border-radius:1px;background:var(--c);vertical-align:-1px}
 
 .p-scene{padding:0;overflow:hidden}
-.scene{aspect-ratio:32/10;background:var(--stamp-soft)}
+.scene{aspect-ratio:16/9;background:var(--stamp-soft)}
 .scene canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
 .scenecap{margin:0;padding:10px 16px 12px;line-height:1.55;word-break:keep-all;font-size:15px}
 

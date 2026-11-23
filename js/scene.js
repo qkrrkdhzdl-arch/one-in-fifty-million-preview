@@ -71,7 +71,7 @@
     const spec = specFor(life);
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const w = canvas.clientWidth || 578;
-    const h = Math.round(w * 10 / 32);            // 32:10 시네마 스트립
+    const h = Math.round(w * 9 / 16);             // 16:9 (36×24 원화의 3/4 비율)
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
     const g = canvas.getContext('2d');
@@ -86,8 +86,8 @@
     const og = off.getContext('2d');
     og.imageSmoothingEnabled = false;
     try { window.SHARE.scene(og, 0, 0, 360, 240, spec); } catch (e) { /* 장면을 못 그려도 화면은 계속 */ }
-    // 32:10 스트립에는 건물 아래·골목·사람이 남는 띠(9.5~20.75행)를 담는다
-    g.drawImage(off, 0, 95, 360, 112.5, 0, 0, canvas.width, canvas.height);
+    // 하늘·스카이라인·골목·사람이 한 장면으로 읽히는 구간(3.7~24행)
+    g.drawImage(off, 0, 37, 360, 203, 0, 0, canvas.width, canvas.height);
   }
 
   function avatar(canvas, life) {
