@@ -75,19 +75,105 @@
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
     const g = canvas.getContext('2d');
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    g.clearRect(0, 0, canvas.width, canvas.height);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
     g.imageSmoothingEnabled = false;
-
-    // share.js의 장면은 36×24 격자(한 칸 10px)로 그린다. 32:10 창(11.25행)에
-    // 하늘·건물·사람·땅이 한 장면으로 읽히는 구간(8.4행~19.65행)을 맞춰 잘라 낸다.
-    const off = document.createElement('canvas');
-    off.width = 360; off.height = 240;
-    const og = off.getContext('2d');
-    og.imageSmoothingEnabled = false;
-    try { window.SHARE.scene(og, 0, 0, 360, 240, spec); } catch (e) { /* 장면을 못 그려도 화면은 계속 */ }
-    g.drawImage(off, 0, 84, 360, 112.5, 0, 0, canvas.width, canvas.height);
+    strip(g, w, h, spec);
   }
+
+  // 36×11.25 격자(32:10)에 하늘 → 지평선 → 땅 → 사람 순으로 한 장면을 그린다.
+  // 공유 카드(36×24)와 달리 32:10 높이에 맞춰 인물과 집을 땅 위에 앉힌다.
+  function strip(g, w, h, spec) {
+    const S = window.SHARE;
+    if (!S || !S.px || !S.person) return;
+    const pal = S.PALETTES[spec.time] || S.PALETTES.day;
+    const cell = w / 36;
+    const px = (x, y, ww, hh, c) => S.px(g, x, y, ww, hh, c, cell);
+    const R = rng(spec.seed || 7);
+    const GROUND = 8.2;
+    // 하늘 네 단
+    const bands = [[0, 2.2], [2.2, 4.4], [4.4, 6.4], [6.4, GROUND]];
+    bands.forEach((b, i) => px(0, b[0], 36, b[1] - b[0], pal.sky[i]));
+    // 해 · 달
+    const sunX = spec.sunX != null ? spec.sunX : 28, sunY = spec.time === 'night' ? 2.2 : 2.6;
+    const sr = spec.time === 'night' ? 1.1 : 1.5;
+    for (let yy = -Math.ceil(sr); yy <= sr; yy++) {
+      const half = Math.round(Math.sqrt(Math.max(0, sr * sr - yy * yy)) * 10) / 10;
+      if (half > 0) px(sunX - half, sunY + yy, half * 2, 0.8, pal.sun);
+    }
+    // 먼 산
+    for (let i = 0; i < 36; i++) {
+      const top = Math.max(4.6, Math.min(6.6, 6.6 - 1.6 * Math.abs(Math.sin(i * 0.22 + R() * 0.4)) - R() * 0.3));
+      px(i, top, 1, 6.6 - top, pal.far);
+    }
+    if (spec.mode === 'city') {
+      let x = 1;
+      while (x < 34) {
+        const bw = 2 + Math.floor(R() * 3), bh = 1.8 + Math.floor(R() * 2.4);
+        const top = 6.6 - bh;
+        px(x, top, bw, bh, pal.near);
+        for (let yy = top + 0.8; yy < 6.2; yy += 1.2) {
+          for (let xx = x + 0.5; xx < x + bw - 0.4; xx += 1.2) {
+            if (R() > 0.45) px(xx, yy, 0.5, 0.6, spec.time === 'night' || spec.time === 'dusk' ? '#e8c98a' : pal.far);
+          }
+        }
+        x += bw + 0.8;
+      }
+    } else if (spec.mode === 'sea') {
+      px(0, 6.6, 36, 1.6, '#4f7f96');
+      for (let i = 0; i < 14; i++) px(Math.floor(R() * 34), 6.7 + R() * 1.3, 2, 0.25, '#9fc2cd');
+      if (spec.boat) { px(25, 6.0, 3.6, 0.8, '#6b4c38'); px(26.6, 4.6, 0.3, 1.4, '#5a4634'); px(26.9, 4.6, 1.6, 1.2, '#efe6d0'); }
+    } else if (spec.mode === 'field') {
+      for (let i = 0; i < 7; i++) {
+        const tx = 1.5 + i * 4.4 + Math.floor(R() * 1.4);
+        px(tx + 1, 4.6, 0.8, 2, '#4a3826');
+        px(tx + 0.2, 3.4, 2.4, 1.6, pal.grass);
+        px(tx + 0.8, 2.8, 1.2, 1, pal.grass);
+      }
+    } else {
+      for (let i = 0; i < 4; i++) {
+        const bx = 1.5 + i * 9;
+        px(bx, 4.8, 6, 1.8, i % 2 ? '#8a7f6d' : '#7b7263');
+        px(bx + 1, 5.2, 1, 0.9, '#d9c9a3');
+        px(bx + 3.2, 5.2, 1, 0.9, '#d9c9a3');
+      }
+    }
+    // 땅
+    px(0, GROUND, 36, 11.25 - GROUND, pal.ground);
+    px(0, GROUND, 36, 0.5, pal.grass);
+    if (spec.bus) {
+      px(4, 6.7, 7, 1.4, '#5b6b76');
+      for (let i = 0; i < 3; i++) px(4.6 + i * 2, 7.0, 1.2, 0.6, '#cfd8d2');
+    }
+    // 집
+    if (spec.house) {
+      const hx = 24, hy = 4.9, hw = 6.4, hh = 3.3;
+      px(hx, hy, hw, hh, '#d8cdb6');
+      for (let i = 0; i < 5; i++) px(hx - 0.7 + i * 0.7, hy - 0.9 + i * 0.3, hw + 1.4 - i * 1.6, 0.55, '#7d4a3a');
+      px(hx + 1, hy + 1.1, 1.3, 1.1, spec.time === 'night' ? '#e8c98a' : '#9fb6bd');
+      px(hx + 4, hy + 1.4, 1.4, 2.4, '#7a5638');
+    }
+    // 사람
+    const standing = 10.2;
+    (spec.people || []).forEach(p => {
+      if (p.type === 'baby') {
+        px(p.x, standing - 1.4, 3, 1.4, '#f0dcc0');
+        px(p.x + 0.3, standing - 1.1, 2.4, 0.8, '#fdf7ea');
+        return;
+      }
+      const small = p.opt && p.opt.small;
+      const scale = (p.opt && p.opt.scale) || (small ? 0.7 : 0.88);
+      S.person(g, p.x, standing - 6.2 * scale, cell, pal, Object.assign({}, p.opt, { scale }));
+    });
+    if (spec.time === 'night') {
+      for (let i = 0; i < 22; i++) px(R() * 36, R() * 3.6, 0.3, 0.3, '#efe9dc');
+    }
+    g.strokeStyle = 'rgba(29,28,25,.18)';
+    g.lineWidth = 2;
+    g.strokeRect(1, 1, w - 2, h - 2);
+  }
+
+  function rng(seed) { let a = seed | 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
   function avatar(canvas, life) {
     if (!canvas || !life) return;
