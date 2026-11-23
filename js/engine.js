@@ -152,6 +152,7 @@
 
   function yearEconomics(life) {
     updateIncome(life);
+    if (life.age < 19) { life.expenses = 0; return; }  // the household carries a child's costs
     let exp = 0;
     if (life.age >= 19) {
       exp += 620 + (life.married ? 420 : 0) + life.kids * 460;
@@ -240,9 +241,10 @@
     const out = [];
     const recent = (x) => (life.lastSeen && life.lastSeen[x.id] != null) ? (life.age - life.lastSeen[x.id]) : 99;
     for (let i = 0; i < count; i++) {
-      let pool = C.events.filter(e => matchEvent(e, life) && !out.includes(e) && recent(e) > 7);
-      if (!pool.length) pool = C.events.filter(e => matchEvent(e, life, 3) && !out.includes(e) && recent(e) > 4);
-      if (!pool.length) pool = C.events.filter(e => matchEvent(e, life, 8) && !out.includes(e) && recent(e) > 2);
+      let pool = C.events.filter(e => matchEvent(e, life) && !out.includes(e) && recent(e) > 9);
+      if (!pool.length) pool = C.events.filter(e => matchEvent(e, life, 3) && !out.includes(e) && recent(e) > 7);
+      if (!pool.length) pool = C.events.filter(e => matchEvent(e, life, 6) && !out.includes(e) && recent(e) > 5);
+      if (!pool.length) pool = C.events.filter(e => matchEvent(e, life, 10) && !out.includes(e) && recent(e) > 3);
       if (!pool.length) break;
       const e = wpick(pool, x => x.w * (1 / (1 + (life.seen[x.id] || 0) * 1.2)) * (x.age[1] === x.age[0] ? 1.25 : 1));
       out.push(e);
