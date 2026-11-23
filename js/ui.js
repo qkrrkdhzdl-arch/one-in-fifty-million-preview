@@ -478,7 +478,7 @@
       <div class="modal-foot">
         <button class="ghost" id="refl-skip">${t("reflectionSkip")}</button>
         <button class="primary" id="refl-save">${t("reflectionSave")}</button>
-      </div>`);
+      </div>`, { dismissable: false });
     $("#refl-save").onclick = () => {
       const v = $("#refl-text").value.trim();
       if (v) APP.life.reflections.push({ age, text: v });
