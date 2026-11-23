@@ -464,6 +464,7 @@
       closeModal(); APP.playing = true; schedule(400); renderControls();
     };
     $("#refl-skip").onclick = () => { closeModal(); APP.playing = true; schedule(300); renderControls(); };
+    if (APP.auto) setTimeout(() => { if (APP.modalOpen && document.getElementById("refl-skip")) document.getElementById("refl-skip").click(); }, 700);
   }
 
   function showGlossary(ko) {
