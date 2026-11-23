@@ -25,6 +25,7 @@
   const APP = window.APP = {
     pace: localStorage.getItem('oifm2_pace') || 'normal',
     speed: 1, playing: false, auto: false, ff: false,
+    autoHide: localStorage.getItem('oifm2_autohide') === '1',
     screen: 'cover', life: null, modal: null, peek: false,
     yearT: 0, hold: 0, queue: [], qi: 0, lastTs: 0, raf: null, pendingDeath: null,
     deathStep: 0, recDecade: null, shareKind: 'record'
@@ -402,6 +403,7 @@
         <button id="moreBtn" class="ff morebtn" aria-label="더 보기">⋯</button>
         <div id="moreMenu" class="more">
           <div class="mg"><button id="goFamily">가족과 삶 보기</button><button id="goStats">상태 살펴보기</button></div>
+          <div class="mg"><button id="autoHideBtn">결정 창 숨기기</button></div>
           <div class="mg"><button id="quitBtn">나가기 (저장)</button><button id="themeBtn2">화면 밝기</button></div>
         </div>
       </div>
@@ -445,6 +447,7 @@
         <div class="panel p-feed">
           <h3><span class="ttl">인생 기록</span><span class="lbl">최근 순</span></h3>
           <ul class="feed" id="feed"></ul>
+          <button type="button" class="ghost feedmore" id="feedMore">이전 기록 더 보기</button>
         </div>
       </div>
       <div class="col col3">
@@ -479,8 +482,12 @@
     document.addEventListener('click', (ev) => { const m = $('#moreMenu'); if (m && !ev.target.closest('#moreBtn')) m.classList.remove('open'); });
     $('#quitBtn').onclick = () => { save(); APP.playing = false; renderCover(); go('cover'); };
     $('#themeBtn2').onclick = toggleTheme;
+    $('#autoHideBtn').onclick = () => setAutoHide(!APP.autoHide);
+    paintAutoHide();
     $('#goFamily').onclick = () => { const p = $('#p-fam'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
     $('#goStats').onclick = () => { const p = $('#p-stats'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+    const fm = $('#feedMore');
+    if (fm) fm.onclick = () => { const ul = $('#feed'); if (!ul) return; ul.classList.toggle('all'); updateFeedMore(); if (!ul.classList.contains('all')) ul.scrollTop = 0; };
 
     renderFocus(); renderPanels(); paintTop(); paint();
   }
@@ -568,8 +575,9 @@
       pl.innerHTML = life.peers.map(p => {
         const ms = p.milestones.filter(m => m.age <= life.age);
         const last = ms[ms.length - 1];
-        return `<li><b>${p.name}</b><span class="pa">${p.alive === false ? '†' : life.age + '세'}</span>
-          <span class="pd">${p.reg} · ${last ? U.L(last) : '태어남'}</span></li>`;
+        const one = last ? String(U.L(last)).split('. ')[0] : '';
+        return `<li title="${U.esc(one)}"><b>${p.name}</b><span class="pa">${p.alive === false ? '†' : life.age + '세'}</span>
+          <span class="pd">${p.reg} · ${p.sex === 'f' ? '여' : '남'}</span></li>`;
       }).join('');
     }
     // 지도
@@ -630,27 +638,120 @@
   }
 
   /* ---------- 피드 ---------- */
+  // 원작은 피드를 최근 것이 위로 오게 쌓고, 사건 본문 서사를 그대로 보여준다.
+  // 자료 줄은 바로 앞 줄과 같은 출처일 때는 되풀이하지 않는다.
+  const GLOSS = (C.glossary || []).filter(g => g.ko && g.ko.length >= 2).slice().sort((a, b) => b.ko.length - a.ko.length);
+  const GL_MAP = {};
+  GLOSS.forEach(g => { GL_MAP[g.ko] = g; });
+
+  function glossify(text) {
+    const s = String(text == null ? '' : text);
+    const used = {};
+    let out = '';
+    for (let i = 0; i < s.length;) {
+      let hit = null;
+      for (const g of GLOSS) {
+        if (used[g.ko]) continue;
+        if (s.startsWith(g.ko, i)) { hit = g; break; }
+      }
+      if (hit) {
+        used[hit.ko] = 1;
+        out += `<button type="button" class="gl" data-gl="${U.esc(hit.ko)}">${U.esc(hit.ko)}</button>`;
+        i += hit.ko.length;
+      } else { out += U.esc(s[i]); i++; }
+    }
+    return out;
+  }
+
+  function closeGloss() {
+    const p = $('#glpop'); if (p) p.remove();
+  }
+  function showGloss(btn) {
+    const g = GL_MAP[btn.dataset.gl]; if (!g) return;
+    closeGloss();
+    const pop = document.createElement('div');
+    pop.id = 'glpop';
+    pop.innerHTML = `<b>${U.esc(g.ko)} 한국 문화 노트</b>${U.esc(g.defKo || '')}`;
+    document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect();
+    const w = pop.offsetWidth, h = pop.offsetHeight;
+    let left = Math.min(Math.max(10, r.left), window.innerWidth - w - 10);
+    let top = r.bottom + 8;
+    if (top + h > window.innerHeight - 10) top = Math.max(10, r.top - h - 8);
+    pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('.gl');
+    if (b) { e.preventDefault(); e.stopPropagation(); showGloss(b); return; }
+    if (!e.target.closest || !e.target.closest('#glpop')) closeGloss();
+  });
+
+  function feedItemInner(f) {
+    if (f.title && f.body) return `<span class="tt">${U.esc(f.title)}</span><span class="bd">${glossify(f.body)}</span>`;
+    return glossify(f.body || f.text || '');
+  }
+  function feedRows(list) {
+    let prevSrc = null;
+    return (list || []).map(f => {
+      const showSrc = f.src && f.src !== prevSrc;
+      prevSrc = f.src || null;
+      return `<li class="${f.kind || ''} ev"><span class="a">${f.age}세</span><span class="x">${feedItemInner(f)}${showSrc ? `<span class="f">${U.esc(f.src)}</span>` : ''}</span></li>`;
+    }).join('');
+  }
+  // 예전 저장본(제목만 있던 피드)을 본문 서사까지 채워 되살린다
+  function migrateFeed(list) {
+    (list || []).forEach(f => {
+      if (f.title != null) return;
+      const t = f.text || '';
+      f.title = f.kind ? '' : t;
+      f.body = f.kind ? t : '';
+      if (!f.kind) {
+        const ev = C.events.find(e => U.L(e.t) === t);
+        if (ev) f.body = U.L(ev.b);
+      }
+    });
+  }
+
+  function updateFeedMore() {
+    const ul = $('#feed'), btn = $('#feedMore');
+    if (!ul || !btn) return;
+    const n = ul.children.length;
+    btn.hidden = n < 7;
+    btn.textContent = ul.classList.contains('all') ? '최근 것만 보기' : `이전 기록 더 보기 (${n}건)`;
+  }
+
   function pushFeed(age, ev, kind) {
     const life = APP.life; if (!life) return;
     const src = ev && ev.src && C.sources[ev.src] ? C.sources[ev.src] : null;
-    const item = { age, text: ev ? (ev.ko || ev.t && U.L(ev.t) || '') : '', src: src ? `${src.ko} · ${U.L(src.fig)}` : null, kind: kind || '' };
+    const title = ev && ev.t ? U.L(ev.t) : '';
+    const body = ev && ev.b ? U.L(ev.b) : '';
+    const item = {
+      age, kind: kind || '',
+      title, body,
+      text: title || (ev && ev.ko) || '',
+      src: src ? `${src.ko} · ${U.L(src.fig)}` : null
+    };
+    if (!title && !body && ev && ev.ko) item.body = ev.ko;
+    const prevItem = life.feed[life.feed.length - 1];
     life.feed.push(item);
     if (life.feed.length > 400) life.feed.shift();
     const ul = $('#feed'); if (!ul) return;
     const li = document.createElement('li');
-    if (item.kind) li.className = item.kind;
-    li.classList.add('enter');
-    li.innerHTML = `<span class="a">${item.age}세</span><span class="x">${item.text}${item.src ? `<span class="f">${item.src}</span>` : ''}</span>`;
-    ul.appendChild(li);
-    while (ul.children.length > 240) ul.removeChild(ul.firstChild);
-    ul.scrollTop = ul.scrollHeight;
+    li.className = (item.kind ? item.kind + ' ' : '') + 'ev enter';
+    const showSrc = item.src && !(prevItem && prevItem.src === item.src);
+    li.innerHTML = `<span class="a">${item.age}세</span><span class="x">${feedItemInner(item)}${showSrc ? `<span class="f">${U.esc(item.src)}</span>` : ''}</span>`;
+    ul.insertBefore(li, ul.firstChild);
+    while (ul.children.length > 240) ul.removeChild(ul.lastElementChild);
+    updateFeedMore();
   }
 
   function renderFeedAll() {
     const ul = $('#feed'); if (!ul) return;
-    ul.innerHTML = (APP.life.feed || []).slice(-240).map(f =>
-      `<li class="${f.kind || ''}"><span class="a">${f.age}세</span><span class="x">${f.text}${f.src ? `<span class="f">${f.src}</span>` : ''}</span></li>`).join('');
-    ul.scrollTop = ul.scrollHeight;
+    migrateFeed(APP.life.feed);
+    const list = (APP.life.feed || []).slice(-240).reverse();
+    ul.innerHTML = feedRows(list);
+    ul.scrollTop = 0;
+    updateFeedMore();
   }
 
   /* ---------- 시계 ---------- */
@@ -679,14 +780,21 @@
     const res = E.tick(life);
     APP.queue = []; APP.qi = 0;
     const evs = (res.events || []).slice();
-    const decEv = evs.find(e => e && e.t && /결정/.test(''));
     evs.forEach((ev, i) => {
       APP.queue.push({ at: 0.12 + i * 0.3, ev, kind: (ev.st && (ev.st.happiness || 0) < 0) ? 'bad' : '' });
     });
     life.yearLog.push({ age: life.age, year: life.year, events: evs });
+    // 아무 사건도 없는 해는 조용한 문장 하나로 남긴다(원작의 조용한 해)
+    if (!evs.length && C.quiet && C.quiet.length) {
+      APP.queue.push({ at: 0.35, ev: { ko: U.L(C.quiet[(life.seed + life.age * 7) % C.quiet.length]) }, kind: 'note' });
+    }
     paintTop(); renderPanels(); renderFocus();
     if (res.death) { APP.pendingDeath = res.death; die(); return; }
-    if (res.decision) { APP.playing = false; refreshControls(); showDecision(res.decision); return; }
+    if (res.decision) {
+      // 결정 창 숨기기를 켜 두면 창 없이 알아서 고르고, 고른 일은 인생 기록에 남긴다
+      if (APP.autoHide) { commitChoice(res.decision, autoPick(res.decision)); paint(); return; }
+      APP.playing = false; refreshControls(); showDecision(res.decision); return;
+    }
     if (res.reflection) { APP.playing = false; refreshControls(); showReflection(res.reflection); return; }
     if (life.history.length % 5 === 0) save();
     paint();
@@ -727,6 +835,41 @@
     return out.filter(Boolean).join(' · ');
   }
 
+  const TAG_FOCUS = { health: 'health', family: 'family', career: 'career', study: 'edu', balance: '' };
+  function autoPick(dec) {
+    const want = TAG_FOCUS[APP.life.focus] || '';
+    let best = 0, bestScore = -1e9;
+    dec.ch.forEach((c, i) => {
+      const st = c.st || {};
+      let sc = (st.health || 0) * 0.25 + (st.happiness || 0) * 0.45 + (st.knowledge || 0) * 0.15 + (st.relation || 0) * 0.15;
+      if (want && c.tag === want) sc += 2.5;
+      if (sc > bestScore) { bestScore = sc; best = i; }
+    });
+    return best;
+  }
+
+  function commitChoice(dec, i) {
+    const life = APP.life, ch = dec.ch[i];
+    if (!ch) return;
+    E.applyChoice(life, dec, ch);
+    pushFeed(dec.age, { ko: `${U.L(dec.t)} · 결정: ${U.L(ch.t)}` }, 'dec');
+    if (APP.decTimer) { clearInterval(APP.decTimer); APP.decTimer = null; }
+    life.pendingDecision = null;
+    APP.playing = true; APP.hold = 620; refreshControls();
+    renderPanels(); renderFocus(); paintTop(); save();
+  }
+
+  function paintAutoHide() {
+    const b = $('#autoHideBtn');
+    if (b) b.textContent = APP.autoHide ? '결정 창 다시 보기' : '결정 창 숨기기';
+  }
+  function setAutoHide(on) {
+    APP.autoHide = !!on;
+    try { localStorage.setItem('oifm2_autohide', APP.autoHide ? '1' : '0'); } catch (e) {}
+    paintAutoHide();
+    U.toast(APP.autoHide ? '이제 결정 창 없이 알아서 고르고, 고른 일은 기록에 남겨요' : '결정이 오면 창을 띄웁니다');
+  }
+
   function showDecision(dec) {
     const life = APP.life;
     const src = dec.src && C.sources[dec.src] ? C.sources[dec.src] : null;
@@ -749,16 +892,8 @@
       </div>`);
 
     const choose = (i) => {
-      const ch = dec.ch[i];
-      E.applyChoice(life, dec, ch);
-      life.feed.push({ age: dec.age, text: `${U.L(dec.t)} · 결정: ${U.L(ch.t)}`, src: null, kind: 'dec' });
-      const ul = $('#feed');
-      if (ul) { const li = document.createElement('li'); li.className = 'dec enter'; li.innerHTML = `<span class="a">${dec.age}세</span><span class="x">${U.L(dec.t)} · ${U.L(ch.t)}</span>`; ul.appendChild(li); ul.scrollTop = ul.scrollHeight; }
-      APP.decTimer && clearInterval(APP.decTimer); APP.decTimer = null;
       closeModal();
-      life.pendingDecision = null;
-      APP.playing = true; APP.hold = 620; refreshControls();
-      renderPanels(); renderFocus(); paintTop(); save();
+      commitChoice(dec, i);
     };
     card.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => choose(+b.dataset.ch));
     $('#decMin').onclick = () => {
@@ -775,8 +910,8 @@
     };
     $('#autoOff').onclick = () => { APP.auto = !APP.auto; refreshControls(); closeModal(); APP.playing = false; showDecision(dec); };
     $('#decSkip').onclick = () => {
-      const idx = Math.floor(Math.random() * dec.ch.length);
-      choose(idx);
+      setAutoHide(true);
+      choose(autoPick(dec));
     };
     // 자동 결정 카운트다운: 보통 6초, 8× 이상 배속에서는 2.2초(빨리 넘길 때 기다리지 않게)
     const waitMs = APP.speed >= 8 ? 2200 : 6000;
@@ -789,8 +924,7 @@
         if (cnt) cnt.innerHTML = `${Math.ceil(left / 1000)}초 뒤 알아서 고릅니다 · <b>카드를 누르면 멈춰요</b>`;
         if (left <= 0) {
           clearInterval(APP.decTimer); APP.decTimer = null;
-          const pick = 1 + Math.floor(Math.random() * (dec.ch.length - 1));
-          choose(pick);
+          choose(autoPick(dec));
         }
       }, 100);
     }
@@ -862,6 +996,7 @@
 
   function renderRecord() {
     const life = APP.life, d = life.death || APP.pendingDeath;
+    migrateFeed(life.feed);
     go('record');
     const type = E.lifeType(life);
     const nw = E.netWorth(life);
@@ -881,6 +1016,7 @@
             <p class="rec-color"><b style="background:${colorHex(type)}"></b>${U.L(type.name)}</p>
             <p class="rec-story">${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 태어났습니다. ${life.edu && life.edu !== 'none' ? EDU_KO[life.edu] + '를 마쳤습니다. ' : ''}${life.job !== 'none' ? JOB_KO[life.job] + '으로 일했습니다. ' : ''}${life.married ? '배우자와 함께 살았습니다. ' : '배우자 없이 살았습니다. '}${life.kids ? `아이 ${life.kids}명을 키웠습니다. ` : ''}${d.age}세에 ${cause}${josa(cause, '으로', '로')} 세상을 떠났습니다.</p>
             <p class="rec-cause">사인 · ${cause}</p>
+            <p class="rec-cause-note">${causeNote(cause)}</p>
             ${helpLine(cause) ? `<p class="rec-note" style="margin-top:4px">${helpLine(cause)}</p>` : ''}
           </div>
           <div>
@@ -931,6 +1067,8 @@
         <section class="rec-sec">
           <h3>소득과 재산의 흐름 <span class="lbl">만 원</span></h3>
           <div class="chartbox">${window.CHARTS && window.CHARTS.wealth ? window.CHARTS.wealth(life) : ''}</div>
+          <div class="chartbox" style="margin-top:10px">${window.CHARTS && window.CHARTS.income ? window.CHARTS.income(life) : ''}</div>
+          <p class="lead">위는 순자산, 아래는 그해 연 소득이 같은 해 태어난 사람들 사이에서 놓인 위치(상위 %)입니다.</p>
         </section>
 
         <div class="rec-foot">
@@ -961,8 +1099,7 @@
     const ages = [...new Set((life.feed || []).map(f => Math.floor(f.age / 10) * 10))].sort((a, b) => a - b);
     const drawFeed = (from) => {
       const ul = $('#recFeed'); if (!ul) return;
-      ul.innerHTML = (life.feed || []).filter(f => f.age >= from && f.age < from + 10).map(f => `
-        <li class="${f.kind || ''}"><span class="a">${f.age}세</span><span class="x">${f.text}${f.src ? `<span class="f">${f.src}</span>` : ''}</span></li>`).join('');
+      ul.innerHTML = feedRows((life.feed || []).filter(f => f.age >= from && f.age < from + 10));
       dec.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.from === from));
     };
     dec.innerHTML = ages.map(a => `<button data-from="${a}" aria-pressed="${a === ages[0]}">${decadeLabel(a)}</button>`).join('');
@@ -975,6 +1112,12 @@
   }
 
   const HEAVY = /자살|사고|폭력|중독|학대|전쟁/;
+  function causeNote(cause) {
+    if (cause === '자살') return '2025년 자살률은 10만 명당 27.8명이었습니다. 이 삶은 그 가운데 하나로 기록됩니다.';
+    if (cause === '암') return '2025년 사망자의 24.9%가 암으로 숨졌습니다. 이 삶도 그 네 명 중 한 명에 들었습니다.';
+    if (cause === '노환') return '2025년 사망자는 362,968명이었습니다. 나이를 다 채우고 숨을 거두는 일은 그중 일부입니다.';
+    return '2025년 이 나라에서 362,968명이 숨졌고, 사인은 저마다 달랐습니다.';
+  }
   function helpLine(cause) {
     return HEAVY.test(String(cause || '')) ? '힘든 마음이 오래 머문다면 자살예방상담 109, 정신건강상담 1577-0199로 연락해도 좋습니다.' : '';
   }

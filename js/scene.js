@@ -71,7 +71,7 @@
     const spec = specFor(life);
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const w = canvas.clientWidth || 578;
-    const h = Math.round(w * 9 / 16);             // 16:9 (36×24 원화의 3/4 비율)
+    const h = Math.round(w * 10 / 32);            // 원작과 같은 32:10 창
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
     const g = canvas.getContext('2d');
@@ -79,15 +79,14 @@
     g.clearRect(0, 0, canvas.width, canvas.height);
     g.imageSmoothingEnabled = false;
 
-    // share.js의 장면은 36×24 격자(한 칸 10px)로 그린다. 그 원본에서 32:10 창(11.25행)을
-    // 지평선·인물·건물이 모두 남는 구간(8행~19.25행)에 맞춰 잘라 낸다.
+    // share.js의 장면은 36×24 격자(한 칸 10px)로 그린다. 32:10 창(11.25행)에
+    // 하늘·건물·사람·땅이 한 장면으로 읽히는 구간(8.4행~19.65행)을 맞춰 잘라 낸다.
     const off = document.createElement('canvas');
     off.width = 360; off.height = 240;
     const og = off.getContext('2d');
     og.imageSmoothingEnabled = false;
     try { window.SHARE.scene(og, 0, 0, 360, 240, spec); } catch (e) { /* 장면을 못 그려도 화면은 계속 */ }
-    // 하늘·스카이라인·골목·사람이 한 장면으로 읽히는 구간(3.7~24행)
-    g.drawImage(off, 0, 37, 360, 203, 0, 0, canvas.width, canvas.height);
+    g.drawImage(off, 0, 84, 360, 112.5, 0, 0, canvas.width, canvas.height);
   }
 
   function avatar(canvas, life) {

@@ -43,7 +43,7 @@
     // income percentile by decade
     const buckets = {};
     life.history.forEach(hh => { const d = Math.floor(hh.age / 10) * 10; (buckets[d] = buckets[d] || []).push(hh.income || 0); });
-    const keys = Object.keys(buckets).map(Number).sort((a, b) => a - b).filter(k => k >= 20 && k <= 70);
+    const keys = Object.keys(buckets).map(Number).sort((a, b) => a - b).filter(k => k >= 20 && k <= 80);
     const vals = keys.map(k => window.ENGINE.incomePercentile(buckets[k].reduce((a, b) => a + b, 0) / buckets[k].length));
     const bw = (w - pad.l - pad.r) / Math.max(1, keys.length);
     let bars = "", labels = "";
@@ -53,7 +53,7 @@
       const x = pad.l + i * bw + bw * 0.18, y = h - pad.b - bh;
       bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw * 0.64).toFixed(1)}" height="${bh.toFixed(1)}" rx="2" fill="${v > 70 ? "#1e6a4a" : v > 40 ? "#b5832c" : "#8C1D3C"}" opacity=".85"/>`;
       bars += `<text x="${(x + bw * 0.32).toFixed(1)}" y="${(y - 3).toFixed(1)}" font-size="8.5" text-anchor="middle" fill="#4e4a41" font-family="IBM Plex Mono, monospace">${v}</text>`;
-      labels += `<text x="${(pad.l + i * bw + bw / 2).toFixed(1)}" y="${h - 10}" font-size="10" text-anchor="middle" fill="#5F6E72" font-family="IBM Plex Mono, monospace">${k}s</text>`;
+      labels += `<text x="${(pad.l + i * bw + bw / 2).toFixed(1)}" y="${h - 10}" font-size="10" text-anchor="middle" fill="#5F6E72" font-family="IBM Plex Mono, monospace">${k}대</text>`;
     });
     return `<svg viewBox="0 0 ${w} ${h}" role="img">${axes(w, h, pad)}${bars}${labels}
       <text x="${pad.l - 5}" y="${pad.t + 4}" font-size="10" fill="#5F6E72" text-anchor="end" font-family="IBM Plex Mono, monospace">100</text>

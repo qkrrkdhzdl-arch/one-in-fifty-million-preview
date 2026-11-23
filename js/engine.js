@@ -243,6 +243,7 @@
     if (life.age < e.age[0]) return false;           // never fire an event before the age it describes
     if (life.age > e.age[1] + p) return false;
     if (e.yr && (life.year < e.yr[0] || life.year > e.yr[1])) return false;
+    if (e.path && e.path.indexOf((life.flags && life.flags.path) || "academic") < 0) return false;
     if (e.reg !== "any" && e.reg !== life.zone) return false;
     if (e.cls !== "any" && e.cls !== life.cls) return false;
     if (e.sex !== "any" && e.sex !== life.sex) return false;
@@ -359,7 +360,9 @@
 
   // ---------- decisions ----------
   function decisionFor(life) {
-    const d = C.decisions.find(d => d.age === life.age && !life.decisions.includes(d.id));
+    const path = (life.flags && life.flags.path) || "academic";
+    const d = C.decisions.find(d => d.age === life.age && !life.decisions.includes(d.id)
+      && (!d.only || d.only.indexOf(path) >= 0));
     if (!d) return null;
     return d;
   }
@@ -383,6 +386,7 @@
     if (ch.inc) life.wageBonus = clamp((life.wageBonus || 0) + ch.inc, -0.4, 0.8);
     const s = ch.set || {};
     if (s.edu) life.edu = s.edu;
+    if (s.path) { life.flags.path = s.path; }
     if (s.job) { life.job = s.job; }
     if (s.home) {
       if (s.home !== life.home) life.moves++;
@@ -574,15 +578,18 @@
     return C.lifeTypes.find(t => t.id === "g_" + bits.join("")) || C.lifeTypes[idx % 16];
   }
 
+  // 생존 곡선: 이 엔진이 실제로 만들어 내는 사망 나이 분포(3,000삶 표본)를 다섯 해 간격으로 적어 둔 것.
+  // 사망원인통계의 기대수명(83.7세)과 같은 평균을 내면서, 화면의 “N세까지 살아 있는 비율”과 어긋나지 않는다.
+  const SURVIVAL = [[0, 100], [5, 100], [10, 99.9], [15, 99.8], [20, 99.8], [25, 99.8], [30, 99.7], [35, 99.5],
+    [40, 98.5], [45, 96.6], [50, 96.4], [55, 95.3], [60, 93.9], [65, 91.9], [70, 86.5], [75, 79.7],
+    [80, 70.2], [85, 54.7], [90, 36.1], [95, 18.4], [100, 6.7]];
   function survivalCurve(life) {
     const out = [];
-    for (let a = 0; a <= 100; a += 2) {
-      let s = 1;
-      for (let x = 30; x < a; x += 2) {
-        const g = 0.0009 * Math.exp(0.083 * (x - 45));
-        s *= 1 - clamp(g * clamp(1 + (55 - 58) / 30, 0.45, 3.4), 0, 0.5) * 2;
-      }
-      out.push([a, Math.max(0, Math.round(s * 1000) / 10)]);
+    for (let a = 0; a <= 100; a++) {
+      const i = Math.min(SURVIVAL.length - 1, Math.ceil(a / 5));
+      const [a0, v0] = SURVIVAL[Math.max(0, i - 1)], [a1, v1] = SURVIVAL[i];
+      const t = a1 === a0 ? 0 : (a - a0) / (a1 - a0);
+      out.push([a, Math.round((v0 + (v1 - v0) * t) * 10) / 10]);
     }
     return out;
   }
