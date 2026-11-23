@@ -590,3 +590,13 @@ ul,ol{padding:0;list-style:none}
   .decades button{min-height:36px}
   #screen-record{padding-block:14px calc(156px + env(safe-area-inset-bottom,0px))}
 }
+
+/* 360px대: 표지의 분절 선택지·셀렉트가 화면 폭을 밀어내지 않게 줄바꿈한다 */
+@media (max-width:430px){
+  .hero,.herotext,.heroside,.heroopts,.optgroup,.optgroup.wide{min-width:0}
+  .seg{display:flex;flex-wrap:wrap;width:100%;max-width:100%}
+  .seg button{flex:1 1 calc(50% - 1px);min-width:calc(50% - 1px)}
+  .seg button+button{border-left:1px solid var(--rule)}
+  .sel{width:100%;max-width:100%}
+  .fields{grid-template-columns:1fr 1fr}
+}
