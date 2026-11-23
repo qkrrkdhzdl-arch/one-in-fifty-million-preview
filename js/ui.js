@@ -923,18 +923,24 @@
     }
     const mr = $('#moneyRow');
     if (mr) {
-      const price = E.homePrice(life);
-      const has = life.home === 'own';
-      mr.innerHTML = ALLOC.map((a) => `<button class="chip" data-a="${a[0]}" aria-pressed="${life.alloc === a[0]}">${allocName(a)}</button>`).join('')
-        + `<button class="chip" data-home="${has ? 'sell' : 'buy'}">${has ? L('집 팔기', 'Sell the home') : L(`집 사기 · ${U.money(price)}`, `Buy a home · ${U.money(price)}`)}</button>`;
-      mr.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { life.alloc = b.dataset.a; renderFocus(); U.toast(L(`돈을 ${b.textContent}에 둡니다`, `Money goes into ${b.textContent.toLowerCase()}`)); });
-      mr.querySelectorAll('[data-home]').forEach(b => b.onclick = () => {
-        if (b.dataset.home === 'buy') {
-          const r = E.buyHome(life);
-          U.toast(r.ok ? L(`집을 샀습니다 · ${U.money(r.price)}`, `You bought a home · ${U.money(r.price)}`) : L(`아직 ${U.money(r.need)}이 모자랍니다`, `You are ${U.money(r.need)} short`));
-        } else { const r = E.sellHome(life); if (r.ok) U.toast(L(`집을 팔았습니다 · ${U.money(r.price)}`, `You sold the home · ${U.money(r.price)}`)); }
-        renderPanels(); renderFocus();
-      });
+      // 어린 시절에는 굴릴 돈도, 결정할 것도 없다. 성인이 되고 실제로 다룰 소득·현금·자산·집이 있을 때만 연다.
+      const canManageMoney = life.age >= 19 && ((life.income || 0) > 0 || (life.cash || 0) > 0 || (life.assets || 0) > 0 || life.home === 'own');
+      if (!canManageMoney) { mr.hidden = true; mr.innerHTML = ''; }
+      else {
+        mr.hidden = false;
+        const price = E.homePrice(life);
+        const has = life.home === 'own';
+        mr.innerHTML = ALLOC.map((a) => `<button class="chip" data-a="${a[0]}" aria-pressed="${life.alloc === a[0]}">${allocName(a)}</button>`).join('')
+          + `<button class="chip" data-home="${has ? 'sell' : 'buy'}">${has ? L('집 팔기', 'Sell the home') : L(`집 사기 · ${U.money(price)}`, `Buy a home · ${U.money(price)}`)}</button>`;
+        mr.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { life.alloc = b.dataset.a; renderFocus(); U.toast(L(`돈을 ${b.textContent}에 둡니다`, `Money goes into ${b.textContent.toLowerCase()}`)); });
+        mr.querySelectorAll('[data-home]').forEach(b => b.onclick = () => {
+          if (b.dataset.home === 'buy') {
+            const r = E.buyHome(life);
+            U.toast(r.ok ? L(`집을 샀습니다 · ${U.money(r.price)}`, `You bought a home · ${U.money(r.price)}`) : L(`아직 ${U.money(r.need)}이 모자랍니다`, `You are ${U.money(r.need)} short`));
+          } else { const r = E.sellHome(life); if (r.ok) U.toast(L(`집을 팔았습니다 · ${U.money(r.price)}`, `You sold the home · ${U.money(r.price)}`)); }
+          renderPanels(); renderFocus();
+        });
+      }
     }
   }
 
