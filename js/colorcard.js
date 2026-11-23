@@ -39,10 +39,13 @@
 
   function desc(stats, words) {
     const a = words[0], b = words[1];
+    const jong = w => { const c = String(w).slice(-1).charCodeAt(0); return c >= 0xac00 && c <= 0xd7a3 ? (c - 0xac00) % 28 !== 0 : false; };
+    const eul = w => jong(w) ? '을' : '를';
+    const eun = w => jong(w) ? '은' : '는';
     const lead = `이 삶은 ${a} 쪽으로 조금 더 기울었습니다.`;
     if (stats.happiness >= 65) return `${lead} 웃음이 남는 해가 많았고, ${b}의 자리도 비어 있지 않았습니다.`;
-    if (stats.health >= 65) return `${lead} 몸을 오래 지켰고, 그 덕에 ${b}을(를) 끝까지 볼 수 있었습니다.`;
-    return `${lead} 아쉬운 해도 있었지만 ${b}은(는) 이 삶의 바탕이었습니다.`;
+    if (stats.health >= 65) return `${lead} 몸을 오래 지켰고, 그 덕에 ${b}${eul(b)} 끝까지 볼 수 있었습니다.`;
+    return `${lead} 아쉬운 해도 있었지만 ${b}${eun(b)} 이 삶의 바탕이었습니다.`;
   }
 
   function html(life) {

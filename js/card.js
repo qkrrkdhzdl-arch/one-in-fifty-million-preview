@@ -246,23 +246,26 @@
 
   function map(g, l) {
     const n = lastAge(l) + 1;
-    const cols = 10, gap = 8, size = Math.floor((W - M * 2 - gap * (cols - 1)) / cols);
+    const cols = 10, gap = 8;
+    const rows = Math.ceil(n / cols);
+    const top = 320, bottom = 1030;
+    const size = Math.floor(Math.min((W - M * 2 - gap * (cols - 1)) / cols, (bottom - top - gap * (rows - 1)) / rows));
     text(g, '인생 지도', M, 200, F.label, C.teal);
     text(g, `${n}칸 · 한 칸이 1년`, M, 250, '400 28px ' + sans, C.sub);
     for (let a = 0; a < n; a++) {
       const h = l.history.find(x => num(x.age) === a);
       const hp = num(h && h.happiness, 50);
       const col = hp >= 75 ? '#0B5C63' : hp >= 58 ? '#7FBF86' : hp >= 42 ? '#B9CFA8' : '#F3E2B3';
-      const cx = M + (a % cols) * (size + gap), cy = 320 + Math.floor(a / cols) * (size + gap);
+      const cx = M + (a % cols) * (size + gap), cy = top + Math.floor(a / cols) * (size + gap);
       roundRect(g, cx, cy, size, size, 4, col, null);
       if (a === n - 1) { g.strokeStyle = C.red; g.lineWidth = 4; g.strokeRect(cx + 2, cy + 2, size - 4, size - 4); }
     }
-    const ly = 1030;
+    const ly = top + rows * (size + gap) + 22;
     [['#F3E2B3', '덜 행복'], ['#B9CFA8', ''], ['#7FBF86', ''], ['#0B5C63', '더 행복']].forEach(([c, t], i) => {
       roundRect(g, M + i * 84, ly, 60, 16, 2, c, null);
       if (t) text(g, t, M + i * 84 + (i === 0 ? 70 : -70), ly + 46, '400 24px ' + sans, C.muted);
     });
-    text(g, '테두리 칸 = 마지막 해', M, 1140, '400 26px ' + sans, C.muted);
+    text(g, '테두리 칸 = 마지막 해', M, ly + 110, '400 26px ' + sans, C.muted);
   }
 
   function curve(g, l) {
@@ -277,25 +280,27 @@
     }
     g.beginPath();
     pts.forEach((p, i) => {
-      const x = x0 + w * clamp(p[0], 0, 110) / 110, y = y0 + h * (1 - clamp(p[1], 0, 100) / 100);
+      const x = x0 + w * clamp(p[0], 0, 100) / 100, y = y0 + h * (1 - clamp(p[1], 0, 100) / 100);
       i ? g.lineTo(x, y) : g.moveTo(x, y);
     });
     g.strokeStyle = C.teal; g.lineWidth = 4; g.stroke();
     const age = lastAge(l);
     const yv = interpolate(pts, age);
-    const mx = x0 + w * clamp(age, 0, 110) / 110, my = y0 + h * (1 - yv / 100);
+    const mx = x0 + w * clamp(age, 0, 100) / 100, my = y0 + h * (1 - yv / 100);
     line(g, mx, y0, mx, y0 + h, C.red, 2);
     dot(g, mx, my, 10, C.red);
     text(g, `${age}세 · ${Math.round(yv)}% 생존`, mx + 16, my - 12, '600 26px ' + sans, C.red);
-    for (let a = 0; a <= 100; a += 20) text(g, a, x0 + w * a / 110, y0 + h + 40, '400 22px ' + mono, C.muted, 'center');
+    for (let a = 0; a <= 100; a += 20) text(g, a, x0 + w * a / 100, y0 + h + 40, '400 22px ' + mono, C.muted, 'center');
   }
 
   function death(g, l) {
     const d = l.death || {};
     text(g, '마지막 순간', M, 200, F.label, C.teal);
     text(g, '향년', M, 380, '600 40px ' + sans, C.muted);
-    text(g, String(lastAge(l)), M - 8, 560, F.big, C.ink);
-    text(g, '세', M + 300, 560, '600 44px ' + sans, C.sub);
+    const ageTxt = String(lastAge(l));
+    text(g, ageTxt, M - 8, 560, F.big, C.ink);
+    g.save(); g.font = F.big; const ageW = g.measureText(ageTxt).width; g.restore();
+    text(g, '세', M - 8 + ageW + 14, 560, '600 44px ' + sans, C.sub);
     line(g, M, 640, W - M, 640);
     text(g, `사인 · ${labelOf(d.cause) || '노환'}`, M, 710, '600 34px ' + sans, C.ink);
     g.save(); g.font = '400 34px ' + sans; g.fillStyle = C.sub;
