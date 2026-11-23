@@ -57,6 +57,7 @@
     rich: [["high", .45], ["mid", .40], ["low", .15]],
     mid: [["high", .15], ["mid", .60], ["low", .25]],
     low: [["high", .05], ["mid", .45], ["low", .50]],
+    city: [["high", .08], ["mid", .62], ["low", .30]],
     rural: [["high", .07], ["mid", .50], ["low", .43]]
   };
   const FAMILY = [["both", 78], ["single", 15], ["grand", 4], ["care", 3]];
@@ -74,7 +75,7 @@
     const region = opt.region && C.regions.find(r => r.id === opt.region) ? C.regions.find(r => r.id === opt.region) : wpick(C.regions, r => r.w);
     const district = pick(region.districts);
     const zone = district[2] === "rural" ? "rural" : region.type;
-    const cls = opt.cls || wpick(CLASS_FROM_CHAR[district[2]], x => x[1])[0];
+    const cls = opt.cls || wpick(CLASS_FROM_CHAR[district[2]] || CLASS_FROM_CHAR.mid, x => x[1])[0];
     const cohort = opt.cohort || wpick(COHORTS, x => x[1])[0];
     const birthYear = cohort;
     const family = wpick(FAMILY, x => x[1])[0];
