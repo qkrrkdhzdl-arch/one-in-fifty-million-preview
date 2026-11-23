@@ -510,7 +510,8 @@
         jeonseLoan: 0,
         parentLoan: 0,
         skippedTime: [],
-        altSupportGranted: false
+        altSupportGranted: false,
+        _short: 0
       };
       state.stepIdx = 0;
       state.lastResult = null;
@@ -519,18 +520,27 @@
       state.alloc = { study: 4, work: 4, club: 2, sibling: 2 };
     }
 
-    function fmtMan(v) {
-      const ko = state.lang === "ko";
+    function fmtMan(v, lang) {
+      const ko = (lang || state.lang) === "ko";
       if (v === 0) return ko ? "0원" : "₩0";
       const abs = Math.abs(v);
       const sign = v < 0 ? "-" : "";
       if (abs >= 10000) {
         const eok = Math.floor(abs / 10000);
         const rem = abs % 10000;
-        if (ko) return sign + eok + "억" + (rem ? " " + rem.toLocaleString() + "만" : "");
+        if (ko) return sign + eok + "억" + (rem ? " " + rem.toLocaleString() + "만 원" : " 원");
         return sign + "₩" + (abs * 10000).toLocaleString();
       }
-      return ko ? sign + abs.toLocaleString() + "만" : sign + "₩" + (abs * 10000).toLocaleString();
+      return ko ? sign + abs.toLocaleString() + "만 원" : sign + "₩" + (abs * 10000).toLocaleString();
+    }
+
+    // 현금이 모자라면 부족분을 마이너스 통장(빚)으로 넘긴다. 통장이 음수로 찍히지 않게 한다.
+    function spend(life, amount) {
+      if (life.cash >= amount) { life.cash -= amount; return; }
+      const short = amount - Math.max(0, life.cash);
+      life.cash = 0;
+      life.debt += short;
+      life._short = (life._short || 0) + short;
     }
 
     function bodySentence() {
@@ -639,7 +649,7 @@
               sidenoteEn: "Self-promise: logged with the reason your younger self gave.",
               apply: (life) => {
                 life.monthlyOut += 40;
-                life.cash -= 240;
+                spend(life, 240);
                 life.mindScore -= 4;
                 life.ledger.push({ titleKo: "야간대학 등록금 240만 원 (자기 약속)", titleEn: "Evening tuition ₩2.4M (self-promise)", status: "active", noteKo: "이유: 기술직으로 옮기기 위해", noteEn: "Reason: to move into technical work" });
               }
@@ -656,7 +666,7 @@
               sidenoteEn: "Self-promise: returns in 5 years with the reason you signed.",
               apply: (life) => {
                 life.monthlyOut += 40;
-                life.cash -= 240;
+                spend(life, 240);
                 life.ledger.push({ titleKo: "야간대학 등록금 240만 원 (자기 약속)", titleEn: "Evening tuition ₩2.4M (self-promise)", status: "active", noteKo: "이유: 승진하려면 학위가 필요하다", noteEn: "Reason: degree needed for promotion" });
               }
             },
@@ -684,7 +694,7 @@
               sidenoteKo: "가족에게 빌린 돈은 이자 대신 뒷날의 부탁으로 돌아온다.",
               sidenoteEn: "Money borrowed from family returns later as a favor owed.",
               apply: (life) => {
-                life.cash -= 120;
+                spend(life, 120);
                 life.parentLoan += 120;
                 life.siblingTrust += 1;
                 life.ledger.push({ titleKo: "아버지 등록금 지원 120만 원", titleEn: "Father's tuition help ₩1.2M", status: "active", noteKo: "가족 약속 · 미상환", noteEn: "Family promise · open" });
@@ -760,8 +770,8 @@
           badgeEn: "Promise · Jeonse Lease",
           titleKo: `${y29}년 · 29세, 중개사의 계산기`,
           titleEn: `${y29} · Age 29, The Broker's Calculator`,
-          bodyKo: `전세 계약서에 1억 8,500만 원이 적혀 있다. 내 통장에는 ${fmtMan(L.cash)}이 있다. 이 돈은 월 실수령액(${L.monthlyIncome}만 원)의 ${Math.round(18500 / L.monthlyIncome)}배다. 중개사 사무실은 6시에 닫는다.`,
-          bodyEn: `The lease reads ₩185,000,000. Your account holds ${fmtMan(L.cash)}—about ${Math.round(18500 / L.monthlyIncome)} times your monthly take-home pay. The broker's office closes at six.`,
+          bodyKo: `전세 계약서에 1억 8,500만 원이 적혀 있다. 내 통장에는 ${fmtMan(L.cash)}이 있다. 계약서의 액수는 월 실수령액(${L.monthlyIncome}만 원)의 ${Math.round(18500 / L.monthlyIncome)}배다. 중개사 사무실은 6시에 닫는다.`,
+          bodyEn: `The lease reads ₩185,000,000. Your account holds ${fmtMan(L.cash)}. The deposit is about ${Math.round(18500 / L.monthlyIncome)} times your monthly take-home pay. The broker's office closes at six.`,
           choices: [
             {
               id: "jeonse_bank",
@@ -848,7 +858,7 @@
               sidenoteKo: "전세금반환보증 — 집주인이 보증금을 못 돌려줄 때 보증기관이 대신 주는 보험.",
               sidenoteEn: "Deposit insurance: covers you if the landlord fails to return the lump sum.",
               apply: (life) => {
-                life.cash -= 1200;
+                spend(life, 1200);
                 life.debt += 1300;
                 life.mindScore -= 6;
                 const open = life.ledger.find(x => x.status === "active");
@@ -865,7 +875,7 @@
               sidenoteKo: "재협의는 출구가 아니라 요청이다. 상대가 받아야 성립한다.",
               sidenoteEn: "Renegotiation is a request, not an exit; the other party must agree.",
               apply: (life) => {
-                life.cash -= 380;
+                spend(life, 380);
                 life.mindScore += 2;
                 life.ledger.push({ titleKo: "주거 조건 재협의", titleEn: "Housing terms renegotiated", status: "kept", noteKo: "합의 변경 완료", noteEn: "Agreed modification" });
               }
@@ -908,7 +918,7 @@
               sidenoteKo: "관계의 이자는 숫자가 아니라, 위기 때 누가 먼저 오는지로 드러난다.",
               sidenoteEn: "Relational interest shows in who arrives first during a crisis.",
               apply: (life) => {
-                life.cash -= 187;
+                spend(life, 187);
                 life.bodyScore -= 5;
                 life.ledger.push({ titleKo: "아버지 병원비 및 간병 분담", titleEn: "Father's hospital bill & care", status: "kept", noteKo: "직접 정산 완료", noteEn: "Settled directly" });
               }
@@ -924,11 +934,11 @@
               sidenoteEn: "Your sibling's reply reflects twenty years of your ledger, not just today.",
               apply: (life) => {
                 if (life.siblingTrust >= 2) {
-                  life.cash -= 94;
+                  spend(life, 94);
                   life.mindScore += 5;
                   life.ledger.push({ titleKo: "아버지 병원비 형제 분담", titleEn: "Shared hospital bill", status: "kept", noteKo: "합의 이행", noteEn: "Agreed & paid" });
                 } else {
-                  life.cash -= 187;
+                  spend(life, 187);
                   life.mindScore -= 8;
                   life.ledger.push({ titleKo: "동생 병원비 분담 미이행", titleEn: "Sibling share unpaid", status: "broken", noteKo: "합의 없음", noteEn: "No agreement" });
                 }
@@ -944,7 +954,7 @@
               sidenoteKo: "기다리는 동안에도 시간은 가고, 병원은 다음 계산서를 낸다.",
               sidenoteEn: "Waiting is also an action; time moves and the next bill prints.",
               apply: (life) => {
-                life.cash -= 230;
+                spend(life, 230);
                 life.mindScore -= 10;
                 life.ledger.push({ titleKo: "병원비 정산 지연", titleEn: "Delayed hospital settlement", status: "broken", noteKo: "미룸 기록", noteEn: "Delayed" });
               }
@@ -1198,7 +1208,7 @@
               <p style="margin-top:6px;">
                 ${ko
                   ? `두 삶 모두 같은 길목에서 같은 서명을 했습니다. 지원금이 있던 삶은 29세 전세 계약에서 5,000만 원을 덜 빌렸고, 연 4.2% 기준으로 월 이자를 약 <strong>${savedMonthlyInterest}만 원</strong> 덜 냈습니다. 5년을 채우면 누적 <strong>${savedTotalInterest.toLocaleString()}만 원</strong> 차이입니다. 같은 서명, 다른 출발선.`
-                  : `Both lives signed the same promises. The supported life borrowed ₩50M less at 29, paying about <strong>₩${(savedMonthlyInterest*10).toLocaleString()}k less interest a month</strong> at 4.2%—roughly <strong>₩${(savedTotalInterest*10).toLocaleString()}k over five years</strong>. Same signatures, different starting line.`}
+                  : `Both lives signed the same promises. The supported life borrowed ₩50M less at 29, paying about <strong>₩${(savedMonthlyInterest*10).toLocaleString()}k less interest a month</strong> at 4.2%—roughly <strong>₩${(savedTotalInterest / 100).toFixed(1)}M over five years</strong>. Same signatures, different starting line.`}
               </p>
               <div class="disclaimer">
                 ${ko ? "※ 게임 모형 안의 비교이며 현실의 인과 효과가 아닙니다." : "※ Comparison inside the game model, not real-world causal proof."}
@@ -1350,12 +1360,16 @@
     window.pickChoice = (idx) => {
       const step = getSteps()[state.stepIdx];
       const c = step.choices[idx];
-      c.apply(state.life);
+      const L = state.life;
+      L._short = 0;
+      c.apply(L);
+      const shortKo = L._short > 0 ? ` 현금이 모자란 ${fmtMan(L._short, "ko")}은 마이너스 통장으로 넘어갔다.` : "";
+      const shortEn = L._short > 0 ? ` The shortfall of ${fmtMan(L._short, "en")} went onto an overdraft.` : "";
       state.lastResult = {
         titleKo: c.titleKo,
         titleEn: c.titleEn,
-        summaryKo: c.metaKo,
-        summaryEn: c.metaEn,
+        summaryKo: c.metaKo + shortKo,
+        summaryEn: c.metaEn + shortEn,
         sidenoteKo: c.sidenoteKo,
         sidenoteEn: c.sidenoteEn,
         ratios: c.ratios
