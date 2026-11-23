@@ -24,7 +24,7 @@
     let s;
     if (v >= 10000) {
       const e = Math.floor(v / 10000), m = v % 10000;
-      s = e + "억" + (m ? " " + m.toLocaleString() : "");
+      s = e + "억" + (m ? " " + m.toLocaleString() + "만" : "");
     } else s = v.toLocaleString() + "만";
     return (neg ? "-" : "") + s + (U.lang() === "ko" ? "" : "");
   };

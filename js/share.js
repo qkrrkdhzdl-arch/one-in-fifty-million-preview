@@ -228,10 +228,10 @@
       const x = pad + c * (panelW + gap);
       const y = gridTop + r * rowStep;
       scene(g, x, y, panelW, panelH, sc[i]);
-      g.fillStyle = "#857e70"; g.font = `700 12px ${MONO}`;
-      g.fillText((L === "ko" ? cap[i].koT : cap[i].enT).toUpperCase(), x + 2, y + panelH + 20);
-      g.fillStyle = "#1d1c19"; g.font = `600 17px ${KFONT}`;
-      g.fillText(trim(g, L === "ko" ? cap[i].ko : cap[i].en, panelW - 4), x + 2, y + panelH + 42);
+      g.fillStyle = "#857e70"; g.font = `700 15px ${MONO}`;
+      g.fillText((L === "ko" ? cap[i].koT : cap[i].enT).toUpperCase(), x + 2, y + panelH + 24);
+      g.fillStyle = "#1d1c19"; g.font = `600 21px ${KFONT}`;
+      g.fillText(trim(g, L === "ko" ? cap[i].ko : cap[i].en, panelW - 4), x + 2, y + panelH + 50);
       i++;
     }
 

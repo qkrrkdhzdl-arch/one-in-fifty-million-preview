@@ -637,7 +637,7 @@
         <div style="height:56px"></div>
       </div>
       <div class="rec-actions">
-        <button class="ghost" id="rec-again">${t("again")}</button>
+        <button class="ghost" id="rec-again">${U.lang() === "ko" ? "다시" : "Again"}</button>
         <button class="primary" id="rec-share">${t("share")}</button>
       </div>`;
     // flower

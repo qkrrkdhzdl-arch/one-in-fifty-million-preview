@@ -258,7 +258,13 @@ textarea.refl:focus{outline:2px solid rgba(30,106,74,.3);border-color:var(--jade
 .section-head h3{font-size:15px;letter-spacing:-.2px}
 .section-head span{font-size:11px;color:var(--ink-3);font-family:var(--mono)}
 .type-card{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);display:flex;gap:18px;align-items:center}
-.type-card .flower{flex:0 0 96px}
+.type-card .flower{flex:0 0 96px;display:flex;justify-content:center}
+@media(max-width:430px){
+  .type-card{flex-direction:column;align-items:flex-start;gap:10px;padding:16px}
+  .type-card .flower{flex:0 0 auto}
+  .type-card .flower canvas{width:64px;height:64px}
+  .rec-actions .ghost{flex:0 0 22%;font-size:13px;padding-left:6px;padding-right:6px}
+}
 .type-card .tn{font-size:11px;font-family:var(--mono);letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase}
 .type-card h3{font-size:23px;letter-spacing:-.7px;margin-top:3px}
 .type-card .line{font-size:13.5px;color:var(--seal);margin-top:5px;font-weight:600}
