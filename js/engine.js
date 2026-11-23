@@ -76,7 +76,13 @@
     const district = pick(region.districts);
     const zone = district[2] === "rural" ? "rural" : region.type;
     const cls = opt.cls || wpick(CLASS_FROM_CHAR[district[2]] || CLASS_FROM_CHAR.mid, x => x[1])[0];
-    const cohort = opt.cohort || wpick(COHORTS, x => x[1])[0];
+    let cohort;
+    if (opt.cohort) cohort = opt.cohort;
+    else if (opt.cohortSpan) {
+      const [y0, y1] = opt.cohortSpan;
+      const inside = COHORTS.filter(c => c[0] >= y0 && c[0] <= y1);
+      cohort = inside.length ? wpick(inside, x => x[1])[0] : Math.round(y0 + R() * (y1 - y0));
+    } else cohort = wpick(COHORTS, x => x[1])[0];
     const birthYear = cohort;
     const family = wpick(FAMILY, x => x[1])[0];
     const singleParent = family === "single" ? (R() < 0.75 ? "mother" : "father") : null;

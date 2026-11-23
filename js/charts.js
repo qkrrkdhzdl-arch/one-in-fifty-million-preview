@@ -7,7 +7,7 @@
     let g = "";
     for (let i = 0; i <= 4; i++) {
       const y = pad.t + (h - pad.t - pad.b) * i / 4;
-      g += `<line x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}" stroke="#e2d9c6" stroke-width="1"/>`;
+      g += `<line x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}" stroke="#DCE4E1" stroke-width="1"/>`;
     }
     return g;
   }
@@ -21,20 +21,20 @@
     pts.forEach((p, i) => { path += (i ? "L" : "M") + x(p[0]).toFixed(1) + "," + y(p[1]).toFixed(1); });
     let ticks = "";
     [0, 25, 50, 75, 100].forEach(a => {
-      ticks += `<text x="${x(a)}" y="${h - 8}" font-size="9" fill="#857e70" text-anchor="middle" font-family="ui-monospace">${a}</text>`;
+      ticks += `<text x="${x(a)}" y="${h - 8}" font-size="10" fill="#5F6E72" text-anchor="middle" font-family="IBM Plex Mono, monospace">${a}</text>`;
     });
     [0, 50, 100].forEach(v => {
-      ticks += `<text x="${pad.l - 5}" y="${y(v) + 3}" font-size="9" fill="#857e70" text-anchor="end" font-family="ui-monospace">${v}</text>`;
+      ticks += `<text x="${pad.l - 5}" y="${y(v) + 3}" font-size="10" fill="#5F6E72" text-anchor="end" font-family="IBM Plex Mono, monospace">${v}</text>`;
     });
     const da = life.death.age;
     const dy = window.ENGINE.survivalCurve(life).find(p => p[0] >= da) || [da, 0];
-    const marker = `<line x1="${x(da)}" y1="${pad.t}" x2="${x(da)}" y2="${h - pad.b}" stroke="#b23a2b" stroke-width="1" stroke-dasharray="3 3"/>
-      <circle cx="${x(da)}" cy="${y(dy[1])}" r="3.4" fill="#b23a2b"/>
-      <text x="${x(da) + 6}" y="${y(dy[1]) - 6}" font-size="9.5" fill="#b23a2b" font-family="ui-monospace">${da}</text>`;
+    const marker = `<line x1="${x(da)}" y1="${pad.t}" x2="${x(da)}" y2="${h - pad.b}" stroke="#8C1D3C" stroke-width="1" stroke-dasharray="3 3"/>
+      <circle cx="${x(da)}" cy="${y(dy[1])}" r="3.4" fill="#8C1D3C"/>
+      <text x="${x(da) + 6}" y="${y(dy[1]) - 6}" font-size="10.5" fill="#8C1D3C" font-family="IBM Plex Mono, monospace">${da}</text>`;
     return `<svg viewBox="0 0 ${w} ${h}" role="img">${axes(w, h, pad)}
-      <path d="${path}" fill="none" stroke="#2b5d7d" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="${path}" fill="none" stroke="#0F6E68" stroke-width="1.8" stroke-linejoin="round"/>
       ${marker}${ticks}
-      <text x="${w - pad.r}" y="${pad.t + 9}" font-size="9" fill="#857e70" text-anchor="end" font-family="ui-monospace">%</text>
+      <text x="${w - pad.r}" y="${pad.t + 9}" font-size="10" fill="#5F6E72" text-anchor="end" font-family="IBM Plex Mono, monospace">%</text>
     </svg>`;
   }
 
@@ -51,13 +51,13 @@
       const v = vals[i];
       const bh = (h - pad.t - pad.b) * v / 100;
       const x = pad.l + i * bw + bw * 0.18, y = h - pad.b - bh;
-      bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw * 0.64).toFixed(1)}" height="${bh.toFixed(1)}" rx="2" fill="${v > 70 ? "#1e6a4a" : v > 40 ? "#b5832c" : "#b23a2b"}" opacity=".85"/>`;
-      bars += `<text x="${(x + bw * 0.32).toFixed(1)}" y="${(y - 3).toFixed(1)}" font-size="8.5" text-anchor="middle" fill="#4e4a41" font-family="ui-monospace">${v}</text>`;
-      labels += `<text x="${(pad.l + i * bw + bw / 2).toFixed(1)}" y="${h - 10}" font-size="9" text-anchor="middle" fill="#857e70" font-family="ui-monospace">${k}s</text>`;
+      bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(bw * 0.64).toFixed(1)}" height="${bh.toFixed(1)}" rx="2" fill="${v > 70 ? "#1e6a4a" : v > 40 ? "#b5832c" : "#8C1D3C"}" opacity=".85"/>`;
+      bars += `<text x="${(x + bw * 0.32).toFixed(1)}" y="${(y - 3).toFixed(1)}" font-size="8.5" text-anchor="middle" fill="#4e4a41" font-family="IBM Plex Mono, monospace">${v}</text>`;
+      labels += `<text x="${(pad.l + i * bw + bw / 2).toFixed(1)}" y="${h - 10}" font-size="10" text-anchor="middle" fill="#5F6E72" font-family="IBM Plex Mono, monospace">${k}s</text>`;
     });
     return `<svg viewBox="0 0 ${w} ${h}" role="img">${axes(w, h, pad)}${bars}${labels}
-      <text x="${pad.l - 5}" y="${pad.t + 4}" font-size="9" fill="#857e70" text-anchor="end" font-family="ui-monospace">100</text>
-      <text x="${w - pad.r}" y="${pad.t + 4}" font-size="9" fill="#857e70" text-anchor="end" font-family="ui-monospace">상위 %</text>
+      <text x="${pad.l - 5}" y="${pad.t + 4}" font-size="10" fill="#5F6E72" text-anchor="end" font-family="IBM Plex Mono, monospace">100</text>
+      <text x="${w - pad.r}" y="${pad.t + 4}" font-size="10" fill="#5F6E72" text-anchor="end" font-family="IBM Plex Mono, monospace">상위 %</text>
     </svg>`;
   }
 
@@ -75,14 +75,14 @@
     const zero = minW < 0 ? `<line x1="${pad.l}" y1="${y(0)}" x2="${w - pad.r}" y2="${y(0)}" stroke="#c9bea5" stroke-width="1" stroke-dasharray="2 3"/>` : "";
     const ticks = [20, 40, 60, 80].map(a => {
       const i = hs.findIndex(h2 => h2.age >= a);
-      return i >= 0 ? `<text x="${x(i)}" y="${h - 8}" font-size="9" fill="#857e70" text-anchor="middle" font-family="ui-monospace">${a}</text>` : "";
+      return i >= 0 ? `<text x="${x(i)}" y="${h - 8}" font-size="10" fill="#5F6E72" text-anchor="middle" font-family="IBM Plex Mono, monospace">${a}</text>` : "";
     }).join("");
     return `<svg viewBox="0 0 ${w} ${h}" role="img">${axes(w, h, pad)}
       <path d="${dArea}" fill="rgba(30,106,74,.08)" stroke="none"/>
       <path d="${d}" fill="none" stroke="#1e6a4a" stroke-width="1.8"/>
       ${zero}${ticks}
-      <text x="${pad.l - 5}" y="${y(maxW) + 9}" font-size="9" fill="#857e70" text-anchor="end" font-family="ui-monospace">${U.money(maxW)}</text>
-      <text x="${pad.l - 5}" y="${y(minW) + 2}" font-size="9" fill="#857e70" text-anchor="end" font-family="ui-monospace">${U.money(minW)}</text>
+      <text x="${pad.l - 5}" y="${y(maxW) + 9}" font-size="10" fill="#5F6E72" text-anchor="end" font-family="IBM Plex Mono, monospace">${U.money(maxW)}</text>
+      <text x="${pad.l - 5}" y="${y(minW) + 2}" font-size="10" fill="#5F6E72" text-anchor="end" font-family="IBM Plex Mono, monospace">${U.money(minW)}</text>
     </svg>`;
   }
 

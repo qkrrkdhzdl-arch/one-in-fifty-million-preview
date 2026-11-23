@@ -1,810 +1,1008 @@
-/* UI controller: screens, feed, modals, record, sharing */
+/* 5천만 분의 1 — 화면·피드·결정·기록·공유
+   원작 「80억 분의 1」의 화면 흐름(표지 → 출생 신고서 → 본 게임 → 사망 → 사망 기록 → 공유 카드)을
+   한국 콘텐츠(17개 시·도 / 62개 시군구 / 사건 248종 / 결정 24장 / 출처 16종 / 문화주석 30 / 삶의 결 16 / 동기 4명)로 구현한다. */
 (function () {
-  const U = window.U, C = window.CONTENT, E = window.ENGINE;
-  const $ = U.$;
+  'use strict';
+  const U = window.U, C = window.CONTENT, E = window.ENGINE, $ = U.$;
+
+  /* 한 해의 길이(1× 기준). 사용자 지시: 1×는 약 10초, 빠르게 6~7초, 깊게 14~15초. */
+  const YEAR_MS = { fast: 6500, normal: 10000, deep: 14500 };
+  const SPEEDS = [1, 2, 4, 8, 16];
+  const CLASS_KO = { high: '넉넉한 편', mid: '보통', low: '어려운 편' };
+  const CLASS_DOT = { high: '●●●●○', mid: '●●●○○', low: '●●○○○' };
+  const HOME_KO = { none: '얹혀 삶', wolse: '월세', jeonse: '전세', own: '내 집' };
+  const JOB_KO = { none: '—', office: '사무직', trade: '기술·생산직', public: '공공기관', self: '자영업', free: '프리랜서', farm: '농림어업' };
+  const EDU_KO = { none: '—', high: '고등학교', college: '전문대', university: '대학교', grad: '대학원' };
+  const FOCUS = [
+    ['health', '건강', '건강↑ 행복↑'],
+    ['study', '공부', '지식↑ 행복↓'],
+    ['career', '일', '소득↑ 지식↑'],
+    ['family', '가족', '관계↑ 행복↑'],
+    ['balance', '균형', '행복↑ 건강↑']
+  ];
+  const ALLOC = [['safe', '예금'], ['stock', '주식'], ['coin', '코인']];
 
   const APP = window.APP = {
-    lang: localStorage.getItem("oifm_lang") || "ko",
-    pace: localStorage.getItem("oifm_pace") || "normal",
+    pace: localStorage.getItem('oifm2_pace') || 'normal',
     speed: 1, playing: false, auto: false, ff: false,
-    life: null, timer: null, screen: "cover", modalOpen: false,
-    yearElapsed: 0, yearHold: 0, ygTick: 0, raf: null, lastTs: null
+    screen: 'cover', life: null, modal: null, peek: false,
+    yearT: 0, hold: 0, queue: [], qi: 0, lastTs: 0, raf: null, pendingDeath: null,
+    deathStep: 0, recDecade: null, shareKind: 'record'
   };
-  // 한 해가 흐르는 시간(1× 기준). 원작 「80억 분의 1」과 같은 호흡으로,
-  // 빠르게 ≈30분 · 보통 ≈1시간 · 깊게 ≈1시간 30분에 한 생애가 지나간다.
-  const PACE = { fast: 18000, normal: 36000, deep: 54000 };
-  const FF_MS = 42; // '다음 결정까지 »'일 때 1년에 쓰는 시간(ms)
+  const now = () => performance.now();
+  const yearMs = () => YEAR_MS[APP.pace] / APP.speed;
 
-  // ---------------- helpers ----------------
-  const t = U.T;
-  const stName = { health: "statHealth", happiness: "statHappiness", knowledge: "statKnowledge", relation: "statRelation" };
-
-  function glossify(html, lang) {
-    if (!C.glossary) return html;
-    const safe = C.glossary.filter(g => g.ko.length >= 2);
-    let used = 0;
-    for (const g of safe) {
-      if (used > 2) break;
-      const term = lang === "ko" ? g.ko : g.ko;
-      const re = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-      if (re.test(html)) {
-        html = html.replace(re, `<span class="gloss" data-g="${g.ko}">${term}</span>`);
-        used++;
-      }
-    }
-    return html;
-  }
-
-  function screen(id) {
-    U.$$(".screen").forEach(s => s.classList.toggle("on", s.id === "screen-" + id));
+  /* ---------- 화면 전환 ---------- */
+  function go(id) {
     APP.screen = id;
+    ['cover', 'birth', 'life', 'death', 'record'].forEach(s => {
+      const el = $('#screen-' + s); if (el) el.hidden = s !== id;
+    });
     window.scrollTo(0, 0);
   }
 
-  // ---------------- cover ----------------
-  function renderCover() {
-    const el = $("#screen-cover");
-    el.innerHTML = `
-      <div class="cover">
-        <div class="cover-seal">1/50M<br>${U.lang() === "ko" ? "대한민국" : "KOREA"}</div>
-        <h1>${t("title")}<br><span style="font-size:20px;color:var(--ink-3);font-weight:600;letter-spacing:-.3px">${t("titleSub")}</span></h1>
-        <div class="en">1 IN 50,000,000 · KOREA</div>
-        <p class="tag">${t("tagline")}</p>
-        <p class="note">${t("coverNote")}</p>
-        <div class="dice"><b>2025</b><span>${U.lang() === "ko" ? "출생아 254,341명 · 합계출산율 0.80명" : "254,341 births · fertility rate 0.80"}</span></div>
-        <div class="settings-row" style="margin-top:22px">
-          <span class="lab">${t("pace")}</span>
-          <div class="seg" data-seg="pace">
-            <button data-v="fast" class="${APP.pace === "fast" ? "on" : ""}">${t("paceFast")}</button>
-            <button data-v="normal" class="${APP.pace === "normal" ? "on" : ""}">${t("paceNormal")}</button>
-            <button data-v="deep" class="${APP.pace === "deep" ? "on" : ""}">${t("paceDeep")}</button>
-          </div>
-          <span class="pace-note">${t("paceNote")}</span>
-        </div>
-        <div class="settings-row">
-          <span class="lab">${t("lang")}</span>
-          <div class="seg" data-seg="lang">
-            <button data-v="ko" class="${APP.lang === "ko" ? "on" : ""}">한국어</button>
-            <button data-v="en" class="${APP.lang === "en" ? "on" : ""}">EN</button>
-          </div>
-        </div>
-        <div class="cover-actions">
-          <button class="primary" id="btn-born">${t("start")}</button>
-        </div>
-        <div class="region-chart hide-mobile">
-          <div class="mini-title">${U.lang() === "ko" ? "어디서 태어날 확률" : "WHERE YOU MAY BE BORN"}</div>
-          ${C.regions.slice().sort((a, b) => b.w - a.w).map(r => `
-            <div class="rc-row"><span>${U.lang() === "ko" ? r.ko : r.en}</span>
-              <i style="width:${Math.max(2, r.w / 26.5 * 100)}%"></i><b>${r.w.toFixed(1)}%</b></div>`).join("")}
-          <p class="rc-note">${U.lang() === "ko" ? "주민등록 인구 비중을 근사한 값입니다. 실제 출생지 분포와는 차이가 있습니다." : "Approximated from registered population shares, not exact birth distribution."}</p>
-        </div>
-        <div class="cover-foot">${t("coverFoot")}<br>${t("footerNote")}</div>
-      </div>`;
-    el.querySelectorAll('[data-seg="pace"] button').forEach(b => b.onclick = () => {
-      APP.pace = b.dataset.v; localStorage.setItem("oifm_pace", APP.pace); renderCover();
+  /* ---------- 저장/복원 ---------- */
+  function save() {
+    try {
+      if (!APP.life) { localStorage.removeItem('oifm2_life'); return; }
+      const l = APP.life;
+      const slim = Object.assign({}, l, { yearLog: (l.yearLog || []).slice(-6), feed: (l.feed || []).slice(-400) });
+      localStorage.setItem('oifm2_life', JSON.stringify({ life: slim, screen: APP.screen, pace: APP.pace }));
+    } catch (e) { /* 저장 실패는 게임을 막지 않는다 */ }
+  }
+  function loadSave() {
+    try { const raw = localStorage.getItem('oifm2_life'); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+  }
+
+  /* ---------- 표지 ---------- */
+  function regionShare() {
+    const total = C.regions.reduce((s, r) => s + r.w, 0);
+    return C.regions.slice().sort((a, b) => b.w - a.w).map(r => ({ r, pct: r.w / total * 100 }));
+  }
+
+  const MAP_POS = {
+    seoul: [.40, .175], incheon: [.335, .20], gyeonggi: [.43, .245], gangwon: [.60, .175],
+    chungbuk: [.50, .335], chungnam: [.37, .355], daejeon: [.44, .375], sejong: [.435, .345],
+    gyeongbuk: [.60, .44], daegu: [.575, .515], jeonbuk: [.37, .49], gwangju: [.305, .60],
+    jeonnam: [.285, .70], gyeongnam: [.48, .655], busan: [.545, .615], ulsan: [.595, .57], jeju: [.20, .86]
+  };
+
+  function drawHeroMap(canvas) {
+    if (!canvas) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const w = canvas.clientWidth || 560, h = Math.round(w * 9 / 16);
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    const g = canvas.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    // 배경 점 격자
+    const grid = 13;
+    for (let y = 6; y < h; y += grid) {
+      for (let x = 6; x < w; x += grid) {
+        const inside = (x > w * .17 && x < w * .66 && y > h * .05 && y < h * .95);
+        g.beginPath();
+        g.arc(x, y, inside ? 1.5 : 1, 0, Math.PI * 2);
+        g.fillStyle = inside ? 'rgba(94,110,114,.30)' : 'rgba(94,110,114,.13)';
+        g.fill();
+      }
+    }
+    // 시·도 점
+    const mx = regionShare();
+    const maxW = Math.max(...mx.map(m => m.r.w));
+    mx.forEach(m => {
+      const p = MAP_POS[m.r.id] || [.45, .5];
+      const r = 4 + Math.sqrt(m.r.w / maxW) * 20;
+      g.beginPath();
+      g.arc(w * p[0], h * p[1], r, 0, Math.PI * 2);
+      g.fillStyle = m.r.type === 'metro' ? 'rgba(140,29,60,.72)' : 'rgba(140,29,60,.42)';
+      g.fill();
     });
-    el.querySelectorAll('[data-seg="lang"] button').forEach(b => b.onclick = () => setLang(b.dataset.v));
-    $("#btn-born").onclick = () => {
-      const q = new URLSearchParams(location.search);
-      APP.life = E.createLife(q.get("seed") ? { seed: +q.get("seed") } : {});
-      renderBirth(); screen("birth");
-    };
+    // 이름표
+    g.font = '600 10px "IBM Plex Mono", monospace';
+    g.fillStyle = 'rgba(19,33,42,.55)';
+    ['서울', '경기', '부산', '경남', '제주'].forEach(nm => {
+      const m = mx.find(x => x.r.ko === nm); if (!m) return;
+      const p = MAP_POS[m.r.id];
+      g.fillText(nm, w * p[0] + 8, h * p[1] - 8);
+    });
   }
 
-  function setLang(l) {
-    APP.lang = l; localStorage.setItem("oifm_lang", l);
-    document.documentElement.lang = l;
-    if (APP.screen === "cover") renderCover();
-    else if (APP.screen === "birth") renderBirth();
-    else if (APP.screen === "life") { renderLifeShell(); renderFeedAll(); updateHud(); }
-    else if (APP.screen === "record") renderRecord();
-    else if (APP.screen === "death") renderDeath();
-  }
-
-  // ---------------- birth ----------------
-  function renderBirth() {
-    const life = APP.life, el = $("#screen-birth");
-    const clsKey = { high: "birthClassHigh", mid: "birthClassMid", low: "birthClassLow" }[life.cls];
-    const famKey = life.family === "single"
-      ? (life.singleParent === "mother" ? "birthFamilySingleM" : "birthFamilySingleF")
-      : { both: "birthFamilyBoth", grand: "birthFamilyGrand", care: "birthFamilyCare" }[life.family];
+  function renderCover() {
+    const saved = loadSave();
+    const share = regionShare();
+    const top = share.slice(0, 9);
+    const restPct = share.slice(9).reduce((s, x) => s + x.pct, 0);
+    const maxPct = top[0].pct;
+    const el = $('#screen-cover');
     el.innerHTML = `
-      <div class="birth">
-        <div class="birth-head"><h2>${t("birthTitle")}</h2><span>${life.birthYear} · ${U.lang() === "ko" ? "대한민국" : "REPUBLIC OF KOREA"}</span></div>
-        <p class="birth-sub">${t("birthSub")}</p>
-        <div class="sheet">
-          <div class="sheet-main">
-            <div class="sheet-name">${U.L(life.name)}${U.lang() === "ko" ? "" : `<small>${life.name.ko}</small>`}</div>
-            <p class="sheet-sentence">${t("born", { y: life.birthYear, r: U.L(life.region), d: U.L(life.district) })}</p>
+    <div class="wrap">
+      <div class="hero">
+        <div class="herotext">
+          <div class="kicker">v1.0 · 무료 인생 시뮬레이션 · 대한민국 17개 시·도 62개 시군구 · 15세 이상</div>
+          <h1>5천만 분의<br><em>1</em></h1>
+          <p class="lede">2025년, 이 나라에서 254,341명이 태어났습니다. 그중 한 명이 되어 한 번뿐인 삶을 끝까지 살아봅니다. 어느 동네, 누구의 아이로 태어날지는 고를 수 없습니다. 당신이 그랬던 것처럼.</p>
+          <div class="counter">
+            <div><strong>254,341</strong><span>2025년 출생아</span></div>
+            <div><strong>0.80</strong><span>합계출산율(명)</span></div>
+            <div><strong>17</strong><span>시·도 · 62개 시군구</span></div>
           </div>
-          <div class="kv">
-            <div>${t("birthRegion")}</div><div><b>${U.L(life.region)} ${U.L(life.district)}</b></div>
-            <div>${t("birthSex")}</div><div><b>${life.sex === "f" ? t("birthSexF") : t("birthSexM")}</b></div>
-            <div>${t("birthClass")}</div><div><b>${t(clsKey)}</b></div>
-            <div>${t("birthFamily")}</div><div><b>${t(famKey)}</b></div>
-            <div>${t("birthSiblings")}</div><div><b>${t("birthSiblingsN", { n: life.siblings })}</b></div>
+          <div class="heroopts">
+            <div class="optgroup"><span class="lbl">태어날 때</span>
+              <div class="seg" data-seg="cohort">
+                ${[['now', '지금'], ['w2000', '2000년대'], ['w1990', '1990년대'], ['any', '아무 때나']].map(([k, v]) =>
+                  `<button data-v="${k}" aria-pressed="${(localStorage.getItem('oifm2_cohort') || 'now') === k}">${v}</button>`).join('')}
+              </div>
+              <span class="hint">지난 세대는 그 시절 통계와 사건으로 살아갑니다.</span>
+            </div>
+            <div class="optgroup"><span class="lbl">한 번의 인생 길이</span>
+              <div class="seg" data-seg="pace">
+                ${[['fast', '빠르게 · 6.5초/년'], ['normal', '보통 · 10초/년'], ['deep', '깊게 · 14.5초/년']].map(([k, v]) =>
+                  `<button data-v="${k}" aria-pressed="${APP.pace === k}">${v}</button>`).join('')}
+              </div>
+              <span class="hint">1× 기준 한 해가 10초입니다. 사는 동안 16×까지 배속되고, 결정이 뜨면 그 자리에 멈춥니다.</span>
+            </div>
+            <div class="optgroup wide"><span class="lbl">태어날 곳 (선택)</span>
+              <select class="sel" id="homeSel">
+                <option value="">고르지 않을래요 — 출생 비중대로 뽑습니다</option>
+                ${C.regions.map(r => `<option value="${r.id}">${r.ko} · 출생 비중 ${(r.w / 100 * 100).toFixed(1)}%</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="ctarow" style="margin-top:24px">
+            <button class="cta" id="startBtn">태어나기</button>
+            ${saved && saved.life && !saved.life.death ? `<button class="ghost" id="resumeBtn">이어하기 · ${saved.life.age}세 ${saved.life.name.ko}</button>` : ''}
+            <span class="ctahint">설정은 그대로 두고 바로 태어나도 괜찮아요.</span>
+          </div>
+          <p class="warnline">죽음과 질병, 사고도 실제 통계대로 일어납니다. 장면은 그리지 않고, 도움받을 곳을 함께 알려 드립니다. 15세 이상에게 맞춘 시뮬레이션이에요.
+            <button class="lnk" id="themeBtn">화면 밝기 바꾸기</button></p>
+        </div>
+        <div class="heroside">
+          <div class="tg-bg"><canvas id="mapCanvas"></canvas></div>
+          <div class="odds">
+            <h2>지금 태어나는 아기라면</h2>
+            <p class="sub">국가데이터처 「2025년 출생통계」 · 시·도별 출생아 수 비중</p>
+            <div class="oddslist">
+              ${top.map(({ r, pct }) => `
+                <div class="orow"><span class="on">${r.ko}</span>
+                  <span class="ot"><i style="width:${Math.max(3, pct / top[0].pct * 100)}%"></i></span>
+                  <span class="ov">${pct.toFixed(1)}%</span></div>`).join('')}
+              <div class="orow"><span class="on">나머지 8개 시·도</span>
+                <span class="ot"><i style="width:${Math.max(3, restPct / maxPct * 100)}%;background:var(--rule)"></i></span>
+                <span class="ov">${restPct.toFixed(1)}%</span></div>
+            </div>
+            <p class="hint" style="margin-top:12px">서울·경기 두 곳에서만 네 명 중 한 명이 태어납니다. 이 비중대로 뽑히고, 원하면 직접 고를 수도 있어요.</p>
           </div>
         </div>
-        <div class="peers-preview">
-          <div class="mini-title">${t("peerBirth")}</div>
-          <ul>${life.peers.map(p => `<li><span class="dot"></span><span><span class="who">${p.name}</span> · ${p.reg} · ${p.cls === "high" ? (U.lang() === "ko" ? "형편 나은 집" : "better-off home") : p.cls === "low" ? (U.lang() === "ko" ? "어려운 집" : "struggling home") : (U.lang() === "ko" ? "평범한 집" : "ordinary home")}</span></li>`).join("")}</ul>
-          <p style="font-size:11.5px;color:var(--ink-3);margin-top:8px">${t("peerBirthNote")}</p>
-        </div>
-        <div class="birth-actions">
-          <button class="ghost" id="birth-reroll">${t("reroll")}</button>
-          <button class="primary" id="birth-start">${t("begin")}</button>
-        </div>
-      </div>`;
-    $("#birth-reroll").onclick = () => { APP.life = E.createLife(); renderBirth(); };
-    $("#birth-start").onclick = () => startLife();
+      </div>
+    </div>`;
+    drawHeroMap($('#mapCanvas'));
+
+    el.querySelectorAll('[data-seg="pace"] button').forEach(b => b.onclick = () => {
+      APP.pace = b.dataset.v; localStorage.setItem('oifm2_pace', APP.pace);
+      el.querySelectorAll('[data-seg="pace"] button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    });
+    el.querySelectorAll('[data-seg="cohort"] button').forEach(b => b.onclick = () => {
+      localStorage.setItem('oifm2_cohort', b.dataset.v);
+      el.querySelectorAll('[data-seg="cohort"] button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    });
+    $('#themeBtn').onclick = toggleTheme;
+    $('#startBtn').onclick = () => startBirth($('#homeSel').value);
+    const rb = $('#resumeBtn');
+    if (rb) rb.onclick = () => { APP.life = saved.life; APP.pace = saved.pace || APP.pace; beginLife(true); };
   }
 
-  // ---------------- life shell ----------------
+  function toggleTheme() {
+    const cur = document.documentElement.getAttribute('data-theme');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('oifm2_theme', next);
+  }
+
+  /* ---------- 출생 뽑기 ---------- */
+  function cohortFromPref() {
+    const p = localStorage.getItem('oifm2_cohort') || 'now';
+    if (p === 'w2000') return [1998, 2005];
+    if (p === 'w1990') return [1990, 1996];
+    if (p === 'any') return null;
+    return [2020, 2026];
+  }
+
+  function startBirth(regionId) {
+    closeModal();
+    const life = E.createLife({ region: regionId || undefined, cohortSpan: cohortFromPref() });
+    if (cohortFromPref() === null) { /* 엔진 기본 코호트 분포 사용 */ }
+    APP.life = life;
+    go('birth');
+    const share = regionShare();
+    const pct = share.find(x => x.r.id === life.region.id);
+    const el = $('#screen-birth');
+    el.innerHTML = `<div class="wrap"><div class="rollbox">
+      <div class="roller"><div class="lbl">출생지를 정하는 중</div>
+        <div class="country" id="rollName">${C.regions[Math.floor(Math.random() * C.regions.length)].ko}</div>
+        <div class="meta" id="rollMeta">확률 —</div></div>
+    </div></div>`;
+    const names = C.regions.map(r => r.ko);
+    let i = 0;
+    const spin = setInterval(() => {
+      const nm = $('#rollName'); if (!nm) return clearInterval(spin);
+      nm.textContent = names[Math.floor(Math.random() * names.length)];
+      const mm = $('#rollMeta'); if (mm) mm.textContent = '확률 —';
+    }, 90);
+    setTimeout(() => {
+      clearInterval(spin);
+      const nm = $('#rollName'); if (nm) nm.textContent = life.region.ko;
+      const mm = $('#rollMeta'); if (mm) mm.textContent = `${life.district.ko} · 확률 ${(pct ? pct.pct : 0).toFixed(1)}%`;
+      setTimeout(() => renderCert(), 520);
+    }, 1750);
+  }
+
+  function lifeExpectancy(life) {
+    // 시·도 유형과 형편으로 기대수명을 근사한다(통계청 2024 생명표 기반)
+    let e0 = 83.5;
+    if (life.zone === 'metro') e0 += 1.1; else if (life.zone === 'rural') e0 -= 0.8;
+    if (life.cls === 'high') e0 += 3.2; else if (life.cls === 'low') e0 -= 3.4;
+    if (life.sex === 'f') e0 += 3.0;
+    if (life.birthYear < 2000) e0 -= 4.5; else if (life.birthYear < 2015) e0 -= 1.5;
+    return Math.round(e0 * 10) / 10;
+  }
+
+  function certNo(life) {
+    const h = Math.abs(Math.sin(life.seed) * 1e7) | 0;
+    return `No. KOR-${life.birthYear}-${String(h).slice(0, 7)}`;
+  }
+
+  function guillocheSVG() {
+    let p = '';
+    for (let k = 0; k < 14; k++) {
+      let d = '';
+      for (let x = 0; x <= 720; x += 12) {
+        const y = 60 + k * 26 + Math.sin((x / 720) * Math.PI * 2 * (2 + (k % 3)) + k) * (14 + k % 4 * 3);
+        d += (x ? 'L' : 'M') + x + ' ' + y.toFixed(1);
+      }
+      p += `<path d="${d}" fill="none" stroke="currentColor" stroke-width=".6"/>`;
+    }
+    return `<svg class="guilloche" viewBox="0 0 720 420" preserveAspectRatio="none" aria-hidden="true">${p}</svg>`;
+  }
+
+  function renderCert() {
+    const life = APP.life;
+    const e0 = lifeExpectancy(life);
+    const share = regionShare().find(x => x.r.id === life.region.id);
+    const el = $('#screen-birth');
+    const parentAge = `${life.familyAges.mother != null ? '어머니 ' + life.familyAges.mother + '세' : ''}${life.familyAges.mother != null && life.familyAges.father != null ? ' · ' : ''}${life.familyAges.father != null ? '아버지 ' + life.familyAges.father + '세' : ''}`;
+    el.innerHTML = `<div class="wrap"><div class="rollbox">
+      <div class="roller" style="min-height:0;padding:18px 0 6px"><div class="lbl">출생 신고</div>
+        <div class="meta">${life.region.ko} · ${life.district.ko} · 확률 ${(share ? share.pct : 0).toFixed(1)}%</div></div>
+      <div class="cert">
+        <div class="band"><b>출생 신고</b><span>${certNo(life)}</span></div>
+        <div class="body">
+          ${guillocheSVG()}
+          <div class="lbl">이름</div>
+          <h2>${life.name.ko}</h2>
+          <p class="story">${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 ${life.sex === 'f' ? '여자아이' : '남자아이'}로 태어났습니다. ${life.family === 'single' ? '한부모 가정입니다.' : life.siblings ? `위로 형제자매 ${life.siblings}명이 있습니다.` : '첫아이입니다.'} 가족은 ${life.region.ko}에서 살아갑니다.</p>
+          <p class="certpace">기대수명까지 살면 약 ${Math.round(e0 * YEAR_MS[APP.pace] / 60000)}분이 걸려요 (1년 ≈ ${Math.round(YEAR_MS[APP.pace] / 1000)}초). 사는 동안 일시정지와 배속이 되고, 중간에 닫아도 이 브라우저에 저장됩니다.</p>
+          <div class="fields">
+            <div><span>성별</span><b>${life.sex === 'f' ? '여성' : '남성'}</b></div>
+            <div><span>출생 지역</span><b>${life.region.ko}</b></div>
+            <div><span>출생지</span><b>${life.district.ko} (${life.district.char === 'rural' ? '농촌' : '도시'})</b></div>
+            <div><span>가정 형편</span><b>${CLASS_KO[life.cls]} ${CLASS_DOT[life.cls]}</b></div>
+            <div><span>부모 나이</span><b>${parentAge || '—'}</b></div>
+            <div><span>형제자매</span><b>${life.siblings ? life.siblings + '명' : '없음'}</b></div>
+            <div><span>기대수명</span><b>${e0}세</b></div>
+            <div><span>5세 전 사망 확률</span><b>0.3%</b></div>
+            <div><span>1인당 GDP</span><b>$36,200</b></div>
+          </div>
+          <div class="odds-line">${life.birthYear}년 ${life.region.ko}에서 태어난 아이 가운데 ${life.cls === 'high' ? '상위 20%' : life.cls === 'low' ? '하위 30%' : '중간 50%'} 가정 출생은 약 ${life.cls === 'high' ? '20%' : life.cls === 'low' ? '30%' : '50%'}입니다. 같은 해 이 나라에서 태어난 아이 ${(254341).toLocaleString()}명 중 한 명입니다.</div>
+          <div class="certcomps"><span class="lbl">같은 1초에 태어난 네 사람</span>
+            <ul>${life.peers.map(p => `<li><b>${p.name}</b><span>${p.reg} · ${p.sex === 'f' ? '여' : '남'}</span></li>`).join('')}</ul>
+          </div>
+        </div>
+        <div class="foot">
+          <button class="ghost" id="shareBirthBtn">출생 카드 공유</button>
+          <button class="cta" id="beginBtn">삶을 시작하기</button>
+        </div>
+      </div>
+    </div></div>`;
+    $('#beginBtn').onclick = () => beginLife(false);
+    $('#shareBirthBtn').onclick = () => openShare('birth', true);
+  }
+
+  /* ---------- 본 게임 ---------- */
+  function beginLife(fromSave) {
+    const life = APP.life;
+    if (!fromSave) {
+      life.feed = [];
+      life.yearLog = [];
+      life.history = life.history || [];
+      life.ageFocusLog = life.ageFocusLog || [];
+    }
+    life.feed = life.feed || [];
+    life.yearLog = life.yearLog || [];
+    APP.playing = true; APP.speed = 1; APP.ff = false; APP.modal = null; APP.peek = false;
+    APP.yearT = 0; APP.hold = 600; APP.queue = []; APP.qi = 0; APP.pendingDeath = null;
+    go('life');
+    renderLifeShell();
+    if (!fromSave && !life.feed.length) {
+      pushFeed(0, { ko: `${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 태어났습니다.` }, 'note');
+      pushFeed(0, { ko: `같은 1초에 태어난 네 사람과 함께 이 세상에 나왔습니다.` });
+    }
+    APP.lastTs = 0;
+    if (!APP.raf) APP.raf = requestAnimationFrame(loop);
+    save();
+  }
+
   function renderLifeShell() {
-    const el = $("#screen-life");
+    const el = $('#screen-life');
     el.innerHTML = `
-      <div class="life">
-        <div class="hud" id="hud"></div>
-        <div class="peer-strip hide-desktop" id="peerstrip"></div>
-        <div class="life-grid">
-          <div class="main-col">
-            <div class="feed" id="feed"></div>
-            <div class="focus-wrap" id="focuswrap"></div>
-            <div class="controls" id="controls"></div>
-          </div>
-          <aside class="side" id="side"></aside>
+    <header class="topbar"><div class="wrap">
+      <div class="brand">5천만 분의 <em>1</em></div>
+      <div class="agebox">
+        <div class="age" id="ageNum">0<small>세</small></div>
+        <div class="yr">
+          <span class="t" id="ageYear">—</span>
+          <div class="prog"><i id="prog"></i></div>
         </div>
-      </div>`;
-    updateHud(); renderFocus(); renderControls(); renderSide(); renderPeerStrip();
-    if (!APP.raf) { APP.lastTs = null; APP.raf = requestAnimationFrame(frame); }
+      </div>
+      <div class="speed">
+        <button id="pauseBtn" aria-pressed="false">❚❚ 멈춤</button>
+        <span class="sps">${SPEEDS.map(s => `<button data-s="${s}" aria-pressed="${s === 1}">${s}×</button>`).join('')}</span>
+        <button id="ffBtn" class="ff">다음 결정까지 <span class="fftx">»</span><span class="ffsh">»</span></button>
+        <button id="autoBtn" class="ff" aria-pressed="false">자동 결정</button>
+        <button id="moreBtn" class="ff morebtn" aria-label="더 보기">⋯</button>
+        <div id="moreMenu" class="more">
+          <div class="mg"><button id="goFamily">가족과 삶 보기</button><button id="goStats">상태 살펴보기</button></div>
+          <div class="mg"><button id="quitBtn">나가기 (저장)</button><button id="themeBtn2">화면 밝기</button></div>
+        </div>
+      </div>
+    </div></header>
+    <div class="wrap life">
+      <div class="col">
+        <div class="panel idcard p-id" id="p-id">
+          <div class="top"><span>신원 기록 · KOR</span><span id="idYear">—</span></div>
+          <div class="in">
+            <div class="portrait"><canvas id="avatar"></canvas></div>
+            <div>
+              <div class="nm" id="idName">—</div>
+              <dl id="idDl"></dl>
+            </div>
+          </div>
+          <div class="mrz" id="mrz">—</div>
+        </div>
+        <div class="panel p-stats" id="p-stats">
+          <h3><span class="ttl">상태</span><span class="lbl">0–100</span></h3>
+          <div id="statRows"></div>
+          <div class="money" id="moneyBox"></div>
+          <div class="spend" id="spendBox"></div>
+        </div>
+        <div class="panel p-fam" id="p-fam">
+          <h3><span class="ttl">가족과 삶</span><span class="lbl" id="famLbl"></span></h3>
+          <dl class="idcard-dl" id="famList" style="display:grid;grid-template-columns:fit-content(6.5em) minmax(0,1fr);gap:2px 10px;font-size:13px"></dl>
+        </div>
+      </div>
+      <div class="col">
+        <div class="panel p-scene">
+          <div class="scene"><canvas id="scene"></canvas></div>
+          <p class="scenecap" id="sceneCap">—</p>
+        </div>
+        <div class="panel p-focus">
+          <h3><span class="ttl">올해의 초점</span><span class="lbl" id="focusYear">—</span></h3>
+          <p class="status" id="focusStatus">—</p>
+          <div class="chips" id="focusChips"></div>
+          <p class="fohint" id="focusHint">결정을 맡긴 동안에는 한 해의 초점도 알아서 골라요. 칩을 누르면 그때부터는 직접 정해요.</p>
+          <div class="moneyrow" id="moneyRow"></div>
+        </div>
+        <div class="panel p-feed">
+          <h3><span class="ttl">인생 기록</span><span class="lbl">최근 순</span></h3>
+          <ul class="feed" id="feed"></ul>
+        </div>
+      </div>
+      <div class="col col3">
+        <div class="panel p-peers">
+          <h3><span class="ttl">같은 1초에 태어난 사람들</span><span class="lbl">지금 나이</span></h3>
+          <ul class="peerlist" id="peerList"></ul>
+        </div>
+        <div class="panel p-grid">
+          <h3><span class="ttl">인생 지도</span><span class="lbl">한 칸 = 1년</span></h3>
+          <div class="grid10" id="grid"></div>
+          <div class="gridkey"><span><i style="background:var(--grid-lo)"></i>덜 행복</span><span><i style="background:var(--grid-hi)"></i>더 행복</span><span><i style="background:var(--rule2);box-shadow:inset 0 0 0 1px var(--ink3)"></i>기대수명</span></div>
+        </div>
+        <div class="panel stats p-chart">
+          <h3><span class="ttl">돈의 흐름</span><span class="lbl">순자산(만 원)</span></h3>
+          <div class="chartbox" id="chartBox"></div>
+        </div>
+      </div>
+    </div>`;
+
+    // 이벤트
+    $('#pauseBtn').onclick = () => { APP.playing = !APP.playing; paint(); refreshControls(); save(); };
+    el.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
+      const prev = yearMs();
+      const p = Math.min(1, APP.yearT / (prev / 1000));
+      APP.speed = +b.dataset.s;
+      APP.yearT = p * (yearMs() / 1000);
+      refreshControls(); paint();
+    });
+    $('#ffBtn').onclick = () => { APP.ff = !APP.ff; APP.playing = true; refreshControls(); paint(); if (APP.ff) U.toast('다음 결정까지 빠르게 넘깁니다'); };
+    $('#autoBtn').onclick = () => { APP.auto = !APP.auto; refreshControls(); U.toast(APP.auto ? '결정을 맡깁니다 (6초 뒤 알아서 골라요)' : '결정을 직접 고릅니다'); };
+    $('#moreBtn').onclick = (e) => { e.stopPropagation(); $('#moreMenu').classList.toggle('open'); };
+    document.addEventListener('click', (ev) => { const m = $('#moreMenu'); if (m && !ev.target.closest('#moreBtn')) m.classList.remove('open'); });
+    $('#quitBtn').onclick = () => { save(); APP.playing = false; renderCover(); go('cover'); };
+    $('#themeBtn2').onclick = toggleTheme;
+    $('#goFamily').onclick = () => { const p = $('#p-fam'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+    $('#goStats').onclick = () => { const p = $('#p-stats'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+
+    renderFocus(); renderPanels(); paintTop(); paint();
   }
 
-  function stageTag() {
-    const age = APP.life.age;
-    if (APP.life.pendingDecision) return t("pausedAtDecision");
-    if (APP.ff) return t("fastForwarding");
-    const s = t(U.stage(age));
-    return APP.life.year > 2026 ? s + (APP.lang === "ko" ? " · 시나리오" : " · scenario") : s;
+  function refreshControls() {
+    const p = $('#pauseBtn'); if (p) p.setAttribute('aria-pressed', !APP.playing);
+    document.querySelectorAll('[data-s]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.s === APP.speed));
+    const a = $('#autoBtn'); if (a) a.setAttribute('aria-pressed', APP.auto);
+    const f = $('#ffBtn'); if (f) f.setAttribute('aria-pressed', APP.ff);
+    const pz = $('#pauseBtn'); if (pz) pz.textContent = APP.playing ? '❚❚ 멈춤' : '▶ 살기';
   }
 
-  function updateHud() {
+  /* ---------- 상단·패널 ---------- */
+  function paintTop() {
     const life = APP.life; if (!life) return;
-    const hud = $("#hud"); if (!hud) return;
-    const nw = E.netWorth(life);
-    hud.innerHTML = `
-      <div class="hud-top">
-        <span class="hud-age">${life.age}<span style="font-size:12px;font-weight:600">${t("ageUnit")}</span></span>
-        <span class="hud-year">${life.year}</span>
-        <span class="hud-stage">${stageTag()}</span>
-        <button class="lang-mini" id="hud-lang">${U.lang() === "ko" ? "EN" : "한"}</button>
-      </div>
-      <div class="yg-row" id="yg-row">
-        <div class="yg-track"><i id="yg-fill"></i></div>
-        <span class="yg-note" id="yg-note"></span>
-      </div>
-      <div class="meters">
-        ${["health", "happiness", "knowledge", "relation"].map(k => `
-          <div class="meter" data-k="${k}">
-            <div class="lab"><span>${t(stName[k])}</span><b>${Math.round(life.stats[k])}</b></div>
-            <div class="bar"><i style="width:${Math.round(life.stats[k])}%"></i></div>
-          </div>`).join("")}
-      </div>
-      <div class="money-line">
-        <span>${t("income")} <b>${life.income ? U.money(life.income) : "—"}</b></span>
-        <span>${life.age < 19 ? (U.lang() === "ko" ? "가구 형편" : "Household") : t("wealth")} <b>${life.age < 19 ? t("birthClass" + life.cls.charAt(0).toUpperCase() + life.cls.slice(1)) : U.money(nw)}</b></span>
-        <span>${t("home")} <b>${t("home" + { none: "None", wolse: "Wolse", jeonse: "Jeonse", own: "Own" }[life.home])}</b></span>
-        ${life.job !== "none" ? `<span>${t("job")} <b>${U.lang() === "ko" ? E.JOB_KO[life.job] : E.JOB_EN[life.job]}</b></span>` : ""}
-      </div>`;
-    const lb = $("#hud-lang");
-    if (lb) lb.onclick = () => setLang(U.lang() === "ko" ? "en" : "ko");
-    paintYearGauge(true);
+    const an = $('#ageNum'); if (an) an.innerHTML = `${life.age}<small>세</small>`;
+    const ay = $('#ageYear');
+    if (ay) ay.textContent = `${life.year}년 · ${life.name.ko} · 1년 ≈ ${Math.round(yearMs() / 1000)}초`;
+    const iy = $('#idYear'); if (iy) iy.textContent = String(life.year);
+    const idn = $('#idName'); if (idn) idn.textContent = life.name.ko;
+    const dl = $('#idDl');
+    if (dl) dl.innerHTML = `
+      <dt>성별</dt><dd>${life.sex === 'f' ? '여성' : '남성'}</dd>
+      <dt>출생</dt><dd>${life.region.ko} · ${life.birthYear}년</dd>
+      <dt>거주</dt><dd>${life.region.ko} ${life.district.ko}</dd>
+      <dt>가정 형편</dt><dd>${CLASS_KO[life.cls]}</dd>
+      <dt>학력</dt><dd>${EDU_KO[life.edu] || '—'}</dd>
+      <dt>일</dt><dd>${JOB_KO[life.job] || '—'}</dd>
+      <dt>집</dt><dd>${HOME_KO[life.home]}</dd>`;
+    const mrz = $('#mrz');
+    if (mrz) mrz.textContent = `I<KOR${life.name.en.replace(/ /g, '').toUpperCase()}<<${life.region.ko}<<<<<<<<<<<<<<<<<<<<<`;
+    const cv = $('#avatar');
+    if (cv && !cv._drawn) { window.SCENE.avatar(cv, life); cv._drawn = life.age; }
+    else if (cv && cv._drawn !== life.age + life.cls) { window.SCENE.avatar(cv, life); cv._drawn = life.age + life.cls; }
   }
 
-  function renderPeerStrip() {
-    const el = $("#peerstrip"); if (!el) return;
-    el.innerHTML = APP.life.peers.map(p => {
-      const ms = p.milestones.filter(m => m.age <= APP.life.age);
-      const m = ms[ms.length - 1];
-      const dead = !p.alive;
-      return `<button class="peer-chip ${dead ? "dead" : ""}" data-peer="${p.id}">
-        <span class="av">${p.name.slice(0, 1)}</span><b>${p.name}</b> ${dead ? "†" : APP.life.age + (U.lang() === "ko" ? "세" : "")}
-      </button>`;
-    }).join("");
-    el.querySelectorAll("[data-peer]").forEach(b => b.onclick = () => showPeer(b.dataset.peer));
+  function renderPanels() {
+    const life = APP.life; if (!life) return;
+    // 상태
+    const rows = $('#statRows');
+    if (rows) {
+      const L = [['health', '건강'], ['happiness', '행복'], ['knowledge', '지식'], ['relation', '관계']];
+      rows.innerHTML = L.map(([k, nm]) => `
+        <div class="statrow" data-k="${k}"><span class="sn">${nm}</span>
+          <span class="sb"><i style="width:${Math.round(life.stats[k])}%"></i></span>
+          <span class="sv">${Math.round(life.stats[k])}</span></div>`).join('');
+    }
+    const money = $('#moneyBox');
+    if (money) {
+      const nw = E.netWorth(life);
+      money.innerHTML = `
+        <div><small>${life.age < 19 ? '가정 형편' : '순자산(한국 체감)'}</small><b>${life.age < 19 ? CLASS_KO[life.cls] : U.money(nw)}</b></div>
+        <div><small>${life.age < 19 ? '부모의 벌이' : '연 소득'}</small><b>${life.age < 19 ? '—' : (life.income ? U.money(life.income) : '—')}</b></div>`;
+    }
+    const spend = $('#spendBox');
+    if (spend) {
+      const inc = Math.max(1, life.income || 0), ex = Math.max(0, life.expenses || 0);
+      const use = Math.min(1, ex / Math.max(inc, ex, 1)), save = 1 - use;
+      spend.innerHTML = `
+        <div class="sbar"><i style="width:${(use * 100).toFixed(1)}%;background:var(--accent)"></i><i style="width:${(save * 100).toFixed(1)}%;background:var(--stamp)"></i></div>
+        <div class="keys"><span style="--c:var(--accent)">쓰는 돈</span><span style="--c:var(--stamp)">남기는 돈</span></div>`;
+    }
+    // 가족
+    const fam = $('#famList');
+    if (fam) {
+      const rows2 = [];
+      const fa = life.familyAges || {};
+      if (fa.mother != null) rows2.push(['어머니', fa.mother + '세']);
+      if (fa.father != null) rows2.push(['아버지', fa.father + '세']);
+      if (life.siblings) rows2.push(['형제자매', life.siblings + '명']);
+      if (life.married) rows2.push(['배우자', '함께 사는 중']);
+      if (life.kids) rows2.push(['자녀', life.kids + '명']);
+      if (life.care) rows2.push(['돌보는 식구', life.care + '명']);
+      fam.innerHTML = rows2.length ? rows2.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('') : '<dd style="color:var(--ink3)">기록 없음</dd>';
+      const fl = $('#famLbl'); if (fl) fl.textContent = `${life.family === 'single' ? '한부모' : life.family === 'grand' ? '조부모와' : life.family === 'care' ? '돌봄 가정' : '양부모'}`;
+    }
+    // 씬
+    const sc = $('#scene');
+    if (sc) { window.SCENE.draw(sc, life); }
+    const cap = $('#sceneCap');
+    if (cap) cap.textContent = window.SCENE.caption(life);
+    // 피어
+    const pl = $('#peerList');
+    if (pl) {
+      pl.innerHTML = life.peers.map(p => {
+        const ms = p.milestones.filter(m => m.age <= life.age);
+        const last = ms[ms.length - 1];
+        return `<li><b>${p.name}</b><span class="pa">${p.alive === false ? '†' : life.age + '세'}</span>
+          <span class="pd">${p.reg} · ${last ? U.L(last) : '태어남'}</span></li>`;
+      }).join('');
+    }
+    // 지도
+    const grid = $('#grid');
+    if (grid) {
+      const cells = [];
+      const hist = life.history || [];
+      for (let a = 0; a < 100; a++) {
+        const h = hist.find(x => x.age === a);
+        let bg = 'var(--rule2)';
+        if (h) {
+          const hp = h.happiness;
+          bg = hp >= 75 ? 'var(--grid-hi)' : hp >= 58 ? 'var(--grid-mid)' : hp >= 42 ? '#B9CFA8' : 'var(--grid-lo)';
+        }
+        const cur = a === life.age ? ' cur' : '';
+        const le = Math.abs(a - lifeExpectancy(life)) < 1 ? ' le' : '';
+        cells.push(`<div class="c${cur}${le}" style="background:${bg}" title="${a}세${h ? ' · 행복 ' + h.happiness : ''}"></div>`);
+      }
+      grid.innerHTML = cells.join('');
+    }
+    // 그래프
+    const cb = $('#chartBox');
+    if (cb && window.CHARTS && window.CHARTS.wealth) cb.innerHTML = window.CHARTS.wealth(life);
   }
 
   function renderFocus() {
-    const el = $("#focuswrap"); if (!el) return;
-    const life = APP.life;
-    el.style.display = "block";
-    if (life.age < 6) {
-      el.innerHTML = `<div class="focus-lock"><span>${t("focusLocked")}</span></div>`;
-      return;
-    }
-    const items = [["health", "focusHealth"], ["family", "focusFamily"], ["career", "focusCareer"], ["study", "focusStudy"], ["balance", "focusBalance"]];
-    const price = E.homePrice(life);
-    const down = Math.round(price * 0.3);
-    const have = life.cash + life.assets;
-    el.innerHTML = `
-      <div class="focus-title"><span>${t("focusTitle")} · ${life.year}</span><button id="money-toggle">${t("moneyTitle")} · ${t("more")}</button></div>
-      <div class="row">${items.map(([k, lab]) => `<button class="chip ${life.focus === k ? "on" : ""}" data-focus="${k}">${t(lab)}</button>`).join("")}</div>
-      <div class="focus-note">${t("focusNote")}</div>
-      <div class="row" id="moneyrow" style="display:none;margin-top:8px">
-        ${[["safe", "allocSafe"], ["stock", "allocStock"], ["coin", "allocCoin"]].map(([k, lab]) => `<button class="chip ${life.alloc === k ? "on" : ""}" data-alloc="${k}">${t(lab)}</button>`).join("")}
-        ${life.home === "own"
-          ? `<button class="chip" data-home="sell">${t("sellHome")}</button>`
-          : `<button class="chip ${have >= down ? "" : ""}" data-home="buy" title="${U.money(price)}">${t("buyHome")} · ${U.money(price)}</button>`}
-      </div>`;
-    el.querySelectorAll("[data-focus]").forEach(b => b.onclick = () => {
-      const prev = life.focus;
-      life.focus = b.dataset.focus; renderFocus();
-      if (prev !== life.focus) U.toast(t("focusSet", { f: t({ health: "focusHealth", family: "focusFamily", career: "focusCareer", study: "focusStudy", balance: "focusBalance" }[life.focus]) }));
-    });
-    el.querySelectorAll("[data-alloc]").forEach(b => b.onclick = () => {
-      life.alloc = b.dataset.alloc; renderFocus();
-    });
-    const mt = $("#money-toggle");
-    if (mt) mt.onclick = () => {
-      const row = $("#moneyrow");
-      row.style.display = row.style.display === "none" ? "flex" : "none";
-    };
-    el.querySelectorAll("[data-home]").forEach(b => b.onclick = () => {
-      if (b.dataset.home === "buy") {
-        const r = E.buyHome(life);
-        U.toast(r.ok ? `${t("buyHomeDone")} · ${U.money(r.price)}` : `${t("buyHomeFail")} (${U.money(r.need)})`);
-      } else {
-        const r = E.sellHome(life);
-        if (r.ok) U.toast(`${t("soldHome")} · ${U.money(r.price)}`);
-      }
-      updateHud(); renderFocus(); renderSide();
-    });
-  }
-
-  function renderControls() {
-    const el = $("#controls"); if (!el) return;
-    el.innerHTML = `
-      <div class="ctl">
-        <button class="btn-round" id="btn-play">${APP.playing ? "❚❚" : "▶"}</button>
-        <div class="speed-group">${[1, 2, 4, 8, 16].map(s => `<button data-s="${s}" class="${APP.speed === s ? "on" : ""}">${s}×</button>`).join("")}</div>
-      </div>
-      <div class="ctl">
-        <button class="btn-pill" id="btn-ff">${t("toNext")}</button>
-        <button class="btn-pill ${APP.auto ? "on" : ""}" id="btn-auto">${t("auto")}</button>
-      </div>`;
-    $("#btn-play").onclick = () => {
-      APP.playing = !APP.playing;
-      if (APP.playing) APP.ff = false;   // 재개 — 멈춘 지점에서 이어서 차오른다
-      renderControls(); paintYearGauge(true);
-    };
-    el.querySelectorAll("[data-s]").forEach(b => b.onclick = () => {
-      const dur = yearMs();
-      const p = Math.max(0, Math.min(1, APP.yearElapsed / (dur || 1)));
-      APP.speed = +b.dataset.s;
-      APP.yearElapsed = p * yearMs();    // 배속을 바꿔도 게이지가 튀지 않게
-      renderControls(); paintYearGauge(true);
-    });
-    $("#btn-ff").onclick = () => { APP.ff = true; APP.playing = true; schedule(0); renderControls(); U.toast(t("fastForwarding")); };
-    $("#btn-auto").onclick = () => { APP.auto = !APP.auto; renderControls(); if (APP.auto) U.toast(t("autoOn")); };
-  }
-
-  function renderSide() {
-    const el = $("#side"); if (!el) return;
-    const life = APP.life;
-    const nw = E.netWorth(life);
-    el.innerHTML = `
-      <div class="side-card">
-        <h4>${t("yourLife")}</h4>
-        <div class="side-row"><span>${t("birthRegion")}</span><b>${U.L(life.region)} ${U.L(life.district)}</b></div>
-        <div class="side-row"><span>${t("income")}</span><b>${life.income ? U.money(life.income) : "—"}</b></div>
-        <div class="side-row"><span>${t("wealth")}</span><b>${U.money(nw)}</b></div>
-        <div class="side-row"><span>${t("assets")}</span><b>${U.money(life.assets + life.cash)}</b></div>
-        <div class="side-row"><span>${t("debt")}</span><b>${U.money(life.debt)}</b></div>
-        <div class="side-row"><span>${t("job")}</span><b>${life.job === "none" ? "—" : (U.lang() === "ko" ? E.JOB_KO[life.job] : E.JOB_EN[life.job])}</b></div>
-        <div class="side-row"><span>${t("home")}</span><b>${t("home" + { none: "None", wolse: "Wolse", jeonse: "Jeonse", own: "Own" }[life.home])}</b></div>
-        <div class="side-row"><span>${U.lang() === "ko" ? "어머니" : "Mother"}</span><b>${life.familyAges.mother != null ? life.familyAges.mother + (U.lang() === "ko" ? "세" : "") : "—"}</b></div>
-        <div class="side-row"><span>${U.lang() === "ko" ? "아버지" : "Father"}</span><b>${life.familyAges.father != null ? life.familyAges.father + (U.lang() === "ko" ? "세" : "") : "—"}</b></div>
-      </div>
-      <div class="side-card">
-        <h4>${t("currentPeers")}</h4>
-        <div class="side-peers">${life.peers.map(p => {
-          const ms = p.milestones.filter(m => m.age <= life.age);
-          const m = ms[ms.length - 1] || p.milestones[0];
-          return `<div class="side-peer"><b>${p.name}</b><span class="age">${p.reg}</span><br>${U.L(m)}</div>`;
-        }).join("")}</div>
-      </div>`;
-  }
-
-  // ---------------- feed ----------------
-  function yearBlockHTML(entry) {
-    const life = APP.life;
-    const items = entry.events || [];
-    let out = `<div class="yearblock ${entry.isNew ? "new" : ""}">
-      <div class="year-head"><span class="y">${entry.year}</span><span class="a">${entry.age}${t("ageUnit")}</span></div>`;
-    if (!items.length) out += `<div style="font-size:12.5px;color:var(--ink-3);line-height:1.7">${U.L(entry.quiet || C.quiet[0])}</div>`;
-    items.forEach(e => {
-      const d = [];
-      ["health", "happiness", "knowledge", "relation"].forEach(k => {
-        const v = e.st[k]; if (!v) return;
-        d.push(`<span class="${v > 0 ? "up" : "down"}">${t(stName[k]).slice(0, 2)} ${v > 0 ? "+" : ""}${v}</span>`);
+    const life = APP.life; if (!life) return;
+    const fy = $('#focusYear'); if (fy) fy.textContent = life.year + '년';
+    const st = $('#focusStatus');
+    const eff = (k) => FOCUS.find(f => f[0] === k)[1];
+    if (st) st.innerHTML = life.age < 6
+      ? `이 나이에는 부모의 선택으로 살아갑니다. 한 해 한 해가 몸과 마음의 바탕이 됩니다.`
+      : `지금은 <b>${eff(life.focus)}</b> 쪽으로 시간을 씁니다. 올해 무엇에 마음을 둘까요?`;
+    const chips = $('#focusChips');
+    if (chips) {
+      chips.innerHTML = FOCUS.map(([k, nm, ef]) =>
+        `<button class="chip" data-f="${k}" aria-pressed="${life.focus === k}">${nm}<small>${ef}</small></button>`).join('');
+      chips.querySelectorAll('[data-f]').forEach(b => b.onclick = () => {
+        life.focus = b.dataset.f; renderFocus(); U.toast(`올해의 초점: ${eff(life.focus)}`);
       });
-      if (e.money && entry.age >= 19) d.push(`<span class="${e.money > 0 ? "up" : "down"}">${U.money(e.money)}</span>`);
-      const src = C.sources[e.src];
-      out += `<article class="ev">
-        <div class="ev-top">
-          <div class="ev-ic">${e.ic || "•"}</div>
-          <div style="flex:1;min-width:0">
-            <h4>${U.L(e.t)}</h4>
-            <p>${glossify(U.L(e.b), APP.lang)}</p>
-            <div class="ev-meta">
-              <div class="delta">${d.join("")}</div>
-              ${src ? `<button class="src-btn" data-src>${t("source")} · ${U.lang() === "ko" ? src.ko.split(" ")[0] : src.en.split(",")[0]}</button>` : ""}
-            </div>
-            ${src ? `<div class="src-box"><div class="name">${U.L(src)} <span style="color:var(--ink-3);font-weight:400">${src.date}</span></div>
-              <div class="fig">${U.L(src.fig)}</div><a href="${src.url}" target="_blank" rel="noopener">${src.url}</a></div>` : ""}
-          </div>
-        </div>
-      </article>`;
-    });
-    out += `</div>`;
-    return out;
+    }
+    const mr = $('#moneyRow');
+    if (mr) {
+      const price = E.homePrice(life);
+      const has = life.home === 'own';
+      mr.innerHTML = ALLOC.map(([k, nm]) => `<button class="chip" data-a="${k}" aria-pressed="${life.alloc === k}">${nm}</button>`).join('')
+        + `<button class="chip" data-home="${has ? 'sell' : 'buy'}">${has ? '집 팔기' : `집 사기 · ${U.money(price)}`}</button>`;
+      mr.querySelectorAll('[data-a]').forEach(b => b.onclick = () => { life.alloc = b.dataset.a; renderFocus(); U.toast(`돈을 ${b.textContent}에 둡니다`); });
+      mr.querySelectorAll('[data-home]').forEach(b => b.onclick = () => {
+        if (b.dataset.home === 'buy') {
+          const r = E.buyHome(life);
+          U.toast(r.ok ? `집을 샀습니다 · ${U.money(r.price)}` : `아직 ${U.money(r.need)}이 모자랍니다`);
+        } else { const r = E.sellHome(life); if (r.ok) U.toast(`집을 팔았습니다 · ${U.money(r.price)}`); }
+        renderPanels(); renderFocus();
+      });
+    }
   }
 
-  function renderFeedAll() {
-    const feed = $("#feed"); if (!feed) return;
-    feed.innerHTML = (APP.life.yearLog || []).map(yearBlockHTML).join("");
-    bindFeed();
-    scrollFeed();
+  /* ---------- 피드 ---------- */
+  function pushFeed(age, ev, kind) {
+    const life = APP.life; if (!life) return;
+    const src = ev && ev.src && C.sources[ev.src] ? C.sources[ev.src] : null;
+    const item = { age, text: ev ? (ev.ko || ev.t && U.L(ev.t) || '') : '', src: src ? `${src.ko} · ${U.L(src.fig)}` : null, kind: kind || '' };
+    life.feed.push(item);
+    if (life.feed.length > 400) life.feed.shift();
+    const ul = $('#feed'); if (!ul) return;
+    const li = document.createElement('li');
+    if (item.kind) li.className = item.kind;
+    li.classList.add('enter');
+    li.innerHTML = `<span class="a">${item.age}세</span><span class="x">${item.text}${item.src ? `<span class="f">${item.src}</span>` : ''}</span>`;
+    ul.appendChild(li);
+    while (ul.children.length > 240) ul.removeChild(ul.firstChild);
+    ul.scrollTop = ul.scrollHeight;
   }
 
-  function appendYear(entry) {
-    const feed = $("#feed"); if (!feed) return;
-    feed.insertAdjacentHTML("beforeend", yearBlockHTML(entry));
-    bindFeed();
-    if (!APP.ff) scrollFeed();
+  /* ---------- 시계 ---------- */
+  function loop(ts) {
+    APP.raf = requestAnimationFrame(loop);
+    if (APP.screen !== 'life' || !APP.life) { APP.lastTs = ts; return; }
+    const dt = APP.lastTs ? Math.min(ts - APP.lastTs, 300) : 0;
+    APP.lastTs = ts;
+    if (!APP.playing || APP.modal) { paint(); return; }
+    if (APP.hold > 0) { APP.hold = Math.max(0, APP.hold - dt); paint(); return; }
+    const dur = yearMs();
+    APP.yearT += APP.ff ? Math.max(dt, dur / 24) : dt;
+    const p = Math.min(1, APP.yearT / dur);
+    // 그 해의 사건을 시각에 맞춰 하나씩 드러낸다
+    if (APP.queue.length && APP.qi < APP.queue.length) {
+      const q = APP.queue[APP.qi];
+      if (p >= q.at) { pushFeed(APP.life.age, q.ev, q.kind); APP.qi++; }
+    }
+    if (p >= 1) { endYear(); return; }
+    paint();
   }
 
-  function scrollFeed() {
-    const feed = $("#feed");
-    if (!feed) return;
-    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
-  }
-
-  function bindFeed() {
-    U.$$("[data-src]").forEach(b => {
-      if (b._b) return; b._b = 1;
-      b.onclick = () => { const box = b.closest(".ev").querySelector(".src-box"); box.classList.toggle("on"); };
-    });
-    U.$$(".gloss").forEach(b => {
-      if (b._b) return; b._b = 1;
-      b.onclick = () => showGlossary(b.dataset.g);
-    });
-  }
-
-  // ---------------- simulation loop ----------------
-  function startLife() {
+  function endYear() {
     const life = APP.life;
-    life.yearLog = [];
-    APP.playing = true; APP.ff = false; APP.speed = 1;
-    renderLifeShell();
-    screen("life");
-    // year 0 opening
-    const open = { age: 0, year: life.birthYear, events: [], isNew: true };
-    const birthOk = (x) => x.age[0] === 0 && (x.reg === "any" || x.reg === life.zone) &&
-      (x.cls === "any" || x.cls === life.cls) && (x.sex === "any" || x.sex === life.sex) &&
-      (x.era === "any" || x.era === life.era) && (!x.yr || (life.year >= x.yr[0] && life.year <= x.yr[1]));
-    let e0 = C.events.filter(x => x.age[0] === 0 && x.age[1] === 0 && birthOk(x));
-    if (!e0.length) e0 = C.events.filter(birthOk);
-    if (!e0.length) e0 = C.events.filter(x => x.age[0] === 0);
-    open.events = e0.slice(0, 1);
-    open.quiet = open.events.length ? null : C.quiet[0];
-    open.events.forEach(ev => {
-      ["health", "happiness", "knowledge", "relation"].forEach(k => life.stats[k] = Math.max(0, Math.min(100, life.stats[k] + (ev.st[k] || 0))));
-    });
-    open.events.forEach(ev => { life.seen[ev.id] = 1; life.lastSeen = life.lastSeen || {}; life.lastSeen[ev.id] = 0; });
-    life.yearLog.push(open);
-    life.history.push({ age: 0, year: life.birthYear, happiness: Math.round(life.stats.happiness), health: Math.round(life.stats.health), wealth: life.cash, income: 0, event: open.events[0] ? open.events[0].t : null });
-    renderFeedAll();
-    if (life.peers[0]) life.peers[0].age = 0;
-    schedule(900);
-  }
-
-  // ---------------- year clock ----------------
-  // 한 해는 실시간으로 차오르는 게이지로 표현된다. 100%가 되면 E.tick으로 그 해가 확정되고
-  // 게이지가 0으로 돌아가면서 다음 해가 시작된다. 일시정지·결정 카드에서는 그 자리에 멈춘다.
-  function yearMs() { return APP.ff ? FF_MS : PACE[APP.pace] / APP.speed; }
-
-  function paintYearGauge(force) {
-    const fill = $("#yg-fill"); if (!fill) return;
-    const dur = yearMs() || 1;
-    const p = Math.max(0, Math.min(1, APP.yearElapsed / dur));
-    fill.style.width = (p * 100).toFixed(2) + "%";
-    const row = $("#yg-row");
-    if (row) {
-      row.classList.toggle("paused", !APP.playing || APP.modalOpen);
-      row.classList.toggle("ff", !!APP.ff);
-      row.classList.toggle("full", p >= 0.999);
-    }
-    const now = performance.now();
-    if (!force && now - APP.ygTick < 100) return;
-    APP.ygTick = now;
-    const note = $("#yg-note"); if (!note) return;
-    let txt;
-    if (APP.modalOpen && APP.life && APP.life.pendingDecision) txt = t("pausedAtDecision");
-    else if (!APP.playing) txt = t("pausedLabel");
-    else if (APP.ff) txt = "»";
-    else {
-      const left = Math.max(0, (dur - APP.yearElapsed) / 1000);
-      txt = t("secLeft", { s: left >= 10 ? Math.round(left) : left.toFixed(1) });
-    }
-    note.textContent = txt;
-  }
-
-  function startClock(delay) {
-    APP.yearHold = delay || 0;
-    APP.yearElapsed = 0;
-    APP.lastTs = null;
-    paintYearGauge(true);
-  }
-
-  function frame(now) {
-    APP.raf = requestAnimationFrame(frame);
-    const last = APP.lastTs; APP.lastTs = now;
-    if (APP.screen !== "life" || !APP.life) return;
-    const dt = last == null ? 0 : Math.min(now - last, 400);
-    if (APP.playing && !APP.modalOpen) {
-      if (APP.yearHold > 0) {
-        APP.yearHold = Math.max(0, APP.yearHold - dt);
-      } else {
-        const dur = yearMs();
-        APP.yearElapsed += dt;
-        if (APP.yearElapsed >= dur) {
-          APP.yearElapsed = dur;
-          paintYearGauge(false);
-          step();
-          return;
-        }
-      }
-    }
-    paintYearGauge(false);
-  }
-
-  function schedule(delay) { startClock(delay); }
-
-  function step() {
-    if (!APP.playing || APP.modalOpen || APP.screen !== "life") return;
-    const life = APP.life;
+    APP.yearT = 0;
     const res = E.tick(life);
-    const entry = { age: life.age, year: life.year, events: res.events || [], isNew: true,
-      quiet: (res.events && res.events.length) ? null : C.quiet[Math.floor(Math.random() * C.quiet.length)] };
-    life.yearLog.push(entry);
-    appendYear(entry);
-    updateHud(); renderSide(); renderPeerStrip(); renderFocus();
-
-    if (res.death) { endLife(); return; }
-    if (res.decision) {
-      APP.playing = false; renderControls();
-      paintYearGauge(true);
-      showDecision(res.decision);
-      return;
-    }
-    if (res.reflection) {
-      APP.playing = false; renderControls();
-      paintYearGauge(true);
-      showReflection(res.reflection);
-      return;
-    }
-    APP.yearElapsed = 0;
-    paintYearGauge(true);
+    APP.queue = []; APP.qi = 0;
+    const evs = (res.events || []).slice();
+    const decEv = evs.find(e => e && e.t && /결정/.test(''));
+    evs.forEach((ev, i) => {
+      APP.queue.push({ at: 0.12 + i * 0.3, ev, kind: (ev.st && (ev.st.happiness || 0) < 0) ? 'bad' : '' });
+    });
+    life.yearLog.push({ age: life.age, year: life.year, events: evs });
+    paintTop(); renderPanels(); renderFocus();
+    if (res.death) { APP.pendingDeath = res.death; die(); return; }
+    if (res.decision) { APP.playing = false; refreshControls(); showDecision(res.decision); return; }
+    if (res.reflection) { APP.playing = false; refreshControls(); showReflection(res.reflection); return; }
+    if (life.history.length % 5 === 0) save();
+    paint();
   }
 
-  // ---------------- modals ----------------
-  function openModal(html, opts = {}) {
+  function paint() {
+    const life = APP.life; if (!life) return;
+    const bar = $('#prog');
+    if (bar) bar.style.transform = `scaleX(${Math.max(0, Math.min(1, APP.yearT / yearMs())).toFixed(4)})`;
+  }
+
+  /* ---------- 모달 ---------- */
+  function openModal(html, opts) {
     closeModal();
+    APP.modal = opts || {};
+    const root = $('#modalroot');
+    root.innerHTML = `<div class="scrim" id="modal"><div class="dec" id="decCard">${html}</div></div>`;
     APP.modalOpen = true;
-    const bg = U.el("div", "modal-bg");
-    bg.innerHTML = `<div class="modal">${html}</div>`;
-    if (opts.dismissable !== false) bg.onclick = e => { if (e.target === bg) closeModal(); };
-    document.body.appendChild(bg);
-    return bg;
+    return $('#decCard');
   }
   function closeModal() {
-    const m = $(".modal-bg"); if (m) m.remove();
-    APP.modalOpen = false;
-  }
-
-  function showDecision(dec) {
-    const bg = openModal(`
-      <div class="modal-badge">${U.L(dec.badge)}</div>
-      <h3>${dec.age}${t("ageUnit")} · ${U.L(dec.t)}</h3>
-      <p class="body">${glossify(U.L(dec.b), APP.lang)}</p>
-      <div class="choices">${dec.ch.map((c, i) => `
-        <button class="choice" data-ch="${i}">
-          <div class="ct"><i>${String.fromCharCode(65 + i)}</i>${U.L(c.t)}</div>
-          ${c.n && U.L(c.n) ? `<div class="cn">${glossify(U.L(c.n), APP.lang)}</div>` : ""}
-          <div class="cd">${deltaText(c, dec.age)}</div>
-        </button>`).join("")}</div>
-      ${C.sources[dec.src] ? `<div class="src-box on" style="margin-top:12px"><div class="name">${U.L(C.sources[dec.src])} <span style="color:var(--ink-3);font-weight:400">${C.sources[dec.src].date}</span></div><div class="fig">${U.L(C.sources[dec.src].fig)}</div></div>` : ""}
-    `, { dismissable: false });
-    bg.querySelectorAll("[data-ch]").forEach(b => b.onclick = () => {
-      const ch = dec.ch[+b.dataset.ch];
-      E.applyChoice(APP.life, dec, ch);
-      APP.life.yearLog[APP.life.yearLog.length - 1].decision = { t: dec.t, choice: ch.t };
-      closeModal();
-      APP.life.pendingDecision = null;
-      updateHud(); renderSide(); renderFocus();
-      U.toast(`${t("decide")}: ${U.L(ch.t)}`);
-      if (!APP.auto) APP.ff = false;
-      APP.playing = true; schedule(APP.ff ? 260 : 650); renderControls();
-    });
-    if (APP.auto) {
-      setTimeout(() => {
-        if (!APP.modalOpen) return;
-        const idx = Math.floor(Math.random() * dec.ch.length);
-        const btn = bg.querySelector(`[data-ch="${idx}"]`);
-        if (btn) btn.click();
-      }, 520);
-    }
+    const root = $('#modalroot');
+    if (root) root.innerHTML = '';
+    APP.modal = null; APP.modalOpen = false;
+    const peek = $('#decpeek'); if (peek) peek.remove();
   }
 
   function deltaText(ch, age) {
     const out = [];
-    ["health", "happiness", "knowledge", "relation"].forEach(k => {
-      const v = ch.st[k]; if (!v) return;
-      out.push(`${t(stName[k])} ${v > 0 ? "+" : ""}${v}`);
+    [['health', '건강'], ['happiness', '행복'], ['knowledge', '지식'], ['relation', '관계']].forEach(([k, nm]) => {
+      const v = ch.st && ch.st[k]; if (!v) return;
+      out.push(`${nm} ${v > 0 ? '+' : ''}${v}`);
     });
-    if (ch.money && (age == null || age >= 19)) out.push(U.money(ch.money));
-    if (ch.inc) out.push(`${t("income")} ${ch.inc > 0 ? "+" : ""}${Math.round(ch.inc * 100)}%`);
-    if (ch.set && ch.set.job && ch.set.job !== "none") out.push(U.lang() === "ko" ? E.JOB_KO[ch.set.job] : E.JOB_EN[ch.set.job]);
-    return out.join(" · ");
+    if (ch.money && age >= 19) out.push(U.money(ch.money));
+    if (ch.inc) out.push(`소득 ${ch.inc > 0 ? '+' : ''}${Math.round(ch.inc * 100)}%`);
+    if (ch.set && ch.set.job && ch.set.job !== 'none') out.push(JOB_KO[ch.set.job] || '');
+    if (ch.set && ch.set.home) out.push(HOME_KO[ch.set.home] || '');
+    return out.filter(Boolean).join(' · ');
+  }
+
+  function showDecision(dec) {
+    const life = APP.life;
+    const src = dec.src && C.sources[dec.src] ? C.sources[dec.src] : null;
+    const card = openModal(`
+      <div class="decbar" id="decbar"></div>
+      <div class="dec-top"><span class="lbl">${U.L(dec.badge)}</span>
+        <span class="dec-meta">${dec.age}세 · ${life.year}년</span>
+        <button class="dec-min" id="decMin">잠깐 내려 두기 ▾</button></div>
+      <h2>${U.L(dec.t)}</h2>
+      <p class="dec-b">${U.L(dec.b)}</p>
+      ${src ? `<p class="dec-note"><b>자료</b> ${src.ko} · ${U.L(src.fig)}</p>` : ''}
+      <div class="opts">${dec.ch.map((c, i) => `
+        <button class="opt" data-ch="${i}" aria-pressed="${APP.auto && i === 0}">
+          <i>${i + 1}</i><span class="ot">${U.L(c.t)}</span>
+          <span class="oe">${deltaText(c, dec.age)}</span></button>`).join('')}</div>
+      <p class="dec-count" id="decCount">${APP.auto ? '잠시 후 알아서 고릅니다 · 카드를 누르면 멈춰요' : '고르면 이 해가 이어집니다'}</p>
+      <div class="dec-foot">
+        <button class="ghost" id="autoOff">${APP.auto ? '자동 결정 끄기' : '자동 결정 켜기'}</button>
+        <button class="ghost" id="decSkip">결정 창 숨기기</button>
+      </div>`);
+
+    const choose = (i) => {
+      const ch = dec.ch[i];
+      E.applyChoice(life, dec, ch);
+      life.feed.push({ age: dec.age, text: `${U.L(dec.t)} · 결정: ${U.L(ch.t)}`, src: null, kind: 'dec' });
+      const ul = $('#feed');
+      if (ul) { const li = document.createElement('li'); li.className = 'dec enter'; li.innerHTML = `<span class="a">${dec.age}세</span><span class="x">${U.L(dec.t)} · ${U.L(ch.t)}</span>`; ul.appendChild(li); ul.scrollTop = ul.scrollHeight; }
+      APP.decTimer && clearInterval(APP.decTimer); APP.decTimer = null;
+      closeModal();
+      life.pendingDecision = null;
+      APP.playing = true; APP.hold = 620; refreshControls();
+      renderPanels(); renderFocus(); paintTop(); save();
+    };
+    card.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => choose(+b.dataset.ch));
+    $('#decMin').onclick = () => {
+      const t = U.L(dec.t);
+      closeModal();
+      APP.playing = true; APP.hold = 400;
+      const peek = document.createElement('div');
+      peek.className = 'decpeek'; peek.id = 'decpeek';
+      peek.innerHTML = `<span class="dp-t"><b>${t}</b><small>${dec.age}세 · ${life.year}년 · 결정을 기다립니다</small></span>
+        <button class="cta" id="decOpen">결정하기</button>`;
+      document.body.appendChild(peek);
+      $('#decOpen').onclick = () => { peek.remove(); APP.playing = false; showDecision(dec); };
+      life.__dec = dec;
+    };
+    $('#autoOff').onclick = () => { APP.auto = !APP.auto; refreshControls(); closeModal(); APP.playing = false; showDecision(dec); };
+    $('#decSkip').onclick = () => {
+      const idx = Math.floor(Math.random() * dec.ch.length);
+      choose(idx);
+    };
+    // 자동 결정: 6초 카운트다운
+    let left = 6000;
+    const bar = $('#decbar'), cnt = $('#decCount');
+    if (APP.auto) {
+      APP.decTimer = setInterval(() => {
+        left -= 100;
+        if (bar) bar.style.transform = `scaleX(${Math.max(0, 1 - left / 6000).toFixed(3)})`;
+        if (cnt) cnt.innerHTML = `${Math.ceil(left / 1000)}초 뒤 알아서 고릅니다 · <b>카드를 누르면 멈춰요</b>`;
+        if (left <= 0) {
+          clearInterval(APP.decTimer); APP.decTimer = null;
+          const pick = 1 + Math.floor(Math.random() * (dec.ch.length - 1));
+          choose(pick);
+        }
+      }, 100);
+    }
   }
 
   function showReflection(age) {
-    const bg = openModal(`
-      <div class="modal-badge">${age}${t("ageUnit")} · ${U.lang() === "ko" ? "회고" : "REFLECTION"}</div>
-      <h3>${t("reflectionTitle")}</h3>
-      <p class="body">${t("reflectionBody")}</p>
-      <textarea class="refl" id="refl-text" placeholder="${t("reflectionPlaceholder")}"></textarea>
-      <div class="modal-foot">
-        <button class="ghost" id="refl-skip">${t("reflectionSkip")}</button>
-        <button class="primary" id="refl-save">${t("reflectionSave")}</button>
-      </div>`, { dismissable: false });
-    $("#refl-save").onclick = () => {
-      const v = $("#refl-text").value.trim();
-      if (v) APP.life.reflections.push({ age, text: v });
-      closeModal(); APP.playing = true; schedule(400); renderControls();
-    };
-    $("#refl-skip").onclick = () => { closeModal(); APP.playing = true; schedule(300); renderControls(); };
-    if (APP.auto) setTimeout(() => { if (APP.modalOpen && document.getElementById("refl-skip")) document.getElementById("refl-skip").click(); }, 700);
-  }
-
-  function showGlossary(ko) {
-    const g = C.glossary.find(x => x.ko === ko); if (!g) return;
-    const bg = openModal(`
-      <div class="modal-badge">${t("glossaryTitle")}</div>
-      <h3>${U.lang() === "ko" ? g.ko : g.en}</h3>
-      <p class="body">${U.lang() === "ko" ? g.defKo : g.defEn}</p>
-      <div class="modal-foot"><button class="primary" id="g-close">${t("close")}</button></div>`);
-    $("#g-close").onclick = closeModal;
-  }
-
-  function showPeer(id) {
-    const p = APP.life.peers.find(x => x.id === id); if (!p) return;
-    const ms = p.milestones.filter(m => m.age <= APP.life.age);
-    const bg = openModal(`
-      <div class="modal-badge">${U.lang() === "ko" ? "같은 날 태어남" : "BORN THE SAME DAY"}</div>
-      <h3>${p.name}</h3>
-      <p class="body" style="color:var(--ink-3)">${p.reg} · ${p.cls === "high" ? (U.lang() === "ko" ? "형편 나은 집" : "better-off") : p.cls === "low" ? (U.lang() === "ko" ? "어려운 집" : "struggling") : (U.lang() === "ko" ? "평범한 집" : "ordinary")}</p>
-      <div class="peer-card" style="border:0;padding:8px 0">
-        <div class="arc">${ms.map(m => `<div><b>${m.age}${t("ageUnit")}</b><span>${U.L(m)}</span></div>`).join("")}</div>
-      </div>
-      <div class="modal-foot"><button class="primary" id="p-close">${t("close")}</button></div>`);
-    $("#p-close").onclick = closeModal;
-  }
-
-  // ---------------- death & record ----------------
-  function endLife() {
-    APP.playing = false; APP.ff = false; clearTimeout(APP.timer);
     const life = APP.life;
-    if (!life.death) { const d = { age: life.age, year: life.year, cause: "노환", causeEn: "Old age", line: { ko: "잠든 채로 아침이 오지 않았다.", en: "The morning did not come." } }; life.death = d; }
-    renderControls();
-    renderDeath();
-    screen("death");
+    openModal(`
+      <div class="dec-top"><span class="lbl">돌아보기</span><span class="dec-meta">${age}세 · ${life.year}년</span></div>
+      <h2>${age}살, 잠깐 멈춰 앉아</h2>
+      <p class="dec-b">${age === 5 ? '다섯 살. 놀이와 식탁과 잠자리가 이 사람의 바탕을 만듭니다. 지금 무엇이 가장 기억에 남나요?' : age === 30 ? '서른. 일과 사랑과 돈이 서로 자리를 다투는 때입니다. 무엇을 남기고 무엇을 접었나요?' : age === 50 ? '쉰. 몸이 먼저 다른 이야기를 시작합니다. 지금 곁에 무엇이 있나요?' : '일흔. 남은 시간의 무게가 달라집니다. 무엇을 붙잡고 있나요?'}</p>
+      <div class="reflect">
+        <textarea id="reflText" placeholder="한 줄이면 충분해요."></textarea>
+        <div class="qs"><button data-q="지금 가장 고마운 사람은?">지금 가장 고마운 사람은?</button>
+          <button data-q="이 나이에 가장 잘한 선택은?">가장 잘한 선택은?</button>
+          <button data-q="지키고 싶은 것은?">지키고 싶은 것은?</button></div>
+      </div>
+      <div class="dec-foot"><button class="ghost" id="reflSkip">그냥 지나가기</button><button class="cta sm" id="reflSave">남기고 계속 살기</button></div>`);
+    $('#reflText').focus();
+    document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { $('#reflText').value = b.dataset.q; $('#reflText').focus(); });
+    const done = (txt) => {
+      if (txt) { life.reflections.push({ age, text: txt }); pushFeed(age, { ko: `남긴 말: “${txt}”` }, 'note'); }
+      closeModal(); life.pendingReflection = false; APP.playing = true; APP.hold = 600; refreshControls(); save();
+    };
+    $('#reflSkip').onclick = () => done(null);
+    $('#reflSave').onclick = () => done($('#reflText').value.trim());
   }
 
-  function renderDeath() {
-    const life = APP.life, el = $("#screen-death");
+  /* ---------- 사망 ---------- */
+  function die() {
+    const life = APP.life, d = APP.pendingDeath || life.death;
+    APP.playing = false;
+    APP.deathStep = 0;
+    go('death');
+    const el = $('#screen-death');
     el.innerHTML = `
-      <div class="death-screen">
-        <div class="death-kicker">${t("deathTitle")} · ${life.death.year}</div>
-        <div class="death-line">${U.L(life.death.line)}<small>${life.death.age}${t("ageUnit")} · ${U.lang() === "ko" ? life.death.cause : life.death.causeEn}</small></div>
-        <div class="death-actions"><button class="primary" id="to-record">${t("deathContinue")}</button></div>
-      </div>`;
-    $("#to-record").onclick = () => { renderRecord(); screen("record"); };
+      <button class="dc-skip" id="dcSkip">건너뛰기</button>
+      <div class="deathcut" id="deathcut">
+        <div class="dc-lab" id="dcLab">마지막 해</div>
+        <div class="dc-age" id="dcAge">${d.age}세</div>
+        <div class="dc-line" id="dcLine">${life.region.ko}에서 숨을 거두었습니다.</div>
+        <div class="dc-cause" id="dcCause">사인 · ${d.cause}</div>
+      </div>
+      <div class="dc-next">화면을 누르면 다음으로 넘어가요</div>`;
+    const steps = [
+      { lab: '마지막 해', age: d.age + '세', line: `${life.region.ko}에서 숨을 거두었습니다.`, cause: `사인 · ${d.cause}` },
+      { lab: '마지막 순간', age: d.age + '세', line: U.L(d.line) || '', cause: `${life.year}년 · 향년 ${d.age}세` }
+    ];
+    let s = 0;
+    const show = () => {
+      const st = steps[s];
+      $('#dcLab').textContent = st.lab; $('#dcAge').textContent = st.age;
+      $('#dcLine').textContent = st.line; $('#dcCause').textContent = st.cause;
+      const c = $('#deathcut'); c.style.animation = 'none'; void c.offsetWidth; c.style.animation = 'fadein .7s ease';
+    };
+    el.onclick = (ev) => {
+      if (ev.target.id === 'dcSkip') return;
+      s++;
+      if (s < steps.length) show(); else renderRecord();
+    };
+    $('#dcSkip').onclick = () => renderRecord();
+    save();
   }
+
+  /* ---------- 사망 기록 ---------- */
+  function decadeLabel(a) { return a < 10 ? '어린 시절' : `${a}대`; }
 
   function renderRecord() {
-    const life = APP.life, el = $("#screen-record");
+    const life = APP.life, d = life.death || APP.pendingDeath;
+    go('record');
     const type = E.lifeType(life);
-    const nw = E.netWorth(life), pct = E.wealthPercentile(nw);
-    const diff = life.death.age - 83.7;
-    const diffTxt = Math.abs(diff) < 0.8 ? t("survivedSame") : diff > 0 ? t("survived", { d: Math.round(diff) }) : t("survivedShort", { d: Math.round(-diff) });
-    const dod = life.death.year;
-    const haps = life.history.map(h => h.happiness);
-    const avgH = Math.round(haps.reduce((a, b) => a + b, 0) / Math.max(1, haps.length));
-    const peak = life.history.reduce((a, b) => b.happiness > a.happiness ? b : a, life.history[0]);
-    const hard = life.history.reduce((a, b) => b.happiness < a.happiness ? b : a, life.history[0]);
-    const lifespan = life.death.age;
-    const cells = [];
-    for (let a = 0; a <= 100; a++) {
-      const h = life.history[a];
-      if (!h || a > lifespan) { cells.push(`<div class="cell dead" title="${a}"></div>`); continue; }
-      const mark = (life.yearLog || []).find(y => y.age === a && y.decision) ? "◆" : "";
-      cells.push(`<div class="cell" style="background:${U.happinessColor(h.happiness)}" data-a="${a}" title="${t("mapTooltip", { a, y: h.year, h: h.happiness })}"><span class="mk">${mark}</span></div>`);
-    }
-    el.innerHTML = `
-      <div class="record">
+    const nw = E.netWorth(life);
+    const happy = life.history.reduce((best, h) => (h.happiness > best.happiness ? h : best), life.history[0] || { happiness: 50, age: 0 });
+    const places = new Set((life.history || []).map(() => life.region.ko));
+    const cause = d ? d.cause : '노환';
+    const el = $('#screen-record');
+    const color = type.color || null;
+    el.innerHTML = `<div class="wrap"><div class="rec">
+      <div class="rec-band"><span>사망 기록 · RECORD OF DEATH</span><span>${certNo(life)}</span></div>
+      <div class="rec-body">
         <div class="rec-head">
-          <div class="kicker">${t("recordEn")}</div>
-          <h2>${t("record")}</h2>
-          <button class="lang-mini rec-lang" id="rec-lang">${U.lang() === "ko" ? "EN" : "한"}</button>
-          <div class="sub">${life.birthYear} — ${dod} · ${U.lang() === "ko" ? "대한민국" : "REPUBLIC OF KOREA"}</div>
-        </div>
-        <div class="rec-name">
-          <div class="n">${U.L(life.name)}</div>
-          <div class="y">${U.L(life.region)} ${U.L(life.district)} · ${life.sex === "f" ? t("birthSexF") : t("birthSexM")}</div>
-        </div>
-        <div class="rec-grid">
-          <div class="rec-cell"><div class="k">${t("recBorn")}</div><div class="v">${life.birthYear}<small>${U.L(life.region)}</small></div></div>
-          <div class="rec-cell"><div class="k">${t("recDied")}</div><div class="v">${dod}<small>${life.death.age}${t("ageUnit")}</small></div></div>
-          <div class="rec-cell"><div class="k">${t("recCause")}</div><div class="v">${U.lang() === "ko" ? life.death.cause : life.death.causeEn}</div></div>
-          <div class="rec-cell"><div class="k">${t("recLife")}</div><div class="v">${t("recLifeVal", { a: life.death.age })}</div></div>
-          <div class="rec-cell"><div class="k">${t("recJob")}</div><div class="v" style="font-size:14px">${life.job === "none" ? (U.lang() === "ko" ? "무직" : "None") : (U.lang() === "ko" ? E.JOB_KO[life.job] : E.JOB_EN[life.job])}</div></div>
-          <div class="rec-cell"><div class="k">${t("recWealth")}</div><div class="v">${U.money(nw)}<small>${t("recWealthPct", { p: 100 - pct })}</small></div></div>
-        </div>
-        <p style="font-size:12px;color:var(--ink-3);margin-top:8px">${diffTxt}</p>
-
-        <div class="section">
-          <div class="section-head"><h3>${t("recType")}</h3><span>${type.axis}</span></div>
-          <div class="type-card">
-            <div class="flower"><canvas width="192" height="192" id="flowerCanvas" style="width:96px;height:96px"></canvas></div>
-            <div style="min-width:0">
-              <div class="tn">${U.lang() === "ko" ? type.flower.ko : type.flower.en} · ${type.flower.latin}</div>
-              <h3>${U.L(type.name)}</h3>
-              <div class="line">${U.L(type.line)}</div>
-              <p class="desc">${U.L(type.desc)}</p>
+          <div>
+            <span class="lbl">${life.region.ko} · ${life.sex === 'f' ? '여성' : '남성'}</span>
+            <h1>${life.name.ko}</h1>
+            <p class="rec-life">${life.birthYear} – ${life.year} · 향년 ${d.age}세 · ${life.region.ko} ${life.district.ko}</p>
+            <p class="rec-color"><b style="background:${colorHex(type)}"></b>${U.L(type.name)}</p>
+            <p class="rec-story">${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 태어났습니다. ${EDU_KO[life.edu] ? EDU_KO[life.edu] + '를 마쳤습니다. ' : ''}${life.job !== 'none' ? JOB_KO[life.job] + '으로 일했습니다. ' : ''}${life.married ? '배우자와 함께 살았습니다. ' : '결혼하지 않았습니다. '}${life.kids ? `아이 ${life.kids}명을 키웠습니다. ` : ''}${d.age}세에 ${cause}(으)로 세상을 떠났습니다.</p>
+            <p class="rec-cause">사인 · ${cause}</p>
+          </div>
+          <div>
+            <div class="rec-fields" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:0;border-top:0">
+              <div><span>최종 학력</span><b>${EDU_KO[life.edu] || '—'}</b></div>
+              <div><span>마지막 일</span><b>${JOB_KO[life.job] || '—'}${life.retired ? ' · 은퇴' : ''}</b></div>
+              <div><span>함께한 사람</span><b>${life.married ? '배우자' : '없음'}</b></div>
+              <div><span>자녀</span><b>${life.kids ? life.kids + '명' : '없음'}</b></div>
+              <div><span>가장 행복했던 해</span><b>${happy.age}세 (${life.birthYear + happy.age}년)</b></div>
+              <div><span>살았던 곳</span><b>${[...places].join(', ')}</b></div>
+              <div><span>남긴 재산(한국 체감)</span><b>${U.money(nw)}</b></div>
+              <div><span>재산 상위</span><b>${nw > 0 ? (100 - E.wealthPercentile(nw)).toFixed(1) + '%' : '—'}</b></div>
             </div>
           </div>
         </div>
 
-        <div class="section">
-          <div class="section-head"><h3>${t("lifeMap")}</h3><span>0 — ${lifespan}</span></div>
-          <p style="font-size:11.5px;color:var(--ink-3);margin-top:6px">${t("lifeMapNote")}</p>
-          <div class="lifemap">${cells.join("")}</div>
-          <div class="legend"><span><i style="background:${U.happinessColor(15)}"></i>${U.lang() === "ko" ? "힘든 해" : "hard year"}</span><span><i style="background:${U.happinessColor(50)}"></i>50</span><span><i style="background:${U.happinessColor(85)}"></i>${U.lang() === "ko" ? "좋은 해" : "good year"}</span><span>◆ ${t("decide")}</span></div>
-        </div>
+        <section class="rec-sec">
+          <h3>이 삶의 결 <span class="lbl">16가지 결 중 하나</span></h3>
+          <p class="lead">${U.L(type.line)}</p>
+          <p class="rec-story" style="margin-top:8px;font-size:15px">${U.L(type.desc)}</p>
+          <p class="hint" style="margin-top:8px">결은 한 삶이 어느 쪽으로 기울어 흘러가는지를 네 쌍의 낱말로 나타낸 것입니다. 어느 쪽도 더 나은 삶은 아닙니다.</p>
+        </section>
 
-        <div class="section">
-          <div class="section-head"><h3>${t("chartWealth")}</h3><span>${U.money(nw)}</span></div>
-          <div class="chart">${window.CHARTS.wealth(life)}</div>
-        </div>
-        <div class="section">
-          <div class="section-head"><h3>${t("chartSurvival")}</h3><span>${life.death.age}${t("ageUnit")}</span></div>
-          <div class="chart">${window.CHARTS.survival(life)}<div class="cap">${U.lang() === "ko" ? "국가데이터처 「2025 한국의 사회지표」 2024년 기대수명 83.7년" : "Life expectancy 83.7 years (2024), Statistics Korea"}</div></div>
-        </div>
-        ${life.history.some(h => h.income > 0) ? `<div class="section">
-          <div class="section-head"><h3>${t("chartIncome")}</h3><span>${t("chartIncomeNote")}</span></div>
-          <div class="chart">${window.CHARTS.income(life)}</div>
-        </div>` : ""}
+        <section class="rec-sec">
+          <h3>인생 지도 <span class="lbl">한 칸 = 1년 · ${d.age + 1}칸</span></h3>
+          <div class="grid10" id="recGrid"></div>
+          <div class="gridkey"><span><i style="background:var(--grid-lo)"></i>덜 행복</span><span><i style="background:var(--grid-hi)"></i>더 행복</span><span><i style="background:var(--rule2);box-shadow:inset 0 0 0 1px var(--ink3)"></i>기대수명</span></div>
+        </section>
 
-        <div class="section">
-          <div class="section-head"><h3>${t("endStats")}</h3><span></span></div>
-          <div class="rec-grid">
-            <div class="rec-cell"><div class="k">${t("avgHappiness")}</div><div class="v">${avgH}</div></div>
-            <div class="rec-cell"><div class="k">${t("peak")}</div><div class="v" style="font-size:14px">${peak.age}${t("ageUnit")} · ${peak.year}</div></div>
-            <div class="rec-cell"><div class="k">${t("hardest")}</div><div class="v" style="font-size:14px">${hard.age}${t("ageUnit")} · ${hard.year}</div></div>
-            <div class="rec-cell"><div class="k">${t("totalEvents")}</div><div class="v">${life.history.filter(h => h.event).length}</div></div>
-          </div>
-        </div>
+        <section class="rec-sec">
+          <h3>생존 곡선 <span class="lbl">같은 해 태어난 사람들</span></h3>
+          <div class="chartbox">${window.CHARTS ? window.CHARTS.survival(life) : ''}</div>
+          <p class="lead">${life.birthYear}년 ${life.region.ko}에서 태어난 사람 가운데 ${d.age}세까지 살아 있는 비율만큼 이 삶도 이어졌습니다.</p>
+        </section>
 
-        <div class="section">
-          <div class="section-head"><h3>${t("reflectionKept")}</h3><span>${life.reflections.length}</span></div>
-          ${life.reflections.length ? `<div class="refl-list">${life.reflections.map(r => `<div class="refl-item"><b>${r.age}${t("ageUnit")} · ${life.birthYear + r.age}</b>${U.esc(r.text)}</div>`).join("")}</div>` : `<p style="font-size:12.5px;color:var(--ink-3);margin-top:8px">${t("reflectionsEmpty")}</p>`}
-        </div>
+        <section class="rec-sec">
+          <h3>기억에 남는 순간 <span class="lbl">${(life.history || []).length}해 중에서</span></h3>
+          <ul class="moments">${moments(life).map(m => `<li><span class="a">${m.age}세</span><span>${m.text}</span></li>`).join('')}</ul>
+        </section>
 
-        <div class="section">
-          <div class="section-head"><h3>${t("peersTitle")}</h3><span>${t("currentPeers")}</span></div>
-          <p style="font-size:11.5px;color:var(--ink-3);margin-top:6px">${t("peersNote")}</p>
-          <div class="peer-list">${life.peers.map(p => {
-            const dm = p.milestones.find(m => m.death);
-            return `<div class="peer-card">
-              <div class="top"><span class="nm">${p.name}</span><span class="rg">${p.reg}</span></div>
-              <div class="arc">${p.milestones.map(m => `<div><b>${m.age}${t("ageUnit")}</b><span>${U.L(m)}</span></div>`).join("")}</div>
-            </div>`;
-          }).join("")}</div>
-        </div>
+        <section class="rec-sec">
+          <h3>인생 기록 전체 <span class="lbl">태어난 날부터 순서대로</span></h3>
+          <div class="decades" id="decades"></div>
+          <ul class="feed" id="recFeed"></ul>
+        </section>
 
-        <p class="foot-note">${t("recordFoot")}</p>
-        <div style="height:56px"></div>
+        <section class="rec-sec">
+          <h3>소득과 재산의 흐름 <span class="lbl">만 원</span></h3>
+          <div class="chartbox">${window.CHARTS && window.CHARTS.wealth ? window.CHARTS.wealth(life) : ''}</div>
+        </section>
+
+        <div class="rec-foot">
+          <button class="cta" id="againBtn">다시 태어나기</button>
+          <button class="ghost" id="shareBtn">이번 생 공유하기</button>
+          <button class="ghost" id="coverBtn">처음 화면으로</button>
+        </div>
+        <p class="rec-note">전생 기록은 이 브라우저에만 남습니다. 같은 브라우저로 다시 오면 지난 삶을 다시 볼 수 있어요.</p>
       </div>
-      <div class="rec-actions">
-        <button class="ghost" id="rec-again">${U.lang() === "ko" ? "다시" : "Again"}</button>
-        <button class="primary" id="rec-share">${t("share")}</button>
-      </div>`;
-    // flower
-    const cv = $("#flowerCanvas");
-    if (cv) window.SHARE.drawFlower(cv.getContext("2d"), 96, 96, 84, type);
-    U.$$(".lifemap .cell").forEach(c => c.onclick = () => {
-      const a = +c.dataset.a;
-      const h = life.history[a];
-      const y = (life.yearLog || []).find(x => x.age === a);
-      if (!h) return;
-      openModal(`<div class="modal-badge">${a}${t("ageUnit")} · ${h.year}</div>
-        <h3>${U.lang() === "ko" ? `행복도 ${h.happiness}` : `Happiness ${h.happiness}`}</h3>
-        <p class="body">${y && y.events.length ? y.events.map(e => U.L(e.t)).join(" · ") : t("eventNone")}</p>
-        <div class="modal-foot"><button class="primary" id="m-close">${t("close")}</button></div>`);
-      $("#m-close").onclick = closeModal;
-    });
-    const rl = $("#rec-lang"); if (rl) rl.onclick = () => setLang(U.lang() === "ko" ? "en" : "ko");
-    $("#rec-again").onclick = () => { APP.life = E.createLife(); renderBirth(); screen("birth"); };
-    $("#rec-share").onclick = showShare;
+    </div></div>`;
+
+    // 지도
+    const g = $('#recGrid');
+    if (g) {
+      const cells = [];
+      for (let a = 0; a <= d.age; a++) {
+        const h = (life.history || []).find(x => x.age === a);
+        const hp = h ? h.happiness : 50;
+        const bg = hp >= 75 ? 'var(--grid-hi)' : hp >= 58 ? 'var(--grid-mid)' : hp >= 42 ? '#B9CFA8' : 'var(--grid-lo)';
+        const ev = (life.feed || []).find(f => f.age === a);
+        cells.push(`<div class="c${a === d.age ? ' cur' : ''}" style="background:${bg}" title="${a}세"><span class="m">${a % 10 === 0 ? a : ''}</span></div>`);
+      }
+      g.innerHTML = cells.join('');
+    }
+    // 10년 단위
+    const dec = $('#decades');
+    const ages = [...new Set((life.feed || []).map(f => Math.floor(f.age / 10) * 10))].sort((a, b) => a - b);
+    const drawFeed = (from) => {
+      const ul = $('#recFeed'); if (!ul) return;
+      ul.innerHTML = (life.feed || []).filter(f => f.age >= from && f.age < from + 10).map(f => `
+        <li class="${f.kind || ''}"><span class="a">${f.age}세</span><span class="x">${f.text}${f.src ? `<span class="f">${f.src}</span>` : ''}</span></li>`).join('');
+      dec.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.from === from));
+    };
+    dec.innerHTML = ages.map(a => `<button data-from="${a}" aria-pressed="${a === ages[0]}">${decadeLabel(a)}</button>`).join('');
+    dec.querySelectorAll('button').forEach(b => b.onclick = () => drawFeed(+b.dataset.from));
+    if (ages.length) drawFeed(ages[0]);
+
+    $('#againBtn').onclick = () => { APP.life = null; localStorage.removeItem('oifm2_life'); renderCover(); go('cover'); $('#startBtn').click(); };
+    $('#coverBtn').onclick = () => { APP.life = null; localStorage.removeItem('oifm2_life'); renderCover(); go('cover'); };
+    $('#shareBtn').onclick = () => openShare('record');
   }
 
-  // ---------------- share ----------------
-  function showShare() {
+  function colorHex(type) {
+    const pal = ['#8C1D3C', '#0F6E68', '#9C7020', '#2B5A7A', '#6B4A7A', '#2B7A4E', '#A8730F', '#4A5A61'];
+    let h = 0; const nm = U.L(type.name) || '';
+    for (let i = 0; i < nm.length; i++) h = (h * 31 + nm.charCodeAt(i)) % 997;
+    return pal[h % pal.length];
+  }
+
+  function moments(life) {
+    const out = [];
+    const feed = life.feed || [];
+    const pick = (re) => feed.find(f => re.test(f.text));
+    const b = feed.find(f => f.age === 0);
+    if (b) out.push({ age: 0, text: b.text });
+    const school = pick(/입학|졸업|대학/); if (school) out.push({ age: school.age, text: school.text });
+    const job = pick(/취업|일하기 시작|첫 직장|자영업/); if (job) out.push({ age: job.age, text: job.text });
+    const love = pick(/결혼|연애|배우자/); if (love) out.push({ age: love.age, text: love.text });
+    const kid = pick(/태어났습니다|아이가/); if (kid && kid.age > 18) out.push({ age: kid.age, text: kid.text });
+    const money = feed.filter(f => /모아 둔 돈/.test(f.text)).pop(); if (money) out.push({ age: money.age, text: money.text });
+    const last = feed[feed.length - 1]; if (last) out.push({ age: last.age, text: last.text });
+    return out.slice(0, 7);
+  }
+
+  /* ---------- 공유 ---------- */
+  function openShare(kind, fromCert) {
     const life = APP.life;
-    let fmt = "45";
-    const bg = openModal(`
-      <div class="modal-badge">${t("shareTitle")}</div>
-      <h3>${U.L(life.name)} · ${life.birthYear}—${life.death.year}</h3>
-      <div class="share-tabs seg" style="margin-top:12px">
-        <button data-f="45" class="on">${t("share45")}</button>
-        <button data-f="916">${t("share916")}</button>
+    const kinds = [['record', '인생 기록'], ['birth', '출생'], ['color', '이 삶의 결'], ['map', '인생 지도'], ['curve', '생존 곡선'], ['death', '마지막 순간']];
+    APP.shareKind = kind || 'record';
+    const root = $('#sheetroot');
+    root.innerHTML = `<div class="scrim" id="shareScrim"><div class="sharebox">
+      <div class="share-tabs">${kinds.map(([k, nm]) => `<button data-k="${k}" aria-pressed="${k === APP.shareKind}">${nm}</button>`).join('')}</div>
+      <img class="share-img" id="shareImg" alt="삶의 공유 카드"/>
+      <p class="share-cap" id="shareCap"></p>
+      <div class="share-act">
+        <button class="cta sm" id="saveCard">이미지 저장</button>
+        <button class="ghost" id="copyText">글·링크 복사</button>
+        <button class="ghost" id="closeShare">닫기</button>
       </div>
-      <div class="share-preview"><canvas id="shareCanvas" style="max-height:52dvh;width:auto;margin:0 auto;display:block"></canvas></div>
-      <div class="modal-foot">
-        <button class="ghost" id="sh-copy">${t("copy")}</button>
-        <button class="primary" id="sh-dl">${t("download")}</button>
-      </div>`, { dismissable: true });
-    const cv = $("#shareCanvas");
-    const draw = () => { window.SHARE.drawCard(life, fmt, cv); cv.style.aspectRatio = fmt === "45" ? "4/5" : "9/16"; };
-    draw();
-    bg.querySelectorAll("[data-f]").forEach(b => b.onclick = () => {
-      fmt = b.dataset.f;
-      bg.querySelectorAll("[data-f]").forEach(x => x.classList.toggle("on", x === b));
+    </div></div>`;
+    const draw = () => {
+      const img = $('#shareImg');
+      let url = '';
+      try {
+        if (window.CARD && window.CARD.make) url = window.CARD.make(APP.shareKind, life, { fromCert: !!fromCert });
+      } catch (e) { url = ''; }
+      if (!url && window.SHARE) {
+        const cv = document.createElement('canvas');
+        window.SHARE.drawCard(life, '45', cv);
+        url = cv.toDataURL('image/png');
+      }
+      img.src = url;
+      const cap = $('#shareCap');
+      if (cap) cap.textContent = shareText(life, APP.shareKind);
+    };
+    root.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+      APP.shareKind = b.dataset.k;
+      root.querySelectorAll('[data-k]').forEach(x => x.setAttribute('aria-pressed', x === b));
       draw();
     });
-    $("#sh-dl").onclick = () => {
-      cv.toBlob(blob => {
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `1in50m_${life.name.ko}_${life.birthYear}.png`;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-      }, "image/png");
+    $('#closeShare').onclick = () => { root.innerHTML = ''; };
+    $('#saveCard').onclick = () => {
+      const a = document.createElement('a');
+      a.href = $('#shareImg').src; a.download = `5천만분의1_${life.name.ko}_${APP.shareKind}.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+      U.toast('카드를 저장했습니다');
     };
-    $("#sh-copy").onclick = async () => {
-      try {
-        const blob = await new Promise(r => cv.toBlob(r, "image/png"));
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-        U.toast(t("copied"));
-      } catch (e) { U.toast(t("copy") + " ✕"); }
+    $('#copyText').onclick = async () => {
+      const txt = shareText(life, APP.shareKind);
+      try { await navigator.clipboard.writeText(txt); U.toast('글을 복사했습니다'); } catch (e) { U.toast('복사가 막혀 있어요'); }
     };
+    draw();
   }
 
-  // ---------------- boot ----------------
-  function boot() {
-    document.documentElement.lang = APP.lang;
-    // ensure screens exist
-    ["cover", "birth", "life", "death", "record"].forEach(id => {
-      if (!document.getElementById("screen-" + id)) {
-        const s = document.createElement("section");
-        s.id = "screen-" + id; s.className = "screen";
-        document.getElementById("app").appendChild(s);
-      }
-    });
-    renderCover();
-    screen("cover");
+  function shareText(life, kind) {
+    const type = E.lifeType(life);
+    const d = life.death;
+    const head = `${life.name.ko} · ${life.region.ko} · ${life.birthYear}–${life.year}`;
+    if (kind === 'birth') return `${life.birthYear}년 ${life.region.ko} ${life.district.ko}에서 태어났다. 대한민국에서 그해 태어난 254,341명 중 한 명. #5천만분의1`;
+    if (kind === 'death') return `${life.name.ko}, ${d ? d.age : life.age}세에 ${d ? d.cause : ''}(으)로 세상을 떠났다. #5천만분의1`;
+    return `${head}. 이 삶의 결은 '${U.L(type.name)}'. ${U.L(type.line)} #5천만분의1`;
   }
-  window.UI = { boot, setLang, showShare, renderRecord, endLife, APP };
-  document.addEventListener("DOMContentLoaded", boot);
+
+  /* ---------- 시작 ---------- */
+  function boot() {
+    const th = localStorage.getItem('oifm2_theme');
+    if (th) document.documentElement.setAttribute('data-theme', th);
+    renderCover();
+    go('cover');
+    window.addEventListener('beforeunload', save);
+    document.addEventListener('keydown', (e) => {
+      if (APP.screen !== 'life') return;
+      if (e.key === ' ') { e.preventDefault(); APP.playing = !APP.playing; refreshControls(); }
+      if (['1', '2', '3', '4', '5'].includes(e.key)) { APP.speed = SPEEDS[+e.key - 1]; refreshControls(); }
+      if (e.key === 'Escape' && APP.modal) { closeModal(); APP.playing = true; }
+    });
+  }
+  boot();
 })();

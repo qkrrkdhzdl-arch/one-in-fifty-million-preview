@@ -315,5 +315,5 @@
     g.restore();
   }
 
-  window.SHARE = { drawCard, drawFlower };
+  window.SHARE = { drawCard, drawFlower, scene, scenesFor, person, px, PALETTES };
 })();
