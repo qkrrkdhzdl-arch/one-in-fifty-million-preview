@@ -425,8 +425,8 @@
           <div class="lbl">${L('이름', 'Name')}</div>
           <h2>${en() ? life.name.en : life.name.ko}</h2>
           <p class="story">${en()
-              ? `You were born in ${life.district.en}, ${life.region.en}, in ${life.birthYear}, a ${life.sex === 'f' ? 'girl' : 'boy'} in a ${clsName(life.cls)} household. ${life.family === 'single' ? 'One parent is raising you.' : life.siblings ? (life.siblings === 1 ? 'You have an older sibling.' : `You have ${life.siblings} older siblings.`) : 'You are the first child.'} The family lives in ${lcFirst(birthHome(life))}, ${life.region.en}. ${gpStory}`
-              : `${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 ${life.sex === 'f' ? '여자아이' : '남자아이'}로 태어났습니다. ${life.family === 'single' ? '한부모 가정입니다.' : life.siblings ? `위로 형제자매 ${life.siblings}명이 있습니다.` : '첫아이입니다.'} 가족은 ${life.region.ko}의 ${birthHome(life)}에서 살아갑니다. ${gpStory}`}</p>
+              ? `You were born in ${life.district.en}, ${life.region.en}, in ${life.birthYear}, a ${life.sex === 'f' ? 'girl' : 'boy'} in a ${clsName(life.cls)} household. ${life.family === 'single' ? 'One parent is raising you.' : life.siblings ? (life.siblings === 1 ? 'You have an older sibling.' : `You have ${life.siblings} older siblings.`) : 'You are the first child.'} The family lives in ${birthHomeShort(life)}, ${life.region.en}. ${gpStory}`
+              : `${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 ${life.sex === 'f' ? '여자아이' : '남자아이'}로 태어났습니다. ${life.family === 'single' ? '한부모 가정입니다.' : life.siblings ? `위로 형제자매 ${life.siblings}명이 있습니다.` : '첫아이입니다.'} 가족은 ${life.region.ko}의 ${birthHomeShort(life)}에서 살아갑니다. ${gpStory}`}</p>
           <p class="certpace">${L(
               `기대수명까지 살면 약 ${Math.round(e0 * YEAR_MS[APP.pace] / 60000)}분이 걸려요 (1년 ≈ ${Math.round(YEAR_MS[APP.pace] / 1000)}초). 사는 동안 일시정지와 배속이 되고, 중간에 닫아도 이 브라우저에 저장됩니다.`,
               `Living to life expectancy takes about ${Math.round(e0 * YEAR_MS[APP.pace] / 60000)} minutes (one year is about ${Math.round(YEAR_MS[APP.pace] / 1000)} seconds). You can pause and speed it up, and closing the tab keeps the life saved in this browser.`)}</p>
@@ -484,6 +484,12 @@
     return en() ? it.en : it.ko;
   }
 
+  function birthHomeShort(life) {
+    if (!life || !life.homeKind) return L('부모님 집', "a home with your parents");
+    const h = (C.homes || []).find(x => x.id === life.homeKind);
+    if (!h) return L('부모님 집', "a home with your parents");
+    return en() ? h.en : h.ko;
+  }
   function birthHome(life) {
     if (!life || !life.homeKind) return L('부모님 집', "your parents' home");
     const h = (C.homes || []).find(x => x.id === life.homeKind);
