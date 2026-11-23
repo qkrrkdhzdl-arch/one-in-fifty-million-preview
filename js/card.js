@@ -110,7 +110,11 @@
   const lastAge = l => Math.max(0, Math.floor(num(l.death && l.death.age, l.age)));
   const lastYear = l => num(l.death && l.death.year, num(l.year, l.birthYear + lastAge(l)));
   const wealth = l => num(l.cash) + num(l.assets) + num(l.homeValue) + num(l.deposit) - num(l.debt);
-  const labelOf = v => typeof v === 'string' ? v : v && (v.ko || (v.name && (v.name.ko || v.name))) || '';
+  const JOB = { none: '', office: '사무직', trade: '기술·생산직', public: '공공기관', self: '자영업', free: '프리랜서', farm: '농림어업' };
+  const EDU = { none: '', high: '고등학교', college: '전문대', university: '대학교', grad: '대학원' };
+  const labelOf = v => typeof v === 'string'
+    ? (JOB[v] != null ? JOB[v] : EDU[v] != null ? EDU[v] : v)
+    : v && (v.ko || (v.name && (v.name.ko || v.name))) || '';
   function survival(l) {
     try {
       const points = window.ENGINE.survivalCurve(l);

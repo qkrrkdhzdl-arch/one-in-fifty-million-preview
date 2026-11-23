@@ -873,7 +873,7 @@
             <h1>${life.name.ko}</h1>
             <p class="rec-life">${life.birthYear} – ${life.year} · 향년 ${d.age}세 · ${life.region.ko} ${life.district.ko}</p>
             <p class="rec-color"><b style="background:${colorHex(type)}"></b>${U.L(type.name)}</p>
-            <p class="rec-story">${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 태어났습니다. ${EDU_KO[life.edu] ? EDU_KO[life.edu] + '를 마쳤습니다. ' : ''}${life.job !== 'none' ? JOB_KO[life.job] + '으로 일했습니다. ' : ''}${life.married ? '배우자와 함께 살았습니다. ' : '결혼하지 않았습니다. '}${life.kids ? `아이 ${life.kids}명을 키웠습니다. ` : ''}${d.age}세에 ${cause}(으)로 세상을 떠났습니다.</p>
+            <p class="rec-story">${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 태어났습니다. ${life.edu && life.edu !== 'none' ? EDU_KO[life.edu] + '를 마쳤습니다. ' : ''}${life.job !== 'none' ? JOB_KO[life.job] + '으로 일했습니다. ' : ''}${life.married ? '배우자와 함께 살았습니다. ' : '결혼하지 않았습니다. '}${life.kids ? `아이 ${life.kids}명을 키웠습니다. ` : ''}${d.age}세에 ${cause}${josa(cause, '으로', '로')} 세상을 떠났습니다.</p>
             <p class="rec-cause">사인 · ${cause}</p>
           </div>
           <div>
@@ -965,6 +965,14 @@
     $('#shareBtn').onclick = () => openShare('record');
   }
 
+  function josa(word, withJong, withoutJong) {
+    const last = String(word || '').slice(-1);
+    const code = last.charCodeAt(0);
+    if (code < 0xac00 || code > 0xd7a3) return withoutJong;
+    const hasJong = (code - 0xac00) % 28 !== 0;
+    return hasJong ? withJong : withoutJong;
+  }
+
   function colorHex(type) {
     const pal = ['#8C1D3C', '#0F6E68', '#9C7020', '#2B5A7A', '#6B4A7A', '#2B7A4E', '#A8730F', '#4A5A61'];
     let h = 0; const nm = U.L(type.name) || '';
@@ -984,7 +992,9 @@
     const kid = pick(/태어났습니다|아이가/); if (kid && kid.age > 18) out.push({ age: kid.age, text: kid.text });
     const money = feed.filter(f => /모아 둔 돈/.test(f.text)).pop(); if (money) out.push({ age: money.age, text: money.text });
     const last = feed[feed.length - 1]; if (last) out.push({ age: last.age, text: last.text });
-    return out.slice(0, 7);
+    const seen = new Set();
+    return out.filter(m => (seen.has(m.text) ? false : seen.add(m.text)))
+      .sort((a, b) => a.age - b.age).slice(0, 8);
   }
 
   /* ---------- 공유 ---------- */
