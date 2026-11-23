@@ -13,12 +13,14 @@
   const HOME_KO = { none: '얹혀 삶', wolse: '월세', jeonse: '전세', own: '내 집' };
   const JOB_KO = { none: '—', office: '사무직', trade: '기술·생산직', public: '공공기관', self: '자영업', free: '프리랜서', farm: '농림어업' };
   const EDU_KO = { none: '—', high: '고등학교', college: '전문대', university: '대학교', grad: '대학원' };
+  const MAJOR_KO = { none: '—', eng: '공학·컴퓨터', biz: '경영·경제', hum: '인문·사회', med: '의약·보건', art: '예체능', edu: '사범·교육', sci: '자연과학' };
+  const ROLE_KO = { none: '—', dev: '개발·데이터', mkt: '마케팅·기획', sales: '영업', finance: '재무·회계', research: '연구·전문직', public: '공무원·공공', edu: '교사·교육', med: '의료·돌봄', self: '자영업·창업', trade: '기술·생산', free: '프리랜서', farm: '농림어업', senior: '노후 일자리' };
   const FOCUS = [
-    ['health', '건강', '건강↑ 행복↑'],
-    ['study', '공부', '지식↑ 행복↓'],
-    ['career', '일', '소득↑ 지식↑'],
-    ['family', '가족', '관계↑ 행복↑'],
-    ['balance', '균형', '행복↑ 건강↑']
+    ['work', '일·배움', '역량↑ 소득↑ 스트레스↑'],
+    ['love', '관계·사랑', '관계↑ 행복↑'],
+    ['health', '건강·쉼', '건강↑ 스트레스↓'],
+    ['money', '돈·투자', '소득·재산↑ 지식↑'],
+    ['balance', '균형', '모두 조금씩']
   ];
   const ALLOC = [['safe', '예금'], ['stock', '주식'], ['coin', '코인']];
 
@@ -430,12 +432,16 @@
         <div class="panel p-stats" id="p-stats">
           <h3><span class="ttl">상태</span><span class="lbl">0–100</span></h3>
           <div id="statRows"></div>
+          <div class="statmini" id="statMini"></div>
           <div class="money" id="moneyBox"></div>
           <div class="spend" id="spendBox"></div>
+          <button type="button" class="ghost wide expbtn" id="expToggle" aria-expanded="false">연소득·연지출 내역</button>
+          <div class="expdetail" id="expDetail" hidden></div>
         </div>
         <div class="panel p-fam" id="p-fam">
           <h3><span class="ttl">가족과 삶</span><span class="lbl" id="famLbl"></span></h3>
-          <dl class="idcard-dl" id="famList" style="display:grid;grid-template-columns:fit-content(6.5em) minmax(0,1fr);gap:2px 10px;font-size:13px"></dl>
+          <div class="famlist" id="famList"></div>
+          <button type="button" class="ghost wide" id="famMore">가족 자세히 보기</button>
         </div>
       </div>
       <div class="col">
@@ -496,6 +502,14 @@
     paintAutoHide();
     $('#goFamily').onclick = () => { const p = $('#p-fam'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
     $('#goStats').onclick = () => { const p = $('#p-stats'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+    const fm2 = $('#famMore'); if (fm2) fm2.onclick = openFamilySheet;
+    const et = $('#expToggle');
+    if (et) et.onclick = () => {
+      const box = $('#expDetail'); if (!box) return;
+      box.hidden = !box.hidden;
+      et.setAttribute('aria-expanded', box.hidden ? 'false' : 'true');
+      renderExpenseDetail();
+    };
     const fm = $('#feedMore');
     if (fm) fm.onclick = () => { const ul = $('#feed'); if (!ul) return; ul.classList.toggle('all'); updateFeedMore(); if (!ul.classList.contains('all')) ul.scrollTop = 0; };
 
@@ -524,9 +538,9 @@
       <dt>출생</dt><dd>${life.region.ko} · ${life.birthYear}년</dd>
       <dt>거주</dt><dd>${life.region.ko} ${life.district.ko}</dd>
       <dt>가정 형편</dt><dd>${CLASS_KO[life.cls]}</dd>
-      <dt>학력</dt><dd>${EDU_KO[life.edu] || '—'}</dd>
-      <dt>일</dt><dd>${JOB_KO[life.job] || '—'}</dd>
-      <dt>집</dt><dd>${HOME_KO[life.home]}</dd>`;
+      <dt>학력</dt><dd>${(life.major && life.major !== 'none') ? `${MAJOR_KO[life.major] || life.major} · ${EDU_KO[life.edu] || ''}` : (EDU_KO[life.edu] || '—')}</dd>
+      <dt>일</dt><dd>${life.role && life.role !== 'none' ? ROLE_KO[life.role] : (JOB_KO[life.job] || '—')}</dd>
+      <dt>집</dt><dd>${HOME_KO[life.home]}${life.flags.wagePeak && !life.flags.retired ? ' · 임금피크' : ''}${life.flags.retired ? ' · 은퇴' : ''}</dd>`;
     const mrz = $('#mrz');
     if (mrz) mrz.textContent = `I<KOR${life.name.en.replace(/ /g, '').toUpperCase()}<<${life.region.ko}<<<<<<<<<<<<<<<<<<<<<`;
     const cv = $('#avatar');
@@ -545,12 +559,23 @@
           <span class="sb"><i style="width:${Math.round(life.stats[k])}%"></i></span>
           <span class="sv">${Math.round(life.stats[k])}</span></div>`).join('');
     }
+    const mini = $('#statMini');
+    if (mini) {
+      const M = [['reputation', '평판', '사회적 신뢰'], ['spec', '역량', '스펙·직무 경험'], ['stress', '스트레스', '낮을수록 좋아요']];
+      mini.innerHTML = M.map(([k, nm, tip]) => `
+        <div class="statrow mini" data-k="${k}" title="${tip}">
+          <span class="sn">${nm}</span>
+          <span class="sb"><i style="width:${Math.round(life.stats[k] || 0)}%"></i></span>
+          <span class="sv">${Math.round(life.stats[k] || 0)}</span></div>`).join('');
+    }
     const money = $('#moneyBox');
     if (money) {
       const nw = E.netWorth(life);
+      const inc = life.income || 0, exp = life.expenses || 0;
       money.innerHTML = `
-        <div><small>${life.age < 19 ? '가정 형편' : '순자산(한국 체감)'}</small><b>${life.age < 19 ? CLASS_KO[life.cls] : U.money(nw)}</b></div>
-        <div><small>${life.age < 19 ? '부모의 벌이' : '연 소득'}</small><b>${life.age < 19 ? '—' : (life.income ? U.money(life.income) : '—')}</b></div>`;
+        <div><small>${life.age < 19 ? '가정 형편' : '순자산'}</small><b>${life.age < 19 ? CLASS_KO[life.cls] : U.money(nw)}</b></div>
+        <div><small>올해 연소득</small><b>${life.age < 19 ? '—' : (inc ? U.money(inc) : '0원')}</b></div>
+        <div class="wide3"><small>올해 연지출</small><b class="${exp > inc && inc > 0 ? 'over' : ''}">${life.age < 19 ? '—' : (exp ? U.money(exp) : '0원')}</b></div>`;
     }
     const spend = $('#spendBox');
     if (spend) {
@@ -560,22 +585,24 @@
         const use = Math.min(1, ex / Math.max(inc, ex, 1)), save = 1 - use;
         spend.innerHTML = `
         <div class="sbar"><i style="width:${(use * 100).toFixed(1)}%;background:var(--accent)"></i><i style="width:${(save * 100).toFixed(1)}%;background:var(--stamp)"></i></div>
-        <div class="keys"><span style="--c:var(--accent)">쓰는 돈</span><span style="--c:var(--stamp)">남기는 돈</span></div>`;
+        <div class="keys"><span style="--c:var(--accent)">지출 ${Math.round(use * 100)}%</span><span style="--c:var(--stamp)">남김 ${Math.round(save * 100)}%</span></div>`;
       }
     }
+    renderExpenseDetail();
     // 가족
     const fam = $('#famList');
     if (fam) {
-      const rows2 = [];
-      const fa = life.familyAges || {};
-      if (fa.mother != null) rows2.push(['어머니', fa.mother + '세']);
-      if (fa.father != null) rows2.push(['아버지', fa.father + '세']);
-      if (life.siblings) rows2.push(['형제자매', life.siblings + '명']);
-      if (life.married) rows2.push(['배우자', '함께 사는 중']);
-      if (life.kids) rows2.push(['자녀', life.kids + '명']);
-      if (life.care) rows2.push(['돌보는 식구', life.care + '명']);
-      fam.innerHTML = rows2.length ? rows2.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('') : '<dd style="color:var(--ink3)">기록 없음</dd>';
-      const fl = $('#famLbl'); if (fl) fl.textContent = `${life.family === 'single' ? '한부모' : life.family === 'grand' ? '조부모와' : life.family === 'care' ? '돌봄 가정' : '양부모'}`;
+      const view = E.familyView(life);
+      fam.innerHTML = view.length ? view.map(p => {
+        const state = p.alive ? `${p.age}세` : '고인';
+        return `<div class="famrow${p.alive ? '' : ' dead'}">
+          <span class="fn">${U.esc(p.role)}</span>
+          <span class="fst">${state}</span>
+          <span class="fbar" title="나와의 관계 ${p.relation}"><i style="width:${p.relation}%"></i></span>
+          <span class="fmeta">${p.alive ? `건강 ${p.health} · ${U.esc(p.job)}` : `${p.health < 100 ? '생전 건강 ' + p.health : ''}`}</span>
+        </div>`;
+      }).join('') : '<p class="hint">기록 없음</p>';
+      const fl = $('#famLbl'); if (fl) fl.textContent = `${view.filter(p => p.alive).length}명`;
     }
     // 씬
     const sc = $('#scene');
@@ -615,6 +642,52 @@
     // 그래프
     const cb = $('#chartBox');
     if (cb && window.CHARTS && window.CHARTS.wealth) cb.innerHTML = window.CHARTS.wealth(life);
+  }
+
+  const EXP_KO = { housing: '주거비', food: '식비', living: '생활·공과금', education: '교육·육아', care: '부양·간병', taxInterest: '세금·이자', leisure: '여가·문화', health: '의료·건강' };
+  function renderExpenseDetail() {
+    const life = APP.life; if (!life) return;
+    const box = $('#expDetail'); if (!box || box.hidden) return;
+    const it = life.expenseItems || {};
+    const inc = life.incomeItems || {};
+    const totalE = Object.keys(EXP_KO).reduce((s, k) => s + (it[k] || 0), 0) || 1;
+    const rows = Object.keys(EXP_KO).map(k => {
+      const v = it[k] || 0; if (!v) return '';
+      return `<li><span class="el">${EXP_KO[k]}</span><span class="eb"><i style="width:${Math.round(v / totalE * 100)}%"></i></span><span class="ev">${U.money(v)}</span></li>`;
+    }).join('');
+    const incRows = [['근로소득', inc.labor], ['연금', inc.pension], ['이자·배당', inc.asset], ['기타', inc.other]]
+      .filter(x => x[1]).map(([n, v]) => `<li><span class="el">${n}</span><span class="eb"></span><span class="ev">${U.money(v)}</span></li>`).join('');
+    box.innerHTML = `<div class="exh">올해 연소득 <b>${U.money(life.income || 0)}</b></div>
+      <ul class="exl">${incRows || '<li><span class="el">소득 없음</span><span class="eb"></span><span class="ev">—</span></li>'}</ul>
+      <div class="exh">올해 연지출 <b>${U.money(life.expenses || 0)}</b></div>
+      <ul class="exl">${rows || '<li><span class="el">지출 없음</span><span class="eb"></span><span class="ev">—</span></li>'}</ul>
+      <p class="exn">${life.flags.retired ? '은퇴 뒤에는 근로소득이 0원이고 연금·이자만 남습니다.' : life.flags.wagePeak ? '임금피크제 기간에는 급여가 해마다 줄어듭니다.' : '모든 금액은 그해 기준 명목값입니다.'}</p>`;
+  }
+
+  function openFamilySheet() {
+    const life = APP.life; if (!life) return;
+    const view = E.familyView(life);
+    APP.playing = false; refreshControls();
+    const bar = (v, cls) => `<span class="fsbar ${cls || ''}"><i style="width:${Math.max(0, Math.min(100, v))}%"></i></span>`;
+    const cards = view.map(p => `
+      <div class="fcard${p.alive ? '' : ' dead'}">
+        <div class="fch"><span class="fr">${U.esc(p.role)}</span><b>${U.esc(p.name)}</b>
+          <span class="fstate">${p.alive ? '생존' : '고인'}</span></div>
+        <dl>
+          <dt>나이</dt><dd>${p.alive ? p.age + '세' : '—'}</dd>
+          <dt>직업</dt><dd>${p.alive ? U.esc(p.job) : '—'}</dd>
+          <dt>건강</dt><dd>${bar(p.health)}<span class="fv">${p.alive ? p.health : '—'}</span></dd>
+          <dt>나와의 관계</dt><dd>${bar(p.relation, 'rel')}<span class="fv">${p.relation}</span></dd>
+        </dl>
+      </div>`).join('');
+    openModal(`
+      <div class="dec-top"><span class="lbl">가족과 삶</span><span class="dec-meta">${life.age}세 · ${life.year}년</span></div>
+      <h2>가족의 지금</h2>
+      <p class="dec-b">부모·배우자·자녀의 생사와 건강, 나와의 관계를 한자리에 모았습니다. 사람이 떠나면 그 자리는 바로 비워집니다.</p>
+      <div class="fgrid">${cards || '<p class="hint">기록된 가족이 없습니다.</p>'}</div>
+      <p class="hint">관계 막대는 0–100입니다. 건강이 낮아지면 간병비가 늘고, 관계가 낮으면 정서 지표가 떨어집니다.</p>
+      <div class="dec-foot"><button class="cta sm" id="famClose">닫고 이어 살기</button></div>`, { kind: 'family' });
+    $('#famClose').onclick = () => { closeModal(); APP.playing = true; refreshControls(); };
   }
 
   function renderFocus() {
@@ -840,24 +913,28 @@
 
   function deltaText(ch, age) {
     const out = [];
-    [['health', '건강'], ['happiness', '행복'], ['knowledge', '지식'], ['relation', '관계']].forEach(([k, nm]) => {
+    [['health', '건강'], ['happiness', '행복'], ['knowledge', '지식'], ['relation', '관계'], ['reputation', '평판'], ['spec', '역량'], ['stress', '스트레스']].forEach(([k, nm]) => {
       const v = ch.st && ch.st[k]; if (!v) return;
       out.push(`${nm} ${v > 0 ? '+' : ''}${v}`);
     });
     if (ch.money && age >= 19) out.push(U.money(ch.money));
     if (ch.inc) out.push(`소득 ${ch.inc > 0 ? '+' : ''}${Math.round(ch.inc * 100)}%`);
     if (ch.set && ch.set.job && ch.set.job !== 'none') out.push(JOB_KO[ch.set.job] || '');
+    if (ch.set && ch.set.role) out.push(ROLE_KO[ch.set.role] || '');
+    if (ch.set && ch.set.major) out.push(MAJOR_KO[ch.set.major] || '');
     if (ch.set && ch.set.home) out.push(HOME_KO[ch.set.home] || '');
     return out.filter(Boolean).join(' · ');
   }
 
-  const TAG_FOCUS = { health: 'health', family: 'family', career: 'career', study: 'edu', balance: '' };
+  const TAG_FOCUS = { work: 'career', love: 'family', health: 'health', study: 'edu', money: 'money', balance: '' };
   function autoPick(dec) {
     const want = TAG_FOCUS[APP.life.focus] || '';
     let best = 0, bestScore = -1e9;
     dec.ch.forEach((c, i) => {
+      if (!E.choiceAvailable(APP.life, c).ok) return;
       const st = c.st || {};
-      let sc = (st.health || 0) * 0.25 + (st.happiness || 0) * 0.45 + (st.knowledge || 0) * 0.15 + (st.relation || 0) * 0.15;
+      let sc = (st.health || 0) * 0.25 + (st.happiness || 0) * 0.45 + (st.knowledge || 0) * 0.15 + (st.relation || 0) * 0.15
+             + (st.spec || 0) * 0.2 - (st.stress || 0) * 0.15;
       if (want && c.tag === want) sc += 2.5;
       if (sc > bestScore) { bestScore = sc; best = i; }
     });
@@ -898,10 +975,14 @@
       <h2>${U.L(dec.t)}</h2>
       <p class="dec-b">${U.L(dec.b)}</p>
       ${src ? `<p class="dec-note"><b>자료</b> ${src.ko} · ${U.L(src.fig)}</p>` : ''}
-      <div class="opts">${dec.ch.map((c, i) => `
-        <button class="opt" data-ch="${i}" aria-pressed="${APP.auto && i === 0}">
+      <div class="opts">${dec.ch.map((c, i) => {
+        const av = E.choiceAvailable(life, c);
+        return `
+        <button class="opt${av.ok ? '' : ' locked'}" data-ch="${i}" aria-pressed="${APP.auto && i === 0}" ${av.ok ? '' : 'disabled'}>
           <i>${i + 1}</i><span class="ot">${U.L(c.t)}</span>
-          <span class="oe">${deltaText(c, dec.age)}</span></button>`).join('')}</div>
+          <span class="oe">${deltaText(c, dec.age)}</span>
+          ${av.ok ? (c.n && U.L(c.n) ? `<span class="on">${U.L(c.n)}</span>` : '') : `<span class="on lockednote">${av.why || '지금은 고를 수 없습니다'}</span>`}
+        </button>`; }).join('')}</div>
       <p class="dec-count" id="decCount">${APP.auto ? '잠시 후 알아서 고릅니다 · 카드를 누르면 멈춰요' : '고르면 이 해가 이어집니다'}</p>
       <div class="dec-foot">
         <button class="ghost" id="autoOff">${APP.auto ? '자동 결정 끄기' : '자동 결정 켜기'}</button>
@@ -912,7 +993,7 @@
       closeModal();
       commitChoice(dec, i);
     };
-    card.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => choose(+b.dataset.ch));
+    card.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => { if (b.disabled) return; choose(+b.dataset.ch); });
     $('#decMin').onclick = () => {
       const t = U.L(dec.t);
       closeModal();
@@ -1043,8 +1124,9 @@
           <div>
             <div class="rec-fields" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:0;border-top:0">
               <div><span>최종 학력</span><b>${EDU_KO[life.edu] || '—'}</b></div>
-              <div><span>마지막 일</span><b>${lastJob}${life.retired && lastJob !== '은퇴' ? ' · 은퇴' : ''}</b></div>
-              <div><span>함께한 사람</span><b>${life.married ? '배우자' : '없음'}</b></div>
+              <div><span>전공</span><b>${(life.major && life.major !== 'none') ? (MAJOR_KO[life.major] || life.major) : '—'}</b></div>
+              <div><span>마지막 일</span><b>${life.role && life.role !== 'none' ? (ROLE_KO[life.role] || lastJob) : lastJob}${life.retired && lastJob !== '은퇴' ? ' · 은퇴' : ''}</b></div>
+              <div><span>함께한 사람</span><b>${life.married ? '배우자' : (life.flags.widowed ? '배우자(먼저 떠남)' : '없음')}</b></div>
               <div><span>자녀</span><b>${life.kids ? life.kids + '명' : '없음'}</b></div>
               <div><span>가장 행복했던 해</span><b>${happy.age}세 (${life.birthYear + happy.age}년)</b></div>
               <div><span>살았던 곳</span><b>${[...places].join(', ')}</b></div>

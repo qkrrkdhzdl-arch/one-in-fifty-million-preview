@@ -209,7 +209,7 @@
     if (!c) return true;
     if (c.any) { if (!c.any.some(x => condOK(life, x))) return false; }
     if (c.not && condOK(life, c.not)) return false;
-    if (c.sex && c.sex !== life.sex) return false;
+    if (c.sex && String(c.sex).toUpperCase() !== String(life.sex).toUpperCase()) return false;
     if (c.age) { if (life.age < c.age[0] || life.age > c.age[1]) return false; }
     if (c.year) { if (life.year < c.year[0] || life.year > c.year[1]) return false; }
     if (c.loc && c.loc.indexOf(life.region.id) < 0) return false;
@@ -308,6 +308,13 @@
       labor *= wagePeakFactor(life);
       if (m) labor *= m.job;
       items.labor = Math.max(0, Math.round(labor * nom));
+      // 임금피크제 이후 근로소득은 다시 늘지 않는다(보너스·호봉 변동 포함)
+      if (life.flags.wagePeak) {
+        if (life.peakLabor == null) life.peakLabor = items.labor;
+        else { items.labor = Math.min(items.labor, life.peakLabor); life.peakLabor = items.labor; }
+      } else {
+        life.peakLabor = items.labor;
+      }
     }
     if (life.age >= PENSION_MIN_AGE) {
       const yrs = Math.min(40, life.contribYears || 0);
@@ -591,7 +598,7 @@
         if (need - fromCash > 0) life.debt += Math.round((need - fromCash) * 1.02);
       }
     }
-    if (e.inc) life.wageBonus = clamp((life.wageBonus || 0) + e.inc, -0.4, 0.8);
+    if (e.inc) life.wageBonus = clamp((life.wageBonus || 0) + e.inc, -0.15, 0.2);
     if (e.set) applySet(life, e.set);
     if (e.fam) {
       // 가족 상태 변화(관계·건강)
@@ -602,7 +609,11 @@
 
   function applySet(life, s) {
     if (!s) return;
-    if (s.edu) life.edu = s.edu;
+    if (s.edu) {
+      life.edu = s.edu;
+      if (s.edu === "university" && life.age >= 18 && life.age <= 25) life.flags.inCollege = true;
+      if (s.edu === "grad") life.flags.inCollege = false;
+    }
     if (s.path) life.flags.path = s.path;
     if (s.major) { life.major = s.major; life.flags.majorChosen = true; life.flags.inCollege = true; life.history && (life.majorYear = life.year); }
     if (s.role) {
@@ -610,6 +621,10 @@
       life.flags.roleChosen = true;
       const r = ROLES[s.role];
       if (r && r.job) life.job = r.job;
+    }
+    if ((s.role || s.job) && s.job !== "none" && s.employed !== false && !life.flags.entryGrade) {
+      const g = gradeFor(life);
+      life.flags.entryScore = g.score; life.flags.entryGrade = g.grade;
     }
     if (s.job) {
       if (s.job === "none" && life.job !== "none") { life.lastJob = life.job; }
@@ -635,7 +650,7 @@
     }
     if (s.wagePeak != null) {
       life.flags.wagePeak = !!s.wagePeak;
-      if (s.wagePeak) life.wagePeakAt = life.age;
+      if (s.wagePeak && life.wagePeakAt == null) life.wagePeakAt = life.age;
     }
     if (s.inCollege != null) life.flags.inCollege = !!s.inCollege;
     if (s.militaryDone != null) life.flags.militaryDone = !!s.militaryDone;
@@ -701,7 +716,7 @@
     life.stats.reputation = clamp(life.stats.reputation + f.reputation, 0, 100);
     life.stats.spec = clamp(life.stats.spec + f.spec * (life.age > 65 ? 0.1 : life.age > 55 ? 0.5 : 1), 0, 100);
     life.stats.stress = clamp(life.stats.stress + f.stress, 0, 100);
-    life.wageBonus = clamp((life.wageBonus || 0) + f.income, -0.4, 0.8);
+    life.wageBonus = clamp((life.wageBonus || 0) + f.income, -0.15, 0.2);
     life.ageFocusLog.push(life.focus);
   }
 
@@ -722,6 +737,8 @@
     if (a > 55) life.stats.knowledge = clamp(life.stats.knowledge - 0.35, 0, 100);
     // 스트레스는 저절로 조금씩 풀린다
     life.stats.stress = clamp(life.stats.stress - (a > 60 ? 1.2 : 0.7), 0, 100);
+    // 임금 보정은 해마다 조금씩 원래 자리로 돌아간다(한 해의 성과가 영구 배수가 되지 않게)
+    life.wageBonus = clamp((life.wageBonus || 0) * 0.9, -0.15, 0.2);
     // 역량은 40대까지 조금씩 늘고, 60 이후에는 천천히 줄어든다
     if (a >= 22 && a < 45) life.stats.spec = clamp(life.stats.spec + 0.35, 0, 100);
     if (a >= 60) life.stats.spec = clamp(life.stats.spec - 0.25, 0, 100);
@@ -739,7 +756,7 @@
       } else {
         const path = (life.flags && life.flags.path) || "academic";
         if (d.only && d.only.indexOf(path) < 0) continue;
-        if (d.sex && d.sex !== "any" && d.sex !== "all" && d.sex !== life.sex) continue;
+        if (d.sex && d.sex !== "any" && d.sex !== "all" && String(d.sex).toUpperCase() !== String(life.sex).toUpperCase()) continue;
       }
       return d;
     }
@@ -771,7 +788,7 @@
         if (need > 0) life.debt += Math.round(need * 1.02);
       }
     }
-    if (ch.inc) life.wageBonus = clamp((life.wageBonus || 0) + ch.inc, -0.4, 0.8);
+    if (ch.inc) life.wageBonus = clamp((life.wageBonus || 0) + ch.inc, -0.15, 0.2);
     applySet(life, ch.set || {});
     if (ch.flags) for (const k in ch.flags) life.flags[k] = ch.flags[k];
     life.decisions.push(dec.id);
@@ -850,6 +867,19 @@
   }
 
   // 대학 스펙/알바/공모전이 첫 직장 등급과 초봉으로 이어진다
+  function gradeFor(life) {
+    const spec = life.stats.spec || 0;
+    const rep = life.stats.reputation || 0;
+    const major = MAJORS[life.major] || MAJORS.none;
+    let score = spec * 0.7 + rep * 0.3 + (major.spec || 0);
+    if (life.edu === "grad") score += 14;
+    else if (life.edu === "college") score -= 6;
+    else if (life.edu === "high") score -= 12;
+    if (life.flags.albaExp) score += Math.min(8, life.flags.albaExp * 0.7);
+    if (life.flags.contestWin) score += 7;
+    return { score: Math.round(score), grade: score >= 62 ? "대기업·전문직" : score >= 42 ? "중견·정규직" : "중소·계약직" };
+  }
+
   function entryGrade(life) {
     const spec = life.stats.spec || 0;
     const rep = life.stats.reputation || 0;
@@ -1043,7 +1073,7 @@
   window.ENGINE = {
     createLife, tick, applyChoice, lifeType, netWorth, wealthPercentile, incomePercentile,
     survivalCurve, HOUSING_INDEX, JOB_KO, JOB_EN, koreanName, macroFor, homePrice,
-    MAJORS, ROLES, FOCUS_CAT, condOK, entryGrade, familyView, expenseBreakdown, computeIncome, migrate,
+    MAJORS, ROLES, FOCUS_CAT, condOK, entryGrade, gradeFor, familyView, expenseBreakdown, computeIncome, migrate,
     choiceAvailable,
     buyHome(life) {
       const price = homePrice(life);
