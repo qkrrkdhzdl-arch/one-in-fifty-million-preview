@@ -56,6 +56,9 @@
   // 고용 형태: 창업자·프리랜서에게 희망퇴직·임금피크·직장 상사가 나오지 않게 구분한다
   function empTypeOf(life) {
     const r = life.role || "none";
+    // 일자리를 잃었거나 은퇴한 뒤에는 '회사원' 전제(상사·승진·명예퇴직)가 나오지 않는다.
+    // (직무를 한 번 고른 사람은 role이 남아 있어, 고용 여부를 함께 보지 않으면 무직인데 회사 장면이 나온다)
+    if (!life.flags.employed) return "none";
     if (r === "self") return "founder";
     if (r === "free") return "freelance";
     if (r === "public" || r === "edu") return "public";
@@ -275,7 +278,9 @@
       gpNone: gpSetup === "gone", gpNear: gpSetup === "cohabit" || gpSetup === "near" || gpSetup === "raised",
       gpFar: gpSetup === "holiday" || gpSetup === "far",
       fJob, mJob, famShop: fJob === "가게" || mJob === "가게", famFarm: fJob === "농사",
-      momWorks: mJob !== "전업주부"
+      momWorks: mJob !== "전업주부",
+      hasMother: !!parents.mother, hasFather: !!parents.father,   // 조부모 손에 자란 사람은 부모 개체가 없다
+      hasSibling: siblings > 0   // 외동이면 형제·동생이 등장하는 장면을 막는다
     };
     life.spendMode = { food: "normal", leisure: "normal", living: "normal", health: "normal" };
     life.family = {
@@ -325,7 +330,11 @@
     if (!c) return true;
     if (c.any) { if (!c.any.some(x => condOK(life, x))) return false; }
     if (c.not && condOK(life, c.not)) return false;
-    if (c.sex && String(c.sex).toUpperCase() !== String(life.sex).toUpperCase()) return false;
+    if (c.sex) {
+      // "ALL"/"ANY"는 성별 제한 없음. (v2.2 콘텐츠에는 "ALL"이 문자열로 남아 있어 그대로 비교하면 그 사건이 영영 나오지 않는다)
+      const want = String(c.sex).toUpperCase();
+      if (want !== "ALL" && want !== "ANY" && want !== String(life.sex).toUpperCase()) return false;
+    }
     if (c.age) { if (life.age < c.age[0] || life.age > c.age[1]) return false; }
     if (c.year) { if (life.year < c.year[0] || life.year > c.year[1]) return false; }
     if (c.loc && c.loc.indexOf(life.region.id) < 0) return false;
@@ -733,6 +742,8 @@
       if (life.age > e.age[1] + (extra || 0)) return false;
       if (!condOK(life, e.cond)) return false;
       if (life.usedIds[e.id] && !(e.repeat && life.age - ((life.lastSeen && life.lastSeen[e.id]) || 0) >= e.repeat)) return false;
+      // 다른 id라도 제목이 같은 장면은 한 인생에 한 번만 보여 준다(같은 사건이 두 번 나오는 것처럼 읽히지 않게)
+      if (!e.repeat && life.seenTitles && life.seenTitles[e.t && e.t.ko]) return false;
       return true;
     });
   }
@@ -1163,7 +1174,13 @@
       kids: life.flags.childrenCount || 0,
       recovering: !!life.flags.recovering, hospitalized: !!life.flags.hospitalized
     };
-    evs.forEach(e => applyEvent(life, e));
+    // 같은 해에 뽑힌 사건들이 서로를 무효화할 수 있다(배우자 사망 뒤 부부 여행, 퇴사 뒤 회사 장면).
+    // 적용 직전에 조건을 다시 확인해, 앞선 사건이 뒤집은 상황을 그대로 이어받지 않게 한다.
+    evs.forEach(e => {
+      if (e.cond && !condOK(life, e.cond)) return;
+      applyEvent(life, e);
+      if (!e.repeat && e.t && e.t.ko) { life.seenTitles = life.seenTitles || {}; life.seenTitles[e.t.ko] = 1; }
+    });
 
     // 동기
     life.peers.forEach(p => {
@@ -1324,6 +1341,9 @@
     if (life.flags.dating == null) life.flags.dating = false;
     if (life.flags.investStyle == null) life.flags.investStyle = life.alloc || "safe";
     // v2.1 이전 저장본: 집안 배경이 없으면 가장 흔한 배경으로 채우고 조부모를 만든다
+    if (life.flags.hasSibling == null) life.flags.hasSibling = (life.siblings || 0) > 0;
+    if (life.flags.hasMother == null) life.flags.hasMother = !!(life.family.mother);
+    if (life.flags.hasFather == null) life.flags.hasFather = !!(life.family.father);
     if (!life.flags.gpSetup) {
       life.flags.gpSetup = "holiday"; life.flags.gpSide = "paternal";
       life.flags.childArc = life.family.mother ? "city" : "single";
