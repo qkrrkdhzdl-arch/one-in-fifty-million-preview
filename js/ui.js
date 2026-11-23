@@ -380,6 +380,12 @@
     }
     APP.lastTs = 0;
     if (!APP.raf) APP.raf = requestAnimationFrame(loop);
+    // 저장된 삶에 아직 답하지 않은 결정·회고가 있으면 그것부터 다시 띄운다
+    if (fromSave && life.pendingDecision) {
+      APP.playing = false; refreshControls(); showDecision(life.pendingDecision);
+    } else if (fromSave && life.pendingReflection) {
+      APP.playing = false; refreshControls(); showReflection(life.age);
+    }
     save();
   }
 
@@ -695,7 +701,7 @@
     return (list || []).map(f => {
       const showSrc = f.src && f.src !== prevSrc;
       prevSrc = f.src || null;
-      return `<li class="${f.kind || ''} ev"><span class="a">${f.age}세</span><span class="x">${feedItemInner(f)}${showSrc ? `<span class="f">${U.esc(f.src)}</span>` : ''}</span></li>`;
+      return `<li class="${f.kind || ''} ev" data-src="${U.esc(f.src || '')}"><span class="a">${f.age}세</span><span class="x">${feedItemInner(f)}${showSrc ? `<span class="f">${U.esc(f.src)}</span>` : ''}</span></li>`;
     }).join('');
   }
   // 예전 저장본(제목만 있던 피드)을 본문 서사까지 채워 되살린다
@@ -738,7 +744,10 @@
     const ul = $('#feed'); if (!ul) return;
     const li = document.createElement('li');
     li.className = (item.kind ? item.kind + ' ' : '') + 'ev enter';
-    const showSrc = item.src && !(prevItem && prevItem.src === item.src);
+    // 바로 위(더 최근) 줄과 같은 출처면 자료 줄을 되풀이하지 않는다
+    const topSrc = (ul.firstElementChild && ul.firstElementChild.getAttribute('data-src')) || (prevItem && prevItem.src) || '';
+    const showSrc = item.src && item.src !== topSrc;
+    li.setAttribute('data-src', item.src || '');
     li.innerHTML = `<span class="a">${item.age}세</span><span class="x">${feedItemInner(item)}${showSrc ? `<span class="f">${U.esc(item.src)}</span>` : ''}</span>`;
     ul.insertBefore(li, ul.firstChild);
     while (ul.children.length > 240) ul.removeChild(ul.lastElementChild);
@@ -1037,6 +1046,7 @@
         <section class="rec-sec">
           <h3>이 삶의 결 <span class="lbl">16가지 결 중 하나</span></h3>
           <p class="lead">${U.L(type.line)}</p>
+          <p class="rec-axis"><span class="lbl">이 삶이 기운 쪽</span> ${type.axis} · ${U.L(type.kw)}</p>
           <p class="rec-story" style="margin-top:8px;font-size:15px">${U.L(type.desc)}</p>
           <p class="hint" style="margin-top:8px">결은 한 삶이 어느 쪽으로 기울어 흘러가는지를 네 쌍의 낱말로 나타낸 것입니다. 어느 쪽도 더 나은 삶은 아닙니다.</p>
         </section>
