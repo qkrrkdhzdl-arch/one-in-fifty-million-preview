@@ -474,7 +474,11 @@
     </div>`;
 
     // 이벤트
-    $('#pauseBtn').onclick = () => { APP.playing = !APP.playing; paint(); refreshControls(); save(); };
+    $('#pauseBtn').onclick = () => {
+      // 결정을 내려 두고 화면만 보는 중이라면, 살기를 누를 때 결정 창을 다시 띄운다
+      if (!APP.playing && APP.peekDec) { const d = APP.peekDec; APP.peekDec = null; const pk = $('#decpeek'); if (pk) pk.remove(); showDecision(d); return; }
+      APP.playing = !APP.playing; paint(); refreshControls(); save();
+    };
     el.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
       const prev = yearMs();
       const p = Math.min(1, APP.yearT / (prev / 1000));
@@ -866,6 +870,7 @@
     E.applyChoice(life, dec, ch);
     pushFeed(dec.age, { ko: `${U.L(dec.t)} · 결정: ${U.L(ch.t)}` }, 'dec');
     if (APP.decTimer) { clearInterval(APP.decTimer); APP.decTimer = null; }
+    APP.peekDec = null;
     life.pendingDecision = null;
     APP.playing = true; APP.hold = 620; refreshControls();
     renderPanels(); renderFocus(); paintTop(); save();
@@ -911,13 +916,15 @@
     $('#decMin').onclick = () => {
       const t = U.L(dec.t);
       closeModal();
-      APP.playing = true; APP.hold = 400;
+      // 결정을 내릴 때까지 해는 거기서 멈춰 둔다(뒤 화면만 잠깐 볼 수 있게)
+      APP.playing = false; APP.hold = 0; refreshControls();
       const peek = document.createElement('div');
       peek.className = 'decpeek'; peek.id = 'decpeek';
       peek.innerHTML = `<span class="dp-t"><b>${t}</b><small>${dec.age}세 · ${life.year}년 · 결정을 기다립니다</small></span>
         <button class="cta" id="decOpen">결정하기</button>`;
       document.body.appendChild(peek);
-      $('#decOpen').onclick = () => { peek.remove(); APP.playing = false; showDecision(dec); };
+      APP.peekDec = dec;
+      $('#decOpen').onclick = () => { APP.peekDec = null; peek.remove(); APP.playing = false; showDecision(dec); };
       life.__dec = dec;
     };
     $('#autoOff').onclick = () => { APP.auto = !APP.auto; refreshControls(); closeModal(); APP.playing = false; showDecision(dec); };
