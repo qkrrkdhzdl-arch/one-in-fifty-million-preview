@@ -100,7 +100,7 @@
       parentDeath: { mother: 78 + ri(-8, 10), father: 74 + ri(-9, 10) },
       stats: { health: clamp(baseHealth, 30, 80), happiness: 56 + ri(-6, 8), knowledge: 28 + ri(-6, 8), relation: 60 + ri(-8, 6) },
       cash: cls === "high" ? ri(200, 600) : cls === "low" ? ri(0, 40) : ri(40, 160),
-      assets: 0, homeValue: 0, debt: 0, home: "none", job: "none", edu: "none",
+      assets: 0, homeValue: 0, deposit: 0, debt: 0, home: "none", job: "none", edu: "none",
       married: 0, kids: 0, care: 0, retired: 0,
       income: 0, expenses: 0, alloc: "safe", focus: "balance",
       events: [], seen: {}, decisions: [], history: [], reflections: [],
@@ -120,6 +120,8 @@
   const JOB_BASE = { none: 0, office: 3600, trade: 3050, public: 3350, self: 2600, free: 2450, farm: 2250 };
   const JOB_KO = { none: "무직", office: "사무·관리직", trade: "기술·생산직", public: "공무원·공공기관", self: "자영업", free: "프리랜서", farm: "농림어업" };
   const JOB_EN = { none: "No paid work", office: "Office and management", trade: "Skilled trades and production", public: "Public service", self: "Self-employed", free: "Freelance", farm: "Farming and fishing" };
+
+  const NOMINAL = (year) => Math.pow(1.024, year - 2026);   // 2026 = 1.0
 
   function eduMul(e) { return { none: 0.82, high: 0.86, college: 0.94, university: 1.0, grad: 1.14 }[e] || 0.9; }
   function zoneMul(z) { return { metro: 1.07, city: 0.96, rural: 0.85 }[z] || 1; }
@@ -142,6 +144,7 @@
     base *= 1 + (life.stats.knowledge - 50) * 0.004 + (life.stats.health - 50) * 0.002;
     if (life.sex === "f") base *= 0.92; // measured gender pay gap
     if (life.retired && life.age < 78) base *= 0.55;
+    base *= NOMINAL(life.year);
     const m = macroFor(life.year);
     if (m) base *= m.job;
     base *= 1 + (life.wageBonus || 0);
@@ -149,54 +152,52 @@
   }
 
   function housingCost(life) {
-    const price = 26000 * zoneMul(life.zone) * HOUSING_INDEX(life.year) / HOUSING_INDEX(2026);
-    if (life.home === "own") return { upkeep: Math.round(price * 0.012), interest: 0, rent: 0 };
-    if (life.home === "jeonse") return { upkeep: 0, interest: Math.round(life.debt * 0.042), rent: 0 };
-    if (life.home === "wolse") return { upkeep: 0, interest: 0, rent: Math.round(price * 0.16 * 0.05) };
-    return { upkeep: 0, interest: 0, rent: 0 };
+    const price = homePrice(life);
+    if (life.home === "own") return { upkeep: Math.round(price * 0.008), rent: 0 };
+    if (life.home === "wolse") return { upkeep: 0, rent: Math.round(price * 0.032) };
+    return { upkeep: 0, rent: 0 };
   }
 
   function yearEconomics(life) {
     updateIncome(life);
     if (life.age < 19) { life.expenses = 0; return; }  // the household carries a child's costs
-    let exp = 0;
-    if (life.age >= 19) {
-      exp += 620 + (life.married ? 420 : 0) + life.kids * 460;
-      if (life.care) exp += 380;
-      if (life.parentSupport) exp += 240;
-    } else {
-      exp += 60;
-    }
+    const nom = NOMINAL(life.year);
+    let exp = (620 + (life.married ? 420 : 0) + life.kids * 460) * nom;
+    if (life.care) exp += 380 * nom;
+    if (life.parentSupport) exp += 240 * nom;
     const h = housingCost(life);
-    exp += h.rent + h.interest + h.upkeep;
-    if (life.home === "own" && life.debt > 0) exp += Math.round(life.debt * 0.06);
-    exp += life.extraExpense || 0;
+    exp += h.rent + h.upkeep;
+    const interest = Math.round(life.debt * 0.042);
+    exp += interest;
+    exp += (life.extraExpense || 0) * nom;
     life.extraExpense = 0;
     life.expenses = Math.round(exp);
 
     const net = life.income - life.expenses;
     if (net > 0) {
+      // pay down debt first, then save what is left
+      const repay = Math.min(life.debt, Math.round(net * 0.55));
+      life.debt -= repay;
+      const left = net - repay;
       const saveRate = { safe: 0.7, stock: 0.55, coin: 0.5, none: 0.85 }[life.alloc] || 0.6;
-      const save = net * saveRate;
+      const save = left * saveRate;
       life.cash += Math.round(save * (life.alloc === "safe" ? 0.75 : 0.25));
       life.assets += Math.round(save * (life.alloc === "safe" ? 0.25 : 0.75));
-      life.cash += Math.round(net * (1 - saveRate));
+      life.cash += Math.round(left * (1 - saveRate));
     } else {
-      const need = -net;
+      let need = -net;
       const fromCash = Math.min(life.cash, need);
-      life.cash -= fromCash;
-      const rest = need - fromCash;
-      if (rest > 0) { life.debt += Math.round(rest * 1.02); }
-      if (need > 0 && life.cash <= 0) life.stats.happiness -= 1;
+      life.cash -= fromCash; need -= fromCash;
+      if (need > 0) life.debt += Math.round(need);
+      if (life.cash <= 0 && need > 0) life.stats.happiness -= 1;
     }
 
-    // returns
     const m = macroFor(life.year);
-    const stockR = { safe: 0.028, stock: R() < 0.22 ? -0.16 : 0.075, coin: R() < 0.5 ? -0.35 : 0.42, none: 0.02 }[life.alloc] || 0.03;
+    const stockR = { safe: 0.03, stock: R() < 0.22 ? -0.14 : 0.072, coin: R() < 0.5 ? -0.32 : 0.36, none: 0.02 }[life.alloc] || 0.03;
     if (life.assets > 0) life.assets = Math.round(life.assets * (1 + stockR));
     if (life.assets < 0) life.assets = 0;
     if (life.home === "own") {
-      const g = 0.03 + (m ? m.house : 0);
+      const g = 0.028 + (m ? m.house : 0);
       life.homeValue = Math.round(life.homeValue * (1 + g));
     }
     life.cash = Math.max(0, Math.round(life.cash));
@@ -362,10 +363,27 @@
         life.debt += Math.round(price - down);
       }
       if (s.home === "jeonse") {
-        const price = 26000 * zoneMul(life.zone) * HOUSING_INDEX(life.year) / HOUSING_INDEX(2026);
-        const dep = Math.round(price * 0.68);
-        life.debt += Math.round(dep * 0.5);
+        const dep = Math.round(homePrice(life) * 0.68);
+        life.deposit = dep;
+        life.debt += Math.round(dep * 0.4);
       }
+      if (s.home === "own" && life.homeValue === 0) {
+        life.deposit = 0;
+        const price = homePrice(life);
+        const down = Math.round(price * 0.3);
+        const have = life.cash + life.assets;
+        if (have >= down) {
+          let rest = down;
+          const useCash = Math.min(life.cash, rest); life.cash -= useCash; rest -= useCash;
+          life.assets = Math.max(0, life.assets - rest);
+          life.homeValue = price; life.debt += price - down;
+        } else {
+          life.home = "jeonse";
+          life.deposit = Math.round(price * 0.68);
+          life.debt += Math.round(life.deposit * 0.4);
+        }
+      }
+      if (s.home === "wolse" || s.home === "none") life.deposit = 0;
     }
     if (s.married != null) life.married = s.married;
     if (s.kids != null) life.kids = s.kids;
@@ -454,7 +472,7 @@
       age: life.age, year: life.year,
       happiness: Math.round(life.stats.happiness),
       health: Math.round(life.stats.health),
-      wealth: life.cash + life.assets + life.homeValue - life.debt,
+      wealth: life.cash + life.assets + life.homeValue + (life.deposit || 0) - life.debt,
       income: life.income,
       event: evs.length ? evs[0].t : null
     });
@@ -475,7 +493,7 @@
   }
 
   // ---------- record ----------
-  function netWorth(life) { return Math.round(life.cash + life.assets + life.homeValue - life.debt); }
+  function netWorth(life) { return Math.round(life.cash + life.assets + life.homeValue + (life.deposit || 0) - life.debt); }
 
   function wealthPercentile(w) {
     // rough Korean household net-wealth distribution (만원)
@@ -545,6 +563,7 @@
     buyHome(life) {
       const price = homePrice(life);
       const down = Math.round(price * 0.3);
+      if (life.home === "jeonse") { life.cash += life.deposit || 0; life.deposit = 0; }
       const have = life.cash + life.assets;
       if (have < down) return { ok: false, need: down - have };
       let rest = down;
@@ -557,6 +576,7 @@
       return { ok: true, price, down };
     },
     sellHome(life) {
+      if (life.home === "jeonse") { life.cash += life.deposit || 0; life.deposit = 0; life.home = "none"; return { ok: true, price: 0 }; }
       if (life.home !== "own") return { ok: false };
       const price = life.homeValue;
       life.cash += Math.max(0, price - life.debt);
