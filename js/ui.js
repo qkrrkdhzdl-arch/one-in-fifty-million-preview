@@ -7,9 +7,13 @@
     lang: localStorage.getItem("oifm_lang") || "ko",
     pace: localStorage.getItem("oifm_pace") || "normal",
     speed: 1, playing: false, auto: false, ff: false,
-    life: null, timer: null, screen: "cover", modalOpen: false
+    life: null, timer: null, screen: "cover", modalOpen: false,
+    yearElapsed: 0, yearHold: 0, ygTick: 0, raf: null, lastTs: null
   };
-  const PACE = { fast: 620, normal: 1250, deep: 2150 };
+  // 한 해가 흐르는 시간(1× 기준). 원작 「80억 분의 1」과 같은 호흡으로,
+  // 빠르게 ≈30분 · 보통 ≈1시간 · 깊게 ≈1시간 30분에 한 생애가 지나간다.
+  const PACE = { fast: 18000, normal: 36000, deep: 54000 };
+  const FF_MS = 42; // '다음 결정까지 »'일 때 1년에 쓰는 시간(ms)
 
   // ---------------- helpers ----------------
   const t = U.T;
@@ -55,6 +59,7 @@
             <button data-v="normal" class="${APP.pace === "normal" ? "on" : ""}">${t("paceNormal")}</button>
             <button data-v="deep" class="${APP.pace === "deep" ? "on" : ""}">${t("paceDeep")}</button>
           </div>
+          <span class="pace-note">${t("paceNote")}</span>
         </div>
         <div class="settings-row">
           <span class="lab">${t("lang")}</span>
@@ -151,6 +156,7 @@
         </div>
       </div>`;
     updateHud(); renderFocus(); renderControls(); renderSide(); renderPeerStrip();
+    if (!APP.raf) { APP.lastTs = null; APP.raf = requestAnimationFrame(frame); }
   }
 
   function stageTag() {
@@ -172,6 +178,10 @@
         <span class="hud-stage">${stageTag()}</span>
         <button class="lang-mini" id="hud-lang">${U.lang() === "ko" ? "EN" : "한"}</button>
       </div>
+      <div class="yg-row" id="yg-row">
+        <div class="yg-track"><i id="yg-fill"></i></div>
+        <span class="yg-note" id="yg-note"></span>
+      </div>
       <div class="meters">
         ${["health", "happiness", "knowledge", "relation"].map(k => `
           <div class="meter" data-k="${k}">
@@ -187,6 +197,7 @@
       </div>`;
     const lb = $("#hud-lang");
     if (lb) lb.onclick = () => setLang(U.lang() === "ko" ? "en" : "ko");
+    paintYearGauge(true);
   }
 
   function renderPeerStrip() {
@@ -205,15 +216,19 @@
   function renderFocus() {
     const el = $("#focuswrap"); if (!el) return;
     const life = APP.life;
-    if (life.age < 6) { el.style.display = "none"; return; }
     el.style.display = "block";
+    if (life.age < 6) {
+      el.innerHTML = `<div class="focus-lock"><span>${t("focusLocked")}</span></div>`;
+      return;
+    }
     const items = [["health", "focusHealth"], ["family", "focusFamily"], ["career", "focusCareer"], ["study", "focusStudy"], ["balance", "focusBalance"]];
     const price = E.homePrice(life);
     const down = Math.round(price * 0.3);
     const have = life.cash + life.assets;
     el.innerHTML = `
-      <div class="focus-title"><span>${t("focusTitle")}</span><button id="money-toggle">${t("moneyTitle")} · ${t("more")}</button></div>
+      <div class="focus-title"><span>${t("focusTitle")} · ${life.year}</span><button id="money-toggle">${t("moneyTitle")} · ${t("more")}</button></div>
       <div class="row">${items.map(([k, lab]) => `<button class="chip ${life.focus === k ? "on" : ""}" data-focus="${k}">${t(lab)}</button>`).join("")}</div>
+      <div class="focus-note">${t("focusNote")}</div>
       <div class="row" id="moneyrow" style="display:none;margin-top:8px">
         ${[["safe", "allocSafe"], ["stock", "allocStock"], ["coin", "allocCoin"]].map(([k, lab]) => `<button class="chip ${life.alloc === k ? "on" : ""}" data-alloc="${k}">${t(lab)}</button>`).join("")}
         ${life.home === "own"
@@ -221,7 +236,9 @@
           : `<button class="chip ${have >= down ? "" : ""}" data-home="buy" title="${U.money(price)}">${t("buyHome")} · ${U.money(price)}</button>`}
       </div>`;
     el.querySelectorAll("[data-focus]").forEach(b => b.onclick = () => {
+      const prev = life.focus;
       life.focus = b.dataset.focus; renderFocus();
+      if (prev !== life.focus) U.toast(t("focusSet", { f: t({ health: "focusHealth", family: "focusFamily", career: "focusCareer", study: "focusStudy", balance: "focusBalance" }[life.focus]) }));
     });
     el.querySelectorAll("[data-alloc]").forEach(b => b.onclick = () => {
       life.alloc = b.dataset.alloc; renderFocus();
@@ -254,8 +271,18 @@
         <button class="btn-pill" id="btn-ff">${t("toNext")}</button>
         <button class="btn-pill ${APP.auto ? "on" : ""}" id="btn-auto">${t("auto")}</button>
       </div>`;
-    $("#btn-play").onclick = () => { APP.playing = !APP.playing; if (APP.playing) { APP.ff = false; schedule(0); } renderControls(); };
-    el.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { APP.speed = +b.dataset.s; renderControls(); });
+    $("#btn-play").onclick = () => {
+      APP.playing = !APP.playing;
+      if (APP.playing) APP.ff = false;   // 재개 — 멈춘 지점에서 이어서 차오른다
+      renderControls(); paintYearGauge(true);
+    };
+    el.querySelectorAll("[data-s]").forEach(b => b.onclick = () => {
+      const dur = yearMs();
+      const p = Math.max(0, Math.min(1, APP.yearElapsed / (dur || 1)));
+      APP.speed = +b.dataset.s;
+      APP.yearElapsed = p * yearMs();    // 배속을 바꿔도 게이지가 튀지 않게
+      renderControls(); paintYearGauge(true);
+    });
     $("#btn-ff").onclick = () => { APP.ff = true; APP.playing = true; schedule(0); renderControls(); U.toast(t("fastForwarding")); };
     $("#btn-auto").onclick = () => { APP.auto = !APP.auto; renderControls(); if (APP.auto) U.toast(t("autoOn")); };
   }
@@ -381,11 +408,67 @@
     schedule(900);
   }
 
-  function schedule(delay) {
-    clearTimeout(APP.timer);
-    if (!APP.playing) return;
-    APP.timer = setTimeout(step, delay != null ? delay : (APP.ff ? 42 : PACE[APP.pace] / APP.speed));
+  // ---------------- year clock ----------------
+  // 한 해는 실시간으로 차오르는 게이지로 표현된다. 100%가 되면 E.tick으로 그 해가 확정되고
+  // 게이지가 0으로 돌아가면서 다음 해가 시작된다. 일시정지·결정 카드에서는 그 자리에 멈춘다.
+  function yearMs() { return APP.ff ? FF_MS : PACE[APP.pace] / APP.speed; }
+
+  function paintYearGauge(force) {
+    const fill = $("#yg-fill"); if (!fill) return;
+    const dur = yearMs() || 1;
+    const p = Math.max(0, Math.min(1, APP.yearElapsed / dur));
+    fill.style.width = (p * 100).toFixed(2) + "%";
+    const row = $("#yg-row");
+    if (row) {
+      row.classList.toggle("paused", !APP.playing || APP.modalOpen);
+      row.classList.toggle("ff", !!APP.ff);
+      row.classList.toggle("full", p >= 0.999);
+    }
+    const now = performance.now();
+    if (!force && now - APP.ygTick < 100) return;
+    APP.ygTick = now;
+    const note = $("#yg-note"); if (!note) return;
+    let txt;
+    if (APP.modalOpen && APP.life && APP.life.pendingDecision) txt = t("pausedAtDecision");
+    else if (!APP.playing) txt = t("pausedLabel");
+    else if (APP.ff) txt = "»";
+    else {
+      const left = Math.max(0, (dur - APP.yearElapsed) / 1000);
+      txt = t("secLeft", { s: left >= 10 ? Math.round(left) : left.toFixed(1) });
+    }
+    note.textContent = txt;
   }
+
+  function startClock(delay) {
+    APP.yearHold = delay || 0;
+    APP.yearElapsed = 0;
+    APP.lastTs = null;
+    paintYearGauge(true);
+  }
+
+  function frame(now) {
+    APP.raf = requestAnimationFrame(frame);
+    const last = APP.lastTs; APP.lastTs = now;
+    if (APP.screen !== "life" || !APP.life) return;
+    const dt = last == null ? 0 : Math.min(now - last, 400);
+    if (APP.playing && !APP.modalOpen) {
+      if (APP.yearHold > 0) {
+        APP.yearHold = Math.max(0, APP.yearHold - dt);
+      } else {
+        const dur = yearMs();
+        APP.yearElapsed += dt;
+        if (APP.yearElapsed >= dur) {
+          APP.yearElapsed = dur;
+          paintYearGauge(false);
+          step();
+          return;
+        }
+      }
+    }
+    paintYearGauge(false);
+  }
+
+  function schedule(delay) { startClock(delay); }
 
   function step() {
     if (!APP.playing || APP.modalOpen || APP.screen !== "life") return;
@@ -400,15 +483,18 @@
     if (res.death) { endLife(); return; }
     if (res.decision) {
       APP.playing = false; renderControls();
+      paintYearGauge(true);
       showDecision(res.decision);
       return;
     }
     if (res.reflection) {
       APP.playing = false; renderControls();
+      paintYearGauge(true);
       showReflection(res.reflection);
       return;
     }
-    schedule(APP.ff ? 42 : PACE[APP.pace] / APP.speed);
+    APP.yearElapsed = 0;
+    paintYearGauge(true);
   }
 
   // ---------------- modals ----------------

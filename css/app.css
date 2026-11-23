@@ -56,7 +56,8 @@ a{color:var(--jade)}
 .primary:active{transform:translateY(1px);box-shadow:0 4px 10px rgba(178,58,43,.2)}
 .ghost{width:100%;padding:14px;border-radius:12px;border:1px solid var(--line-2);color:var(--ink-2);font-weight:600;background:rgba(255,255,255,.4)}
 .cover-foot{margin-top:auto;padding-top:28px;font-size:11.5px;color:var(--ink-3);font-family:var(--mono);letter-spacing:.02em}
-.settings-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.settings-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.pace-note{flex:1 0 100%;text-align:right;font-size:10.5px;color:var(--ink-3);font-family:var(--mono);margin-top:2px}
 .settings-row:last-child{border-bottom:0}
 .settings-row .lab{font-size:13px;color:var(--ink-2)}
 .seg{display:inline-flex;background:var(--paper-2);border-radius:9px;padding:3px;gap:2px}
@@ -103,7 +104,7 @@ a{color:var(--jade)}
   .hud{position:sticky;top:0;z-index:20;backdrop-filter:blur(8px)}
 }
 .hud{
-  background:rgba(244,239,227,.94);border-bottom:1px solid var(--line);
+  background:rgba(244,239,227,.985);border-bottom:1px solid var(--line);
   padding:10px 16px 8px;position:sticky;top:0;z-index:20;
 }
 .hud-top{display:flex;align-items:baseline;gap:10px}
@@ -122,6 +123,15 @@ a{color:var(--jade)}
 .meter[data-k=relation] i{background:var(--blue)}
 .money-line{display:flex;gap:14px;margin-top:7px;font-size:11.5px;color:var(--ink-3);flex-wrap:wrap}
 .money-line b{color:var(--ink);font-weight:600;font-family:var(--mono);font-size:12px}
+/* year progress gauge — 이번 해가 차오르는 실시간 게이지 */
+.yg-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.yg-track{position:relative;flex:1 1 auto;min-width:0;height:6px;border-radius:4px;background:#e3d9c4;overflow:hidden;box-shadow:inset 0 1px 1px rgba(0,0,0,.07)}
+.yg-track i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:4px;background:linear-gradient(90deg,var(--jade),#4d8a6a 70%,var(--seal))}
+.yg-note{flex:0 0 auto;min-width:52px;text-align:right;font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:.02em;white-space:nowrap}
+.yg-row.paused .yg-track i{background:var(--ink-3);opacity:.55}
+.yg-row.paused .yg-note{color:var(--seal)}
+.yg-row.ff .yg-track i{background:var(--ink-3)}
+.yg-row.full .yg-track i{background:var(--seal)}
 
 /* peer strip */
 .peer-strip{display:flex;gap:6px;overflow-x:auto;padding:8px 16px;border-bottom:1px solid var(--line);scrollbar-width:none;background:rgba(236,228,211,.28)}
@@ -176,6 +186,9 @@ a{color:var(--jade)}
 .chip.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
 .focus-title{font-size:10.5px;letter-spacing:.12em;color:var(--ink-3);font-family:var(--mono);text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
 .focus-title button{font-size:10.5px;color:var(--jade);font-family:inherit;letter-spacing:0;text-transform:none}
+.focus-note{font-size:10.5px;color:var(--ink-3);margin-top:7px;line-height:1.5}
+.focus-lock{font-size:11.5px;color:var(--ink-3);line-height:1.6;padding:2px 1px}
+.focus-lock span{display:inline-block;border-left:2px solid var(--line-2);padding-left:8px}
 
 /* controls */
 .controls{

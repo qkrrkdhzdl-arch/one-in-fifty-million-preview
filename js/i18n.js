@@ -12,6 +12,7 @@ window.I18N = {
     paceFast: "빠르게",
     paceNormal: "보통",
     paceDeep: "깊게",
+    paceNote: "한 해의 길이 — 빠르게 18초 · 보통 36초 · 깊게 54초",
     lang: "언어",
     sound: "효과음",
     birthTitle: "출생 기록",
@@ -174,7 +175,12 @@ window.I18N = {
     need: "필요 자금 {p}",
     debt: "빚",
     assets: "금융자산",
-    more: "자세히"
+    more: "자세히",
+    focusLocked: "6세부터 올해의 초점을 고를 수 있어요. 지금은 어린 시절입니다.",
+    focusNote: "게이지가 차오르는 동안 언제든 바꿀 수 있어요. 이 해가 끝날 때 반영됩니다.",
+    focusSet: "올해 초점: {f} · 이 해가 끝나면 적용",
+    secLeft: "{s}초",
+    pausedLabel: "일시정지"
   },
   en: {
     title: "One in Fifty Million",
@@ -188,6 +194,7 @@ window.I18N = {
     paceFast: "Fast",
     paceNormal: "Normal",
     paceDeep: "Deep",
+    paceNote: "Seconds per year — fast 18 · normal 36 · deep 54",
     lang: "Language",
     sound: "Sound",
     birthTitle: "Record of Birth",
@@ -350,6 +357,11 @@ window.I18N = {
     need: "Needed {p}",
     debt: "Debt",
     assets: "Financial assets",
-    more: "Details"
+    more: "Details",
+    focusLocked: "From age 6 you can choose this year's focus. This is childhood.",
+    focusNote: "Change it any time while the year fills. It applies when the year ends.",
+    focusSet: "This year's focus: {f} · applies at year's end",
+    secLeft: "{s}s",
+    pausedLabel: "paused"
   }
 };
