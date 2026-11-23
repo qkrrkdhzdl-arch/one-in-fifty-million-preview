@@ -74,11 +74,11 @@
     const region = opt.region && C.regions.find(r => r.id === opt.region) ? C.regions.find(r => r.id === opt.region) : wpick(C.regions, r => r.w);
     const district = pick(region.districts);
     const zone = district[2] === "rural" ? "rural" : region.type;
-    const cls = opt.cls || wpick(CLASS_FROM_CHAR[district[2]], x => x[1]);
-    const cohort = opt.cohort || wpick(COHORTS, x => x[1]);
+    const cls = opt.cls || wpick(CLASS_FROM_CHAR[district[2]], x => x[1])[0];
+    const cohort = opt.cohort || wpick(COHORTS, x => x[1])[0];
     const birthYear = cohort;
-    const family = wpick(FAMILY, x => x[1]);
-    const siblings = family === "single" ? ri(0, 1) : family === "care" ? 0 : wpick([[0, 22], [1, 45], [2, 26], [3, 7]], x => x[1]);
+    const family = wpick(FAMILY, x => x[1])[0];
+    const siblings = family === "single" ? ri(0, 1) : family === "care" ? 0 : wpick([[0, 22], [1, 45], [2, 26], [3, 7]], x => x[1])[0];
     const name = opt.name || koreanName(sex);
     const era = birthYear <= 1985 ? "old" : birthYear <= 2005 ? "mid" : "new";
 
