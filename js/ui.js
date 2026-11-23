@@ -1231,7 +1231,7 @@
     const d = life.death;
     const head = `${life.name.ko} · ${life.region.ko} · ${life.birthYear}–${life.year}`;
     if (kind === 'birth') return `${life.birthYear}년 ${life.region.ko} ${life.district.ko}에서 태어났다. 대한민국에서 그해 태어난 254,341명 중 한 명. #5천만분의1`;
-    if (kind === 'death') return `${life.name.ko}, ${d ? d.age : life.age}세에 ${d ? d.cause : ''}${josa(d ? d.cause : '', '(으)로', '로')} 세상을 떠났다. #5천만분의1`;
+    if (kind === 'death') return `${life.name.ko}, ${d ? d.age : life.age}세에 ${d ? d.cause : ''}${josa(d ? d.cause : '', '으로', '로')} 세상을 떠났다. #5천만분의1`;
     return `${head}. 이 삶의 결은 '${U.L(type.name)}'. ${U.L(type.line)} #5천만분의1`;
   }
 
