@@ -569,20 +569,21 @@
     // 지도
     const grid = $('#grid');
     if (grid) {
-      const cells = [];
-      const hist = life.history || [];
-      for (let a = 0; a < 100; a++) {
-        const h = hist.find(x => x.age === a);
-        let bg = 'var(--rule2)';
-        if (h) {
-          const hp = h.happiness;
-          bg = hp >= 75 ? 'var(--grid-hi)' : hp >= 58 ? 'var(--grid-mid)' : hp >= 42 ? '#B9CFA8' : 'var(--grid-lo)';
-        }
-        const cur = a === life.age ? ' cur' : '';
-        const le = Math.abs(a - lifeExpectancy(life)) < 1 ? ' le' : '';
-        cells.push(`<div class="c${cur}${le}" style="background:${bg}" title="${a}세${h ? ' · 행복 ' + h.happiness : ''}"></div>`);
+      // 100칸을 한 번만 만들고, 해마다 바뀐 칸만 갱신한다(스냅샷·리페인트 부담 줄임)
+      if (grid.children.length !== 100) {
+        grid.innerHTML = Array.from({ length: 100 }, () => '<div class="c"></div>').join('');
       }
-      grid.innerHTML = cells.join('');
+      const hist = life.history || [];
+      const e0 = lifeExpectancy(life);
+      for (let a = 0; a < 100; a++) {
+        const cell = grid.children[a]; if (!cell) continue;
+        const h = hist.find(x => x.age === a);
+        const hp = h ? h.happiness : null;
+        cell.style.background = hp == null ? 'var(--rule2)'
+          : hp >= 75 ? 'var(--grid-hi)' : hp >= 58 ? 'var(--grid-mid)' : hp >= 42 ? '#B9CFA8' : 'var(--grid-lo)';
+        cell.className = 'c' + (a === life.age ? ' cur' : '') + (Math.abs(a - e0) < 1 ? ' le' : '');
+        cell.title = a + '세' + (h ? ' · 행복 ' + h.happiness : '');
+      }
     }
     // 그래프
     const cb = $('#chartBox');
@@ -771,13 +772,14 @@
       const idx = Math.floor(Math.random() * dec.ch.length);
       choose(idx);
     };
-    // 자동 결정: 6초 카운트다운
-    let left = 6000;
+    // 자동 결정 카운트다운: 보통 6초, 8× 이상 배속에서는 2.2초(빨리 넘길 때 기다리지 않게)
+    const waitMs = APP.speed >= 8 ? 2200 : 6000;
+    let left = waitMs;
     const bar = $('#decbar'), cnt = $('#decCount');
     if (APP.auto) {
       APP.decTimer = setInterval(() => {
         left -= 100;
-        if (bar) bar.style.transform = `scaleX(${Math.max(0, 1 - left / 6000).toFixed(3)})`;
+        if (bar) bar.style.transform = `scaleX(${Math.max(0, 1 - left / waitMs).toFixed(3)})`;
         if (cnt) cnt.innerHTML = `${Math.ceil(left / 1000)}초 뒤 알아서 고릅니다 · <b>카드를 누르면 멈춰요</b>`;
         if (left <= 0) {
           clearInterval(APP.decTimer); APP.decTimer = null;
