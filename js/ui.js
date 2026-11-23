@@ -79,7 +79,11 @@
       APP.pace = b.dataset.v; localStorage.setItem("oifm_pace", APP.pace); renderCover();
     });
     el.querySelectorAll('[data-seg="lang"] button').forEach(b => b.onclick = () => setLang(b.dataset.v));
-    $("#btn-born").onclick = () => { APP.life = E.createLife(); renderBirth(); screen("birth"); };
+    $("#btn-born").onclick = () => {
+      const q = new URLSearchParams(location.search);
+      APP.life = E.createLife(q.get("seed") ? { seed: +q.get("seed") } : {});
+      renderBirth(); screen("birth");
+    };
   }
 
   function setLang(l) {
