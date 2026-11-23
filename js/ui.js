@@ -163,7 +163,7 @@
     <div class="wrap">
       <div class="hero">
         <div class="herotext">
-          <div class="kicker">v2.1 · 무료 인생 시뮬레이션 · 17개 시·도 62개 시군구 · 사건 656종 · 결정 42장 · 일상 결정 22장</div>
+          <div class="kicker">v2.1 · 무료 인생 시뮬레이션 · 17개 시·도 62개 시군구 · 사건 656종 · 결정 42장 · 일상 결정 28장</div>
           <h1>5천만<br>분의 <em>1</em></h1>
           <p class="lede">2025년, 이 나라에서 254,341명이 태어났습니다. 그중 한 명이 되어 한 번뿐인 삶을 끝까지 살아봅니다. 어느 동네, 누구의 아이로 태어날지는 고를 수 없습니다. 당신이 그랬던 것처럼.</p>
           <div class="counter">
@@ -544,7 +544,7 @@
       <dt>거주</dt><dd>${life.region.ko} ${life.district.ko}</dd>
       <dt>가정 형편</dt><dd>${CLASS_KO[life.cls]}</dd>
       <dt>학력</dt><dd>${(life.major && life.major !== 'none') ? `${MAJOR_KO[life.major] || life.major} · ${EDU_KO[life.edu] || ''}` : (EDU_KO[life.edu] || '—')}</dd>
-      <dt>일</dt><dd>${life.role && life.role !== 'none' ? ROLE_KO[life.role] : (JOB_KO[life.job] || '—')}</dd>
+      <dt>일</dt><dd>${life.flags.retired ? '은퇴' : (life.role && life.role !== 'none' ? ROLE_KO[life.role] : (JOB_KO[life.job] || '—'))}</dd>
       <dt>집</dt><dd>${HOME_KO[life.home]}${life.flags.wagePeak && !life.flags.retired ? ' · 임금피크' : ''}${life.flags.retired ? ' · 은퇴' : ''}</dd>`;
     const mrz = $('#mrz');
     if (mrz) mrz.textContent = `I<KOR${life.name.en.replace(/ /g, '').toUpperCase()}<<${life.region.ko}<<<<<<<<<<<<<<<<<<<<<`;
