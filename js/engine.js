@@ -234,7 +234,7 @@
              en: "Your father died before dawn. You kept the wake for three days, writing down the names of visitors, and stood as chief mourner on the last day." },
         st: { health: -2, happiness: -9, knowledge: 0, relation: 3 }, money: -450, inc: 0
       });
-      fa.father = null;
+      fa.father = null; life.parents.father = false;
     }
     if (fa.mother != null && fa.mother >= life.parentDeath.mother) {
       out.push({
@@ -244,7 +244,7 @@
              en: "Your mother did not come home from the hospital. Clearing the house, you found side dishes left in the fridge and medicine times pencilled on the calendar." },
         st: { health: -2, happiness: -10, knowledge: 0, relation: 2 }, money: -380, inc: 0
       });
-      fa.mother = null;
+      fa.mother = null; life.parents.mother = false;
     }
     return out;
   }
@@ -290,8 +290,8 @@
     health: { health: 2.4, happiness: 0.4, knowledge: 0, relation: -0.3, income: 0 },
     family: { health: 0.3, happiness: 1.2, knowledge: 0, relation: 2.6, income: -0.02 },
     career: { health: -1.1, happiness: -0.2, knowledge: 0.5, relation: -0.9, income: 0.035 },
-    study:  { health: -0.6, happiness: 0.2, knowledge: 2.6, relation: -0.4, income: 0.012 },
-    balance:{ health: 0.8, happiness: 0.8, knowledge: 0.7, relation: 0.8, income: 0 }
+    study:  { health: -0.6, happiness: 0.2, knowledge: 2.0, relation: -0.4, income: 0.012 },
+    balance:{ health: 0.8, happiness: 0.8, knowledge: 0.4, relation: 0.5, income: 0 }
   };
 
   function applyFocus(life) {

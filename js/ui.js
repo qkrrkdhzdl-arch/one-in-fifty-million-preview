@@ -180,7 +180,7 @@
       </div>
       <div class="money-line">
         <span>${t("income")} <b>${life.income ? U.money(life.income) : "—"}</b></span>
-        <span>${t("wealth")} <b>${U.money(nw)}</b></span>
+        <span>${life.age < 19 ? (U.lang() === "ko" ? "가구 형편" : "Household") : t("wealth")} <b>${life.age < 19 ? t("birthClass" + life.cls.charAt(0).toUpperCase() + life.cls.slice(1)) : U.money(nw)}</b></span>
         <span>${t("home")} <b>${t("home" + { none: "None", wolse: "Wolse", jeonse: "Jeonse", own: "Own" }[life.home])}</b></span>
         ${life.job !== "none" ? `<span>${t("job")} <b>${U.lang() === "ko" ? E.JOB_KO[life.job] : E.JOB_EN[life.job]}</b></span>` : ""}
       </div>`;
@@ -297,7 +297,7 @@
         const v = e.st[k]; if (!v) return;
         d.push(`<span class="${v > 0 ? "up" : "down"}">${t(stName[k]).slice(0, 2)} ${v > 0 ? "+" : ""}${v}</span>`);
       });
-      if (e.money) d.push(`<span class="${e.money > 0 ? "up" : "down"}">${U.money(e.money)}</span>`);
+      if (e.money && entry.age >= 19) d.push(`<span class="${e.money > 0 ? "up" : "down"}">${U.money(e.money)}</span>`);
       const src = C.sources[e.src];
       out += `<article class="ev">
         <div class="ev-top">
@@ -432,7 +432,7 @@
         <button class="choice" data-ch="${i}">
           <div class="ct"><i>${String.fromCharCode(65 + i)}</i>${U.L(c.t)}</div>
           ${c.n && U.L(c.n) ? `<div class="cn">${glossify(U.L(c.n), APP.lang)}</div>` : ""}
-          <div class="cd">${deltaText(c)}</div>
+          <div class="cd">${deltaText(c, dec.age)}</div>
         </button>`).join("")}</div>
       ${C.sources[dec.src] ? `<div class="src-box on" style="margin-top:12px"><div class="name">${U.L(C.sources[dec.src])} <span style="color:var(--ink-3);font-weight:400">${C.sources[dec.src].date}</span></div><div class="fig">${U.L(C.sources[dec.src].fig)}</div></div>` : ""}
     `, { dismissable: false });
@@ -457,15 +457,15 @@
     }
   }
 
-  function deltaText(ch) {
+  function deltaText(ch, age) {
     const out = [];
     ["health", "happiness", "knowledge", "relation"].forEach(k => {
       const v = ch.st[k]; if (!v) return;
       out.push(`${t(stName[k])} ${v > 0 ? "+" : ""}${v}`);
     });
-    if (ch.money) out.push(U.money(ch.money));
+    if (ch.money && (age == null || age >= 19)) out.push(U.money(ch.money));
     if (ch.inc) out.push(`${t("income")} ${ch.inc > 0 ? "+" : ""}${Math.round(ch.inc * 100)}%`);
-    if (ch.set && ch.set.job) out.push(U.lang() === "ko" ? E.JOB_KO[ch.set.job] : E.JOB_EN[ch.set.job]);
+    if (ch.set && ch.set.job && ch.set.job !== "none") out.push(U.lang() === "ko" ? E.JOB_KO[ch.set.job] : E.JOB_EN[ch.set.job]);
     return out.join(" · ");
   }
 
