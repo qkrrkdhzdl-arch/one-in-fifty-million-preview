@@ -171,6 +171,8 @@
     exp += interest;
     exp += (life.extraExpense || 0) * nom;
     life.extraExpense = 0;
+    // households do not spend more than they earn while they still have income
+    if (life.income > 0 && exp > life.income * 0.95) exp = life.income * 0.95;
     life.expenses = Math.round(exp);
 
     const net = life.income - life.expenses;
@@ -179,7 +181,7 @@
       const repay = Math.min(life.debt, Math.round(net * 0.55));
       life.debt -= repay;
       const left = net - repay;
-      const saveRate = { safe: 0.7, stock: 0.55, coin: 0.5, none: 0.85 }[life.alloc] || 0.6;
+      const saveRate = { safe: 0.20, stock: 0.17, coin: 0.14, none: 0.22 }[life.alloc] || 0.18;
       const save = left * saveRate;
       life.cash += Math.round(save * (life.alloc === "safe" ? 0.75 : 0.25));
       life.assets += Math.round(save * (life.alloc === "safe" ? 0.25 : 0.75));
@@ -193,7 +195,7 @@
     }
 
     const m = macroFor(life.year);
-    const stockR = { safe: 0.03, stock: R() < 0.22 ? -0.14 : 0.072, coin: R() < 0.5 ? -0.32 : 0.36, none: 0.02 }[life.alloc] || 0.03;
+    const stockR = { safe: 0.028, stock: R() < 0.22 ? -0.12 : 0.058, coin: R() < 0.5 ? -0.3 : 0.3, none: 0.02 }[life.alloc] || 0.03;
     if (life.assets > 0) life.assets = Math.round(life.assets * (1 + stockR));
     if (life.assets < 0) life.assets = 0;
     if (life.home === "own") {
@@ -372,7 +374,7 @@
         const price = homePrice(life);
         const down = Math.round(price * 0.3);
         const have = life.cash + life.assets;
-        if (have >= down) {
+        if (have >= down && (price - down) <= Math.max(12000, life.income * 4.5)) {
           let rest = down;
           const useCash = Math.min(life.cash, rest); life.cash -= useCash; rest -= useCash;
           life.assets = Math.max(0, life.assets - rest);
@@ -566,6 +568,7 @@
       if (life.home === "jeonse") { life.cash += life.deposit || 0; life.deposit = 0; }
       const have = life.cash + life.assets;
       if (have < down) return { ok: false, need: down - have };
+      if ((price - down) > Math.max(12000, life.income * 4.5)) return { ok: false, need: Math.round((price - down) - life.income * 4.5) };
       let rest = down;
       const useCash = Math.min(life.cash, rest);
       life.cash -= useCash; rest -= useCash;
