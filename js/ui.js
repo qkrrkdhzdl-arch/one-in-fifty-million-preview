@@ -466,7 +466,8 @@
 
   function ident(life, kind) {
     const D = window.CONTENT.identity || {};
-    const key = kind === 'trait' ? life.traitId : kind === 'talent' ? life.talentId : life.dreamId;
+    const fl = life.flags || {};
+    const key = kind === 'trait' ? (life.traitId || fl.traitId) : kind === 'talent' ? (life.talentId || fl.talentId) : (life.dreamId || fl.dreamId);
     const list = kind === 'trait' ? (D.traits || []) : kind === 'talent' ? (D.talents || []) : (D.dreams || []);
     const it = list.find(x => x.id === key) || null;
     if (!it) return L('—', '—');
@@ -669,7 +670,7 @@
       <dt>${L('기질', 'Temperament')}</dt><dd>${ident(life, 'trait')}</dd>
       <dt>${L('소질', 'Knack')}</dt><dd>${ident(life, 'talent')}</dd>
       <dt>${L('어릴 적 꿈', 'Childhood dream')}</dt><dd>${ident(life, 'dream')}</dd>
-      <dt>${L('집', 'Home')}</dt><dd>${homeName(life.home)}${life.flags.wagePeak && !life.flags.retired ? L(' · 임금피크', ' · wage peak') : ''}${life.flags.retired ? L(' · 은퇴', ' · retired') : ''}</dd>`;
+      <dt>${L('집', 'Home')}</dt><dd>${life.age < 19 ? birthHome(life) : homeName(life.home)}${life.flags.wagePeak && !life.flags.retired ? L(' · 임금피크', ' · wage peak') : ''}${life.flags.retired ? L(' · 은퇴', ' · retired') : ''}</dd>`;
     const mrz = $('#mrz');
     if (mrz) mrz.textContent = `I<KOR${life.name.en.replace(/ /g, '').toUpperCase()}<<${(en() ? life.region.en.replace(/\s+/g, '') : life.region.ko).toUpperCase()}<<<<<<<<<<<<<<<<<<<<<`;
     const cv = $('#avatar');
@@ -1028,10 +1029,11 @@
     return glossify(f.body || f.text || '');
   }
   function feedRows(list) {
-    let prevSrc = null;
+    const recent = [];
     return (list || []).map(f => {
-      const showSrc = f.src && f.src !== prevSrc;
-      prevSrc = f.src || null;
+      const showSrc = f.src && recent.slice(0, 8).indexOf(f.src) < 0;
+      if (f.src) { recent.unshift(f.src); if (recent.length > 8) recent.pop(); }
+      else recent.unshift('');
       return `<li class="${f.kind || ''} ev" data-src="${U.esc(f.src || '')}"><span class="a">${AGE(f.age)}</span><span class="x">${feedItemInner(f)}${showSrc ? `<span class="f">${U.esc(f.src)}</span>` : ''}</span></li>`;
     }).join('');
   }
@@ -1077,7 +1079,12 @@
     li.className = (item.kind ? item.kind + ' ' : '') + 'ev enter';
     // 바로 위(더 최근) 줄과 같은 출처면 자료 줄을 되풀이하지 않는다
     const topSrc = (ul.firstElementChild && ul.firstElementChild.getAttribute('data-src')) || (prevItem && prevItem.src) || '';
-    const showSrc = item.src && item.src !== topSrc;
+    let showSrc = item.src && item.src !== topSrc;
+    // 최근 몇 줄 안에 같은 출처가 이미 나왔으면 각주를 되풀이하지 않는다(같은 통계가 줄마다 붙으면 장면이 가려진다)
+    if (showSrc) {
+      const recent = Array.from(ul.children).slice(0, 8).map(x => x.getAttribute('data-src'));
+      if (recent.indexOf(item.src) >= 0) showSrc = false;
+    }
     li.setAttribute('data-src', item.src || '');
     li.innerHTML = `<span class="a">${AGE(item.age)}</span><span class="x">${feedItemInner(item)}${showSrc ? `<span class="f">${U.esc(item.src)}</span>` : ''}</span>`;
     ul.insertBefore(li, ul.firstChild);
