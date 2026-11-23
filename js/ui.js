@@ -36,7 +36,8 @@
   function go(id) {
     APP.screen = id;
     ['cover', 'birth', 'life', 'death', 'record'].forEach(s => {
-      const el = $('#screen-' + s); if (el) el.hidden = s !== id;
+      const el = $('#screen-' + s);
+      if (el) { el.hidden = s !== id; try { el.inert = s !== id; } catch (e) {} }
     });
     window.scrollTo(0, 0);
   }
@@ -835,7 +836,7 @@
       <div class="dc-next">화면을 누르면 다음으로 넘어가요</div>`;
     const steps = [
       { lab: '마지막 해', age: d.age + '세', line: `${life.region.ko}에서 숨을 거두었습니다.`, cause: `사인 · ${d.cause}` },
-      { lab: '마지막 순간', age: d.age + '세', line: U.L(d.line) || '', cause: `${life.year}년 · 향년 ${d.age}세` }
+      { lab: '마지막 순간', age: d.age + '세', line: U.L(d.line) || '', cause: `${life.year}년 · 향년 ${d.age}세` + (helpLine(d.cause) ? ' · ' + helpLine(d.cause) : '') }
     ];
     let s = 0;
     const show = () => {
@@ -875,8 +876,9 @@
             <h1>${life.name.ko}</h1>
             <p class="rec-life">${life.birthYear} – ${life.year} · 향년 ${d.age}세 · ${life.region.ko} ${life.district.ko}</p>
             <p class="rec-color"><b style="background:${colorHex(type)}"></b>${U.L(type.name)}</p>
-            <p class="rec-story">${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 태어났습니다. ${life.edu && life.edu !== 'none' ? EDU_KO[life.edu] + '를 마쳤습니다. ' : ''}${life.job !== 'none' ? JOB_KO[life.job] + '으로 일했습니다. ' : ''}${life.married ? '배우자와 함께 살았습니다. ' : '결혼하지 않았습니다. '}${life.kids ? `아이 ${life.kids}명을 키웠습니다. ` : ''}${d.age}세에 ${cause}${josa(cause, '으로', '로')} 세상을 떠났습니다.</p>
+            <p class="rec-story">${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 태어났습니다. ${life.edu && life.edu !== 'none' ? EDU_KO[life.edu] + '를 마쳤습니다. ' : ''}${life.job !== 'none' ? JOB_KO[life.job] + '으로 일했습니다. ' : ''}${life.married ? '배우자와 함께 살았습니다. ' : '배우자 없이 살았습니다. '}${life.kids ? `아이 ${life.kids}명을 키웠습니다. ` : ''}${d.age}세에 ${cause}${josa(cause, '으로', '로')} 세상을 떠났습니다.</p>
             <p class="rec-cause">사인 · ${cause}</p>
+            ${helpLine(cause) ? `<p class="rec-note" style="margin-top:4px">${helpLine(cause)}</p>` : ''}
           </div>
           <div>
             <div class="rec-fields" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:0;border-top:0">
@@ -967,6 +969,11 @@
     $('#againBtn').onclick = () => { APP.life = null; localStorage.removeItem('oifm2_life'); renderCover(); go('cover'); $('#startBtn').click(); };
     $('#coverBtn').onclick = () => { APP.life = null; localStorage.removeItem('oifm2_life'); renderCover(); go('cover'); };
     $('#shareBtn').onclick = () => openShare('record');
+  }
+
+  const HEAVY = /자살|사고|폭력|중독|학대|전쟁/;
+  function helpLine(cause) {
+    return HEAVY.test(String(cause || '')) ? '힘든 마음이 오래 머문다면 자살예방상담 109, 정신건강상담 1577-0199로 연락해도 좋습니다.' : '';
   }
 
   function josa(word, withJong, withoutJong) {
