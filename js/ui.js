@@ -425,7 +425,7 @@
           <div class="lbl">${L('이름', 'Name')}</div>
           <h2>${en() ? life.name.en : life.name.ko}</h2>
           <p class="story">${en()
-              ? `You were born in ${life.district.en}, ${life.region.en}, in ${life.birthYear}, a ${life.sex === 'f' ? 'girl' : 'boy'} in a ${clsName(life.cls)} household. ${life.family === 'single' ? 'One parent is raising you.' : life.siblings ? (life.siblings === 1 ? 'You have an older sibling.' : `You have ${life.siblings} older siblings.`) : 'You are the first child.'} The family lives in ${birthHome(life)}, ${life.region.en}. ${gpStory}`
+              ? `You were born in ${life.district.en}, ${life.region.en}, in ${life.birthYear}, a ${life.sex === 'f' ? 'girl' : 'boy'} in a ${clsName(life.cls)} household. ${life.family === 'single' ? 'One parent is raising you.' : life.siblings ? (life.siblings === 1 ? 'You have an older sibling.' : `You have ${life.siblings} older siblings.`) : 'You are the first child.'} The family lives in ${lcFirst(birthHome(life))}, ${life.region.en}. ${gpStory}`
               : `${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 ${life.sex === 'f' ? '여자아이' : '남자아이'}로 태어났습니다. ${life.family === 'single' ? '한부모 가정입니다.' : life.siblings ? `위로 형제자매 ${life.siblings}명이 있습니다.` : '첫아이입니다.'} 가족은 ${life.region.ko}의 ${birthHome(life)}에서 살아갑니다. ${gpStory}`}</p>
           <p class="certpace">${L(
               `기대수명까지 살면 약 ${Math.round(e0 * YEAR_MS[APP.pace] / 60000)}분이 걸려요 (1년 ≈ ${Math.round(YEAR_MS[APP.pace] / 1000)}초). 사는 동안 일시정지와 배속이 되고, 중간에 닫아도 이 브라우저에 저장됩니다.`,
@@ -438,7 +438,7 @@
             <div><span>${L('부모 나이', 'Parents')}</span><b>${parentAge || '—'}</b></div>
             <div><span>${L('형제자매', 'Siblings')}</span><b>${life.siblings ? L(life.siblings + '명', String(life.siblings)) : L('없음', 'None')}</b></div>
             <div><span>${L('태어난 집', 'The home')}</span><b>${birthHome(life)}</b></div>
-            <div><span>${L('부모님 일', "Parents' work")}</span><b>${life.bg ? life.bg.fJob + ' · ' + life.bg.mJob : '—'}</b></div>
+            <div><span>${L('부모님 일', "Parents' work")}</span><b>${life.bg ? jobEn(life.bg.fJob) + ' · ' + jobEn(life.bg.mJob) : '—'}</b></div>
             <div><span>${L('조부모', 'Grandparents')}</span><b>${gpLabel}</b></div>
             <div><span>${L('기대수명', 'Life expectancy')}</span><b>${L(e0 + '세', e0 + ' years')}</b></div>
             <div><span>${L('5세 전 사망 확률', 'Death before 5')}</span><b>${eraStats(life.birthYear).u5}</b></div>
@@ -464,6 +464,16 @@
     $('#shareBirthBtn').onclick = () => openShare('birth', true);
   }
 
+  const PARENT_JOB_EN = { '회사원': 'Office worker', '전문직': 'Professional', '가게': 'Shop owner', '공무원': 'Civil servant',
+    '기술직': 'Technician', '운수·건설': 'Transport and construction', '일용·건설': 'Day labour and construction',
+    '농사': 'Farming', '전업주부': 'Homemaker', '교사': 'Teacher', '간호사': 'Nurse', '일용·서비스': 'Service work',
+    '군인': 'Soldier', '경찰': 'Police officer' };
+  function jobEn(ko) {
+    if (!ko) return '—';
+    if (!en()) return ko;
+    return String(ko).split(' · ').map(x => PARENT_JOB_EN[x] || x).join(' · ');
+  }
+  function lcFirst(s) { return s ? String(s).charAt(0).toLowerCase() + String(s).slice(1) : s; }
   function ident(life, kind) {
     const D = window.CONTENT.identity || {};
     const fl = life.flags || {};
