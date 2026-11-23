@@ -216,6 +216,7 @@
       if (e.fam.m && !life.parents.mother) return false;
       if (e.fam.f && !life.parents.father) return false;
       if (e.fam.s && !(life.siblings > 0)) return false;
+      if (e.fam.k && !(life.kids > 0) && life.age >= 25) return false;
     }
     return true;
   }
@@ -317,8 +318,8 @@
     const target = 40 + life.stats.health * 0.2 + life.stats.relation * 0.2;
     life.stats.happiness = clamp(life.stats.happiness + (target - life.stats.happiness) * 0.08, 0, 100);
     if (a > 22) life.stats.relation = clamp(life.stats.relation - 0.25, 0, 100);
-    if (a < 22) life.stats.knowledge = clamp(life.stats.knowledge + 0.6, 0, 100);
-    if (a > 65) life.stats.knowledge = clamp(life.stats.knowledge - 0.2, 0, 100);
+    if (a < 22) life.stats.knowledge = clamp(life.stats.knowledge + 0.45, 0, 100);
+    if (a > 55) life.stats.knowledge = clamp(life.stats.knowledge - 0.35, 0, 100);
   }
 
   // ---------- decisions ----------
@@ -406,6 +407,27 @@
   }
 
   // ---------- main tick ----------
+  function ensureLivelihood(life) {
+    const out = [];
+    if (life.age >= 26 && life.job === "none" && !life.retired) {
+      life.job = (life.edu === "university" || life.edu === "grad") ? "office" : "trade";
+      out.push({ id: "liv_first_job", ic: "💼", src: "src_job",
+        t: { ko: "첫 정규직", en: "The First Steady Job" },
+        b: { ko: "오래 미뤄 두었던 취업을 마무리하고 첫 정규직 계약서에 서명합니다. 출근 첫날 사원증 사진을 찍고, 점심시간에는 같은 팀 사람들의 이름을 공책에 적습니다.",
+             en: "You finally sign a first full-time contract. On your first morning you have your ID photo taken and, at lunch, write the names of your new team in a notebook." },
+        st: { health: -1, happiness: 2, knowledge: 1, relation: 1 }, money: 0, inc: 0 });
+    }
+    if (life.age >= 63 && !life.retired) {
+      life.retired = 1;
+      out.push({ id: "liv_retire", ic: "🕰", src: "src_income",
+        t: { ko: "마지막 출근", en: "The Last Commute" },
+        b: { ko: "정년이 되어 사무실 책상을 비웁니다. 서랍에서 오래된 명함과 회사 로고가 찍힌 머그잔을 꺼내 종이상자에 담고, 엘리베이터에서 동료들과 마지막으로 인사를 나눕니다.",
+             en: "You clear your desk at retirement. Old business cards and a company mug go into a cardboard box, and you say a last goodbye in the elevator." },
+        st: { health: 1, happiness: -2, knowledge: 0, relation: 1 }, money: 0, inc: 0 });
+    }
+    return out;
+  }
+
   function tick(life) {
     if (life.death) return { death: life.death };
     life.age += 1;
@@ -413,9 +435,10 @@
 
     applyFocus(life);
     drift(life);
+    const liveEvs = ensureLivelihood(life);
     yearEconomics(life);
 
-    const evs = familyEvents(life).concat(pickEvents(life, life.age < 6 ? 1 : (R() < 0.35 ? 2 : 1)));
+    const evs = liveEvs.concat(familyEvents(life)).concat(pickEvents(life, life.age < 6 ? 1 : (R() < 0.35 ? 2 : 1)));
     evs.forEach(e => { if (e.st) applyEvent(life, e); else applyEvent(life, e); });
 
     // peer ages
