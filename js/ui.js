@@ -391,8 +391,8 @@
       <div class="speed">
         <button id="pauseBtn" aria-pressed="false">❚❚ 멈춤</button>
         <span class="sps">${SPEEDS.map(s => `<button data-s="${s}" aria-pressed="${s === 1}">${s}×</button>`).join('')}</span>
-        <button id="ffBtn" class="ff">다음 결정까지 <span class="fftx">»</span><span class="ffsh">»</span></button>
-        <button id="autoBtn" class="ff" aria-pressed="false">자동 결정</button>
+        <button id="ffBtn" class="ff"><span class="fftx">다음 결정까지</span><span class="ffsh">»</span></button>
+        <button id="autoBtn" class="ff" aria-pressed="false"><span class="fftx">자동 결정</span><span class="ffsh">자동</span></button>
         <button id="moreBtn" class="ff morebtn" aria-label="더 보기">⋯</button>
         <div id="moreMenu" class="more">
           <div class="mg"><button id="goFamily">가족과 삶 보기</button><button id="goStats">상태 살펴보기</button></div>

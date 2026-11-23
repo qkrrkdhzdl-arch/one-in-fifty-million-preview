@@ -86,11 +86,8 @@
     const og = off.getContext('2d');
     og.imageSmoothingEnabled = false;
     try { window.SHARE.scene(og, 0, 0, 360, 240, spec); } catch (e) { /* 장면을 못 그려도 화면은 계속 */ }
-    // 하늘+스카이라인(6~14.5행)을 위 3/4에, 인물+땅(17~23행)을 아래 1/4에 이어 붙여
-    // 32:10 스트립 안에 장면의 앞뒤가 모두 남게 한다
-    const topH = Math.round(canvas.height * 0.74);
-    g.drawImage(off, 0, 58, 360, 92, 0, 0, canvas.width, topH);
-    g.drawImage(off, 0, 150, 360, 60, 0, topH, canvas.width, canvas.height - topH + 1);
+    // 32:10 스트립에는 건물 아래·골목·사람이 남는 띠(9.5~20.75행)를 담는다
+    g.drawImage(off, 0, 95, 360, 112.5, 0, 0, canvas.width, canvas.height);
   }
 
   function avatar(canvas, life) {
