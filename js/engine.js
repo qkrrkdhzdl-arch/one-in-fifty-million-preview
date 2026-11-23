@@ -79,6 +79,11 @@
     const cohort = opt.cohort || wpick(COHORTS, x => x[1])[0];
     const birthYear = cohort;
     const family = wpick(FAMILY, x => x[1])[0];
+    const singleParent = family === "single" ? (R() < 0.75 ? "mother" : "father") : null;
+    const parents = {
+      mother: family === "both" || family === "single" && singleParent === "mother",
+      father: family === "both" || family === "single" && singleParent === "father"
+    };
     const siblings = family === "single" ? ri(0, 1) : family === "care" ? 0 : wpick([[0, 22], [1, 45], [2, 26], [3, 7]], x => x[1])[0];
     const name = opt.name || koreanName(sex);
     const era = birthYear <= 1985 ? "old" : birthYear <= 2005 ? "mid" : "new";
@@ -86,7 +91,7 @@
     const baseHealth = 58 + (cls === "high" ? 4 : cls === "low" ? -3 : 0) + ri(-5, 5);
     const life = {
       seed, name: { ko: name.ko, en: name.en }, sex, region, district: { ko: district[0], en: district[1], char: district[2] },
-      zone, cls, birthYear, cohort, era, family, siblings,
+      zone, cls, birthYear, cohort, era, family, siblings, singleParent, parents,
       age: 0, year: birthYear,
       familyAges: {
         mother: 30 + ri(0, 7), father: 32 + ri(0, 8),
@@ -207,6 +212,11 @@
     if (e.cls !== "any" && e.cls !== life.cls) return false;
     if (e.sex !== "any" && e.sex !== life.sex) return false;
     if (e.era !== "any" && e.era !== life.era) return false;
+    if (e.fam) {
+      if (e.fam.m && !life.parents.mother) return false;
+      if (e.fam.f && !life.parents.father) return false;
+      if (e.fam.s && !(life.siblings > 0)) return false;
+    }
     return true;
   }
 

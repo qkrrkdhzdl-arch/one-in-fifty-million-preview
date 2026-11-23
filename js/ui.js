@@ -96,7 +96,9 @@
   function renderBirth() {
     const life = APP.life, el = $("#screen-birth");
     const clsKey = { high: "birthClassHigh", mid: "birthClassMid", low: "birthClassLow" }[life.cls];
-    const famKey = { both: "birthFamilyBoth", single: "birthFamilySingle", grand: "birthFamilyGrand", care: "birthFamilyCare" }[life.family];
+    const famKey = life.family === "single"
+      ? (life.singleParent === "mother" ? "birthFamilySingleM" : "birthFamilySingleF")
+      : { both: "birthFamilyBoth", grand: "birthFamilyGrand", care: "birthFamilyCare" }[life.family];
     el.innerHTML = `
       <div class="birth">
         <div class="birth-head"><h2>${t("birthTitle")}</h2><span>${life.birthYear} · ${U.lang() === "ko" ? "대한민국" : "REPUBLIC OF KOREA"}</span></div>
