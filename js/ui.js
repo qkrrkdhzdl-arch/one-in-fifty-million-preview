@@ -480,7 +480,7 @@
       const p = Math.min(1, APP.yearT / (prev / 1000));
       APP.speed = +b.dataset.s;
       APP.yearT = p * (yearMs() / 1000);
-      refreshControls(); paint();
+      refreshControls(); paintTop(); paint();
     });
     $('#ffBtn').onclick = () => { APP.ff = !APP.ff; APP.playing = true; refreshControls(); paint(); if (APP.ff) U.toast('다음 결정까지 빠르게 넘깁니다'); };
     $('#autoBtn').onclick = () => { APP.auto = !APP.auto; refreshControls(); U.toast(APP.auto ? '결정을 맡깁니다 (6초 뒤 알아서 골라요)' : '결정을 직접 고릅니다'); };
@@ -551,10 +551,13 @@
     const spend = $('#spendBox');
     if (spend) {
       const inc = Math.max(1, life.income || 0), ex = Math.max(0, life.expenses || 0);
-      const use = Math.min(1, ex / Math.max(inc, ex, 1)), save = 1 - use;
-      spend.innerHTML = `
+      if (life.age < 19 || !life.income) { spend.innerHTML = ''; }
+      else {
+        const use = Math.min(1, ex / Math.max(inc, ex, 1)), save = 1 - use;
+        spend.innerHTML = `
         <div class="sbar"><i style="width:${(use * 100).toFixed(1)}%;background:var(--accent)"></i><i style="width:${(save * 100).toFixed(1)}%;background:var(--stamp)"></i></div>
         <div class="keys"><span style="--c:var(--accent)">쓰는 돈</span><span style="--c:var(--stamp)">남기는 돈</span></div>`;
+      }
     }
     // 가족
     const fam = $('#famList');
