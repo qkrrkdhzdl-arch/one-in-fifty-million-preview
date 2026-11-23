@@ -105,14 +105,16 @@
       g.fillStyle = m.r.type === 'metro' ? 'rgba(140,29,60,.72)' : 'rgba(140,29,60,.42)';
       g.fill();
     });
-    // 이름표
-    g.font = '600 10px "IBM Plex Mono", monospace';
-    g.fillStyle = 'rgba(19,33,42,.55)';
-    ['서울', '경기', '부산', '경남', '제주'].forEach(nm => {
-      const m = mx.find(x => x.r.ko === nm); if (!m) return;
-      const p = MAP_POS[m.r.id];
-      g.fillText(nm, w * p[0] + 8, h * p[1] - 8);
-    });
+    // 이름표(좁은 화면에서는 겹치므로 생략)
+    if (w > 420) {
+      g.font = '600 10px "IBM Plex Mono", monospace';
+      g.fillStyle = 'rgba(19,33,42,.55)';
+      ['서울', '경기', '부산', '경남', '제주'].forEach(nm => {
+        const m = mx.find(x => x.r.ko === nm); if (!m) return;
+        const p = MAP_POS[m.r.id];
+        g.fillText(nm, w * p[0] + 9, h * p[1] - 9);
+      });
+    }
   }
 
   function drawCertMap(canvas, life) {
