@@ -425,8 +425,8 @@
           <div class="lbl">${L('이름', 'Name')}</div>
           <h2>${en() ? life.name.en : life.name.ko}</h2>
           <p class="story">${en()
-              ? `You were born in ${life.district.en}, ${life.region.en}, in ${life.birthYear}, a ${life.sex === 'f' ? 'girl' : 'boy'} in a ${clsName(life.cls)} household. ${life.family === 'single' ? 'One parent is raising you.' : life.siblings ? (life.siblings === 1 ? 'You have an older sibling.' : `You have ${life.siblings} older siblings.`) : 'You are the first child.'} The family lives in ${life.region.en}. ${gpStory}`
-              : `${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 ${life.sex === 'f' ? '여자아이' : '남자아이'}로 태어났습니다. ${life.family === 'single' ? '한부모 가정입니다.' : life.siblings ? `위로 형제자매 ${life.siblings}명이 있습니다.` : '첫아이입니다.'} 가족은 ${life.region.ko}에서 살아갑니다. ${gpStory}`}</p>
+              ? `You were born in ${life.district.en}, ${life.region.en}, in ${life.birthYear}, a ${life.sex === 'f' ? 'girl' : 'boy'} in a ${clsName(life.cls)} household. ${life.family === 'single' ? 'One parent is raising you.' : life.siblings ? (life.siblings === 1 ? 'You have an older sibling.' : `You have ${life.siblings} older siblings.`) : 'You are the first child.'} The family lives in ${birthHome(life)}, ${life.region.en}. ${gpStory}`
+              : `${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 ${life.sex === 'f' ? '여자아이' : '남자아이'}로 태어났습니다. ${life.family === 'single' ? '한부모 가정입니다.' : life.siblings ? `위로 형제자매 ${life.siblings}명이 있습니다.` : '첫아이입니다.'} 가족은 ${life.region.ko}의 ${birthHome(life)}에서 살아갑니다. ${gpStory}`}</p>
           <p class="certpace">${L(
               `기대수명까지 살면 약 ${Math.round(e0 * YEAR_MS[APP.pace] / 60000)}분이 걸려요 (1년 ≈ ${Math.round(YEAR_MS[APP.pace] / 1000)}초). 사는 동안 일시정지와 배속이 되고, 중간에 닫아도 이 브라우저에 저장됩니다.`,
               `Living to life expectancy takes about ${Math.round(e0 * YEAR_MS[APP.pace] / 60000)} minutes (one year is about ${Math.round(YEAR_MS[APP.pace] / 1000)} seconds). You can pause and speed it up, and closing the tab keeps the life saved in this browser.`)}</p>
@@ -437,6 +437,8 @@
             <div><span>${L('가정 형편', 'Household')}</span><b>${clsName(life.cls)} ${CLASS_DOT[life.cls]}</b></div>
             <div><span>${L('부모 나이', 'Parents')}</span><b>${parentAge || '—'}</b></div>
             <div><span>${L('형제자매', 'Siblings')}</span><b>${life.siblings ? L(life.siblings + '명', String(life.siblings)) : L('없음', 'None')}</b></div>
+            <div><span>${L('태어난 집', 'The home')}</span><b>${birthHome(life)}</b></div>
+            <div><span>${L('부모님 일', "Parents' work")}</span><b>${life.bg ? life.bg.fJob + ' · ' + life.bg.mJob : '—'}</b></div>
             <div><span>${L('조부모', 'Grandparents')}</span><b>${gpLabel}</b></div>
             <div><span>${L('기대수명', 'Life expectancy')}</span><b>${L(e0 + '세', e0 + ' years')}</b></div>
             <div><span>${L('5세 전 사망 확률', 'Death before 5')}</span><b>${eraStats(life.birthYear).u5}</b></div>
@@ -460,6 +462,22 @@
     drawCertMap($('#certMap'), life);
     $('#beginBtn').onclick = () => beginLife(false);
     $('#shareBirthBtn').onclick = () => openShare('birth', true);
+  }
+
+  function ident(life, kind) {
+    const D = window.CONTENT.identity || {};
+    const key = kind === 'trait' ? life.traitId : kind === 'talent' ? life.talentId : life.dreamId;
+    const list = kind === 'trait' ? (D.traits || []) : kind === 'talent' ? (D.talents || []) : (D.dreams || []);
+    const it = list.find(x => x.id === key) || null;
+    if (!it) return L('—', '—');
+    return en() ? it.en : it.ko;
+  }
+
+  function birthHome(life) {
+    if (!life || !life.homeKind) return L('부모님 집', "your parents' home");
+    const h = (C.homes || []).find(x => x.id === life.homeKind);
+    if (!h) return L('부모님 집', "your parents' home");
+    return en() ? (h.cap ? h.cap.en : h.en) : (h.cap ? h.cap.ko : h.ko);
   }
 
   /* ---------- 본 게임 ---------- */
@@ -648,6 +666,9 @@
       <dt>${L('가정 형편', 'Household')}</dt><dd>${clsName(life.cls)}</dd>
       <dt>${L('학력', 'Education')}</dt><dd>${(life.major && life.major !== 'none') ? `${majorName(life.major)} · ${eduName(life.edu)}` : eduName(life.edu)}</dd>
       <dt>${L('일', 'Work')}</dt><dd>${life.flags.retired ? L('은퇴', 'Retired') : (life.role && life.role !== 'none' ? roleName(life.role) : jobName(life.job))}</dd>
+      <dt>${L('기질', 'Temperament')}</dt><dd>${ident(life, 'trait')}</dd>
+      <dt>${L('소질', 'Knack')}</dt><dd>${ident(life, 'talent')}</dd>
+      <dt>${L('어릴 적 꿈', 'Childhood dream')}</dt><dd>${ident(life, 'dream')}</dd>
       <dt>${L('집', 'Home')}</dt><dd>${homeName(life.home)}${life.flags.wagePeak && !life.flags.retired ? L(' · 임금피크', ' · wage peak') : ''}${life.flags.retired ? L(' · 은퇴', ' · retired') : ''}</dd>`;
     const mrz = $('#mrz');
     if (mrz) mrz.textContent = `I<KOR${life.name.en.replace(/ /g, '').toUpperCase()}<<${(en() ? life.region.en.replace(/\s+/g, '') : life.region.ko).toUpperCase()}<<<<<<<<<<<<<<<<<<<<<`;
@@ -707,7 +728,7 @@
           <span class="fn">${U.esc(U.tr(p.role))}</span>
           <span class="fst">${state}</span>
           <span class="fbar" title="${L('나와의 관계', 'closeness to you')} ${p.relation}"><i style="width:${p.relation}%"></i></span>
-          <span class="fmeta">${p.alive ? `${L('건강', 'health')} ${p.health} · ${U.esc(U.tr(p.job))}` : `${p.health < 100 ? L('생전 건강 ', 'health at the end ') + p.health : ''}`}</span>
+          <span class="fmeta">${p.alive ? `${L('건강', 'health')} ${p.health} · ${U.esc(U.tr(p.job))}${p.fam ? ' · ' + U.esc(p.fam) : ''}${p.trait ? ' · ' + U.esc(p.trait) : ''}` : `${p.health < 100 ? L('생전 건강 ', 'health at the end ') + p.health : ''}`}</span>
         </div>`;
       }).join('') : `<p class="hint">${L('기록 없음', 'No record')}</p>`;
       const fl = $('#famLbl'); if (fl) fl.textContent = L(`${view.filter(p => p.alive).length}명`, `${view.filter(p => p.alive).length}`);

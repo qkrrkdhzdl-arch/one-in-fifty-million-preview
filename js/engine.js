@@ -28,6 +28,48 @@
   }
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+  // ---------- 지난 삶의 기억 (v3.0) ----------
+  // 같은 사건이 매 판 또 나오면 "이벤트가 늘 똑같다"로 읽힌다. 최근 삶들에서 나온 사건은
+  // 이번 삶에서 무게를 크게 낮추고, 거의 매 판 나온 사건은 거의 지운다.
+  const MEM_KEY = "oifm2_mem";
+  function loadMem() {
+    try {
+      const m = JSON.parse(localStorage.getItem(MEM_KEY) || "null");
+      if (!m || typeof m !== "object") return { lives: 0, events: {}, lovers: {}, tags: {} };
+      m.events = m.events || {}; m.lovers = m.lovers || {}; m.tags = m.tags || {};
+      return m;
+    } catch (e) { return { lives: 0, events: {}, lovers: {}, tags: {} }; }
+  }
+  function saveMem(m) { try { localStorage.setItem(MEM_KEY, JSON.stringify(m)); } catch (e) { /* 저장이 막혀도 게임은 돈다 */ } }
+  function memWindow(m) { return clamp(m.lives || 0, 1, 8); }
+  function memWeight(life, id) {
+    const m = life._mem;
+    if (!m) return 1;
+    const n = memWindow(m);
+    const c = (m.events && m.events[id]) || 0;
+    if (!c) return 1;
+    const r = c / n;
+    if (r >= 0.62) return 0.04;      // 거의 매 삶에 나온 사건
+    if (r >= 0.42) return 0.14;
+    if (r >= 0.25) return 0.38;
+    return 0.75;
+  }
+  function recordLife(life) {
+    const m = loadMem();
+    const ids = Object.keys(life.usedIds || {});
+    m.lives = (m.lives || 0) + 1;
+    // 창을 넘어간 기억은 절반으로 잊는다(오래된 삶이 영원히 사건을 막지 않게)
+    if (m.lives > 8) {
+      for (const k in m.events) { m.events[k] = Math.round(m.events[k] * 0.6); if (!m.events[k]) delete m.events[k]; }
+      m.lives = 8;
+    }
+    for (const id of ids) m.events[id] = (m.events[id] || 0) + 1;
+    (life.loverSeen || []).forEach(id => { m.lovers[id] = (m.lovers[id] || 0) + 1; });
+    for (const id in m.events) if (m.events[id] > 8) m.events[id] = 8;
+    for (const id in m.lovers) if (m.lovers[id] > 8) m.lovers[id] = 8;
+    saveMem(m);
+  }
+
   // ---------- 지표 ----------
   // '지식'과 '역량'은 하나로 통합한다. 학습·공부로 쌓은 것도 역량으로 들어가고,
   // 조건 검사에 남아 있는 knowledge는 역량과 같은 값으로 유지한다.
@@ -228,10 +270,39 @@
     else if (mJob !== "전업주부" && R() < 0.34) childArc = "latchkey";
     else childArc = "city";
 
+    // ---------- 태어난 집 (v3.0) ----------
+    // 같은 동네, 같은 형편이라도 아이가 자라는 집은 집집마다 다르다. 집이 아동기의 장면을 정한다.
+    const HOME_POOL = (C.homes || []).filter(h => {
+      if (h.cls && h.cls.indexOf(cls) < 0) return false;
+      if (h.zone && h.zone.indexOf(zone) < 0) return false;
+      // 집과 집안 사정이 어긋나지 않게
+      if (h.id === "grand_house" && !(family === "grand" || gpSetup === "cohabit" || gpSetup === "raised")) return false;
+      if (h.id === "relatives" && !(family === "care" || singleParent)) return false;
+      if (h.id === "dorm" && !["기술직", "운수·건설", "공무원", "회사원"].includes(fJob) && !["교사", "간호사", "공무원", "회사원"].includes(mJob)) return false;
+      if (h.id === "gov_housing" && !["공무원", "군인", "경찰"].includes(fJob) && !["공무원", "교사", "군인"].includes(mJob)) return false;
+      if (h.id === "sea_house" && COAST.indexOf(region.id) < 0) return false;
+      if (h.id === "shop_above" && !(fJob === "가게" || mJob === "가게")) return false;
+      if (h.id === "clan_house" && zone !== "rural") return false;
+      return true;
+    });
+    const homeKind = opt.homeKind || (HOME_POOL.length ? wpick(HOME_POOL, h => h.w || 5).id : null);
+    // 기질·소질·꿈: 같은 동네 같은 집에서 태어나도 아이는 다르다
+    const IDT = (C.identity || {});
+    const trait = pick(IDT.traits || [{ id: "warm", ko: "다정함", en: "warm-hearted", st: {} }]);
+    const talent = pick(IDT.talents || [{ id: "hand", ko: "손재주", en: "hands", st: {} }]);
+    const dream = pick(IDT.dreams || [{ id: "teacher", ko: "선생님", en: "a teacher" }]);
+
     const life = {
       seed, name: { ko: name.ko, en: name.en }, sex, region, district: { ko: district[0], en: district[1], char: district[2] },
       zone, cls, birthYear, cohort, era, family, siblings, singleParent, parents,
       age: 0, year: birthYear,
+      homeKind: homeKind,
+      trait, talent, dream,
+      _mem: loadMem(),
+      loverCands: [],
+      loverSeen: [],
+      loveRound: 0,
+      loveAt: [ri(21, 24), ri(27, 31), ri(33, 35)],
       familyAges: { mother: motherAge, father: fatherAge, sibling: Array.from({ length: siblings }, (_, i) => ri(-3, 6)) },
       parentDeath: {
         mother: parents.mother ? 76 + ri(-8, 12) : null,
@@ -275,6 +346,8 @@
       dating: false, wantChild: false, hospitalized: false, recovering: false,
       empType: "none", investStyle: "safe",
       gpSetup, gpSide, childArc, gmaAlive, gpaAlive,
+      homeKind,
+      traitId: trait.id, talentId: talent.id, dreamId: dream.id,
       gpNone: gpSetup === "gone", gpNear: gpSetup === "cohabit" || gpSetup === "near" || gpSetup === "raised",
       gpFar: gpSetup === "holiday" || gpSetup === "far",
       fJob, mJob, famShop: fJob === "가게" || mJob === "가게", famFarm: fJob === "농사",
@@ -289,19 +362,151 @@
       gma: gmaAlive ? { name: gpGmaName, side: gpSide, alive: true, age: baseGma, health: 52 + ri(-8, 14), relation: (gpSetup === "cohabit" || gpSetup === "raised" ? 76 : gpSetup === "near" ? 68 : gpSetup === "holiday" ? 62 : 56) + ri(-6, 8), job: gpSetup === "raised" ? "양육" : "—", income: 0 } : null,
       gpa: gpaAlive ? { name: gpGpaName, side: gpSide, alive: true, age: baseGpa, health: 50 + ri(-8, 14), relation: (gpSetup === "cohabit" || gpSetup === "raised" ? 70 : gpSetup === "near" ? 62 : gpSetup === "holiday" ? 56 : 50) + ri(-6, 8), job: "—", income: 0 } : null,
       spouse: null,
+      partner: null,
       children: []
     };
     // four peers born the same day
     const pool = C.peers.slice().sort(() => R() - 0.5).slice(0, 4);
     life.peers = pool.map(p => ({ ...p, name: p.name, age: 0, alive: true, milestoneAge: 0 }));
     life.stats.health = clamp(life.stats.health, 30, 82);
+    for (const src2 of [trait.st, talent.st]) {
+      if (!src2) continue;
+      for (const k in src2) life.stats[k] = clamp((life.stats[k] || 0) + src2[k], 0, 100);
+    }
     return life;
   }
 
   // ---------- content normalisation (legacy fields → cond) ----------
   const PREPPED = new WeakSet();
+  // ---------- 태어난 집·연인 (v3.0) ----------
+  function homeRef(life) {
+    if (!life || !life.homeKind) return null;
+    return (C.homes || []).find(h => h.id === life.homeKind) || null;
+  }
+
+  // 문장 안의 자리표시자를 그 삶의 상태로 바꿔 끼운다. 사건 본문은 언어별로 따로 채운다.
+  function tplFill(text, life, en) {
+    if (!text || text.indexOf("{") < 0) return text;
+    const sp = (life.family && (life.family.spouse || life.family.partner)) || null;
+    const married = !!life.flags.married;
+    const spKo = married ? (life.sex === "m" ? "아내" : "남편") : "연인";
+    const spEn = married ? (life.sex === "m" ? "your wife" : "your husband") : "your partner";
+    const inlawKo = married ? (life.sex === "m" ? "처가" : "시댁") : "상대의 집";
+    const inlawEn = "your in-laws";
+    const job = sp && sp.job ? (en ? (sp.jobEn || sp.job) : sp.job) : (en ? "their work" : "그 사람의 일");
+    const fam = sp && sp.fam ? (en ? (sp.famEn || sp.fam) : sp.fam) : (en ? "their family" : "그 집안");
+    const h = homeRef(life);
+    const homeName = h ? (en ? h.en : h.ko) : (en ? "home" : "집");
+    return text
+      .split("{spouse}").join(en ? spEn : spKo)
+      .split("{inlaw}").join(en ? inlawEn : inlawKo)
+      .split("{spjob}").join(job)
+      .split("{spfam}").join(fam)
+      .split("{home}").join(homeName);
+  }
+  function filledEvent(e, life) {
+    const hasTpl = e.tpl || (e.b && (String(e.b.ko || "").indexOf("{") >= 0 || String(e.b.en || "").indexOf("{") >= 0));
+    if (!hasTpl) return e;
+    const out = Object.assign({}, e);
+    out.t = { ko: tplFill(e.t && e.t.ko, life, false), en: tplFill(e.t && e.t.en, life, true) };
+    out.b = { ko: tplFill(e.b && e.b.ko, life, false), en: tplFill(e.b && e.b.en, life, true) };
+    return out;
+  }
+
+  // 연인 후보: 매 삶에 다른 사람이 온다. 직업·집안·성격·나이·만남 계기가 조합된다.
+  const LOVER_TAGS_OK = ["corp", "public", "teacher", "nurse", "startup", "free", "self", "research",
+    "arts", "medical", "military", "rich", "poor", "dual", "singleparent", "rural", "bigfam", "immig",
+    "ambitious", "calm", "warm", "prickly", "planner", "impulsive", "older", "younger"];
+  function rollLovers(life, count) {
+    const pool = C.lovers || [];
+    if (!pool.length) return [];
+    const m = life._mem || loadMem();
+    const n = memWindow(m);
+    const seen = life.loverSeen || [];
+    const wf = x => {
+      let w = 1;
+      const c = (m.lovers && m.lovers[x.id]) || 0;
+      w *= c / n >= 0.5 ? 0.08 : c / n >= 0.25 ? 0.3 : 1;
+      if (seen.indexOf(x.id) >= 0) w *= 0.05;
+      return w;
+    };
+    const out = [];
+    let cands = pool.slice();
+    while (out.length < count && cands.length) {
+      const pickd = wpick(cands, wf);
+      cands = cands.filter(x => x !== pickd);
+      if (out.some(x => x.id === pickd.id)) continue;
+      out.push(pickd);
+    }
+    const opp = life.sex === "f" ? "m" : "f";
+    return out.map(a => {
+      const nm = koreanName(opp);
+      const gr = a.gapRange || (a.gap === "older" ? [3, 9] : a.gap === "younger" ? [-6, -3] : [-1, 1]);
+      const age = Math.max(18, life.age + ri(gr[0], gr[1]) + (R() < 0.35 ? 1 : 0));
+      return {
+        id: a.id, name: nm.ko, nameEn: nm.en, sex: opp, age,
+        job: a.job.ko, jobEn: a.job.en, fam: a.fam.ko, famEn: a.fam.en,
+        trait: a.trait.ko, traitEn: a.trait.en, route: a.route.ko, routeEn: a.route.en,
+        intro: a.intro, first: a.first, fit: a.fit, tags: a.tags || [],
+        gap: a.gap, met: life.age
+      };
+    });
+  }
+  function partnerJobEn(c) { return c.jobEn || c.job; }
+  function setPartner(life, c) {
+    if (!c) return;
+    life.family.partner = {
+      name: c.name, nameEn: c.nameEn, sex: c.sex, age: c.age, alive: true,
+      health: 70 + ri(-6, 10), relation: 66 + ri(-4, 10),
+      job: c.job, jobEn: c.jobEn, fam: c.fam, famEn: c.famEn,
+      trait: c.trait, traitEn: c.traitEn, route: c.route, routeEn: c.routeEn,
+      tags: c.tags, intro: c.intro, first: c.first, fit: c.fit, met: c.met,
+      income: Math.round((life.income || 2800) * (0.55 + R() * 0.6))
+    };
+    life.flags.dating = true;
+    life.flags.partnerTags = (c.tags || []).slice();
+    life.flags.partnerId = c.id;
+    life.flags.partnerFam = c.fam;
+    life.flags.partnerJob = c.job;
+    life.flags.partnerGap = c.gap;
+    (life.loverSeen = life.loverSeen || []).push(c.id);
+    life.flags.justMet = 1;
+  }
+  function loverDecision(life) {
+    const round = life.loveRound || 0;
+    const cands = life.loverCands && life.loverCands.length ? life.loverCands : (life.loverCands = rollLovers(life, 3));
+    const en = false;
+    const ch = cands.map((c, i) => ({
+      id: "c" + i, lover: i, tag: "love",
+      t: { ko: c.name + " · " + c.age + "세 · " + c.job, en: c.nameEn + " · " + c.age + " · " + partnerJobEn(c) },
+      n: { ko: c.fam + " · " + c.trait + " · " + c.route + ". " + c.intro.ko, en: c.famEn + ", " + c.traitEn + ", " + c.routeEn + ". " + c.intro.en },
+      st: { happiness: 3, relation: 3, stress: 1 }, money: -8, inc: 0, set: {}, flags: {},
+      meta: { fam: c.fam, famEn: c.famEn, trait: c.trait, traitEn: c.traitEn, tags: c.tags, gap: c.gap }
+    }));
+    ch.push({
+      id: "skip", tag: "culture",
+      t: { ko: "이번에는 넘긴다", en: "Not this time" },
+      n: { ko: "만남을 미루면 그 사람과의 다음 기회가 없을 수 있습니다.", en: "If you pass, there may be no next chance with them." },
+      st: { happiness: -2, relation: -1, stress: 0 }, money: 0, inc: 0, set: {}, flags: {}
+    });
+    return {
+      id: "d_love_" + round, age: life.age, dyn: "love",
+      badge: { ko: "결정 · 연인", en: "Decision · A Partner" },
+      t: { ko: "누구와 만날까", en: "Who Will You Meet" },
+      b: {
+        ko: "요즘 들어 자리를 권하는 연락이 잇따릅니다. 세 사람을 만나 보게 되었고, 각자 다른 직업과 집안, 다른 말투로 저녁을 보냈습니다. 이번 생의 몇 년을 누구와 겪을지 정해야 합니다.",
+        en: "Lately the invitations keep coming. You have now spent an evening with three different people, each with their own work, family, and way of talking. The next few years will be shared with one of them, or with none."
+      },
+      ch
+    };
+  }
+
   function prepEvent(e) {
     if (!e || PREPPED.has(e)) return e;
+    // 같은 사건이 매 삶 같은 나이에만 나오지 않도록, 한 해짜리 사건은 두어 해 늦게도 허용한다
+    if (e.age && e.age[0] === e.age[1] && e.age[0] >= 6 && !e.fixedAge) {
+      e.age = [e.age[0], Math.min(e.age[0] + (e.age[0] < 19 ? 2 : 3), 104)];
+    }
     if (!e.cond) {
       const c = {};
       if (e.sex && e.sex !== "any" && e.sex !== "all") c.sex = String(e.sex).toUpperCase();
@@ -389,6 +594,16 @@
     if (c.spouseAlive != null) {
       const alive = !!(life.family && life.family.spouse && life.family.spouse.alive);
       if (alive !== !!c.spouseAlive) return false;
+    }
+    if (c.hasPartner != null) {
+      const has = !!(life.flags.dating || life.family.partner || (life.flags.married && life.family.spouse));
+      if (has !== !!c.hasPartner) return false;
+    }
+    if (c.partnerTags) {
+      const mine = life.flags.partnerTags || null;
+      if (!mine) return false;
+      const want = Array.isArray(c.partnerTags) ? c.partnerTags : [c.partnerTags];
+      if (!want.some(t => mine.indexOf(t) >= 0)) return false;
     }
     if (c.gte) for (const k in c.gte) { if ((+life.flags[k] || 0) < c.gte[k]) return false; }
     if (c.lte) for (const k in c.lte) { if ((+life.flags[k] || 0) > c.lte[k]) return false; }
@@ -626,6 +841,23 @@
     const out = [];
     const fa = life.familyAges || {};
     const fam = life.family;
+    // 연애 중인 사람도 해마다 한 살씩 든다. 오래 만나고 헤어지기도 한다.
+    if (fam.partner && fam.partner.alive) {
+      fam.partner.age = (fam.partner.age || life.age) + 1;
+      fam.partner.health = clamp(fam.partner.health - (fam.partner.age > 70 ? 1.4 : 0.35), 0, 100);
+      const years = life.age - (fam.partner.met || life.age);
+      if (years >= 3 && R() < 0.06 + (life.flags.partnerGap === "younger" ? 0.02 : 0)) {
+        const p = fam.partner;
+        life.flags.dating = false; life.flags.exPartner = p.name; life.flags.partnerTags = null;
+        fam.partner = null;
+        out.push({
+          id: "love_split", ic: "💔", src: "src_marriage", cat: "love",
+          t: { ko: "마지막 통화", en: "The Last Call" },
+          b: { ko: "몇 해를 만난 사람과 헤어졌습니다. 돌려받은 우산과 충전기를 상자에 넣고, 문 앞에 놓인 택배를 대신 받아 주던 이웃에게 인사를 했습니다.", en: "After several years, the two of you end it. You put the returned umbrella and charger in a box, and greet the neighbour who used to take in your deliveries." },
+          st: { health: 0, happiness: -9, knowledge: 0, relation: -4, reputation: 0, spec: 0, stress: 8 }, money: 0, inc: 0
+        });
+      }
+    }
     // 조부모: 해마다 한 살씩, 아프고, 떠난다
     for (const w of ["gma", "gpa"]) {
       const gp = fam[w];
@@ -738,12 +970,27 @@
     return f[k] != null ? f[k] : 1;
   }
 
+  function hid(s) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return (h >>> 0) / 4294967296;
+  }
+  // 이 삶에서 잠든 사건: 두 삶이 같은 사건 목록을 갖지 않게 하는 장치.
+  // 씨앗마다 22%의 사건이 이번 생에는 일어나지 않는다.
+  function dormant(life, id) {
+    if (!life._skip) life._skip = {};
+    if (life._skip[id] == null) life._skip[id] = hid(id + ":" + life.seed) < 0.28;
+    return life._skip[id];
+  }
   function eligiblePool(life, extra) {
     return C.events.filter(e => {
+      if (dormant(life, e.id)) return false;
       if (e.age[0] > life.age) return false;
       if (life.age > e.age[1] + (extra || 0)) return false;
       if (!condOK(life, e.cond)) return false;
       if (life.usedIds[e.id] && !(e.repeat && life.age - ((life.lastSeen && life.lastSeen[e.id]) || 0) >= e.repeat)) return false;
+      // 되풀이되는 사건도 한 삶에 두 번까지만(같은 문장이 세 번 나오면 반복으로 읽힌다)
+      if (life.usedIds[e.id] >= 2) return false;
       // 다른 id라도 제목이 같은 장면은 한 인생에 한 번만 보여 준다(같은 사건이 두 번 나오는 것처럼 읽히지 않게)
       if (!e.repeat && life.seenTitles && life.seenTitles[e.t && e.t.ko]) return false;
       return true;
@@ -760,13 +1007,14 @@
     let forced = null;
     if (life.age >= 6 && focusCat.length && R() < 0.72) {
       const fp = pool.filter(e => focusCat.indexOf(e.cat) >= 0);
-      if (fp.length) forced = wpick(fp, x => x.w);
+      if (fp.length) forced = wpick(fp, x => x.w * memWeight(life, x.id));
     }
     for (let i = 0; i < count; i++) {
       if (!pool.length) break;
-      let cands = pool.filter(e => e !== forced && !out.includes(e));
+      let cands = pool.filter(e => e !== forced && out.indexOf(e) < 0);
       if (!cands.length) break;
-      const e = forced && !out.includes(forced) && i === 0 ? forced : wpick(cands, x => x.w * focusWeight(life, x) * (x.age[1] === x.age[0] ? 1.2 : 1));
+      const e = forced && out.indexOf(forced) < 0 && i === 0 ? forced
+        : wpick(cands, x => x.w * memWeight(life, x.id) * focusWeight(life, x) * (x.age[1] === x.age[0] ? 1.2 : 1));
       out.push(e);
       life.usedIds[e.id] = (life.usedIds[e.id] || 0) + 1;
       life.lastSeen[e.id] = life.age;
@@ -871,11 +1119,24 @@
     if (life.flags.widowed) life.flags.widowed = false;
     life.flags.married = true; life.married = 1;
     life.flags.dating = false;
+    const pt = life.family.partner;
     if (!life.family.spouse || !life.family.spouse.alive) {
-      const sex = life.sex === "f" ? "m" : "f";
-      const nm = koreanName(sex);
-      life.family.spouse = { name: nm.ko, nameEn: nm.en, sex, alive: true, age: life.age + ri(-2, 3), health: 72 + ri(-8, 10), relation: 74 + ri(-6, 8), job: pick(["회사원", "교사", "간호사", "자영업", "공무원", "프리랜서"]), income: 0 };
-      life.family.spouse.income = Math.round((life.income || 2600) * (0.6 + R() * 0.5));
+      if (pt && pt.alive !== false) {
+        // 연인으로 만난 사람과 혼인한다: 이름·나이·직업·집안이 그대로 이어진다
+        life.family.spouse = {
+          name: pt.name, nameEn: pt.nameEn, sex: pt.sex, alive: true, age: pt.age,
+          health: pt.health, relation: pt.relation, job: pt.job, jobEn: pt.jobEn,
+          fam: pt.fam, famEn: pt.famEn, trait: pt.trait, traitEn: pt.traitEn,
+          tags: pt.tags, gap: pt.gap, met: pt.met, income: pt.income || 0
+        };
+        life.family.partner = null;
+        life.flags.partnerTags = (pt.tags || []).slice();
+      } else {
+        const sex = life.sex === "f" ? "m" : "f";
+        const nm = koreanName(sex);
+        life.family.spouse = { name: nm.ko, nameEn: nm.en, sex, alive: true, age: life.age + ri(-2, 3), health: 72 + ri(-8, 10), relation: 74 + ri(-6, 8), job: pick(["회사원", "교사", "간호사", "자영업", "공무원", "프리랜서"]), income: 0 };
+        life.family.spouse.income = Math.round((life.income || 2600) * (0.6 + R() * 0.5));
+      }
     }
   }
 
@@ -960,6 +1221,14 @@
   function decisionFor(life) {
     if (!life.decQueue) life.decQueue = [];
     const queued = d => life.decQueue.indexOf(d.id) >= 0;
+    // 연애: 정해진 나이가 아니라 이 삶이 뽑은 두어 해에 온다(매 삶 다른 시점).
+    if (!life.flags.married && !(life.family && life.family.partner)) {
+      const round = life.loveRound || 0;
+      const at = (life.loveAt || [])[round];
+      if (at != null && life.age >= at && life.age <= 46 && !life.flags["d_love_" + round]) {
+        return loverDecision(life);
+      }
+    }
     for (const d of C.decisions) {
       if (life.decisions.indexOf(d.id) >= 0 || queued(d)) continue;
       if (d.age != null && (life.age < d.age || life.age > d.age + 1)) continue;
@@ -971,6 +1240,10 @@
         const path = (life.flags && life.flags.path) || "academic";
         if (d.only && d.only.indexOf(path) < 0) continue;
         if (d.sex && d.sex !== "any" && d.sex !== "all" && String(d.sex).toUpperCase() !== String(life.sex).toUpperCase()) continue;
+      }
+      // 이번 삶에서 이 카드를 건너뛸 확률(opt): 해마다 같은 카드가 같은 나이에 나오지 않게
+      if (d.opt && life.age === d.age) {
+        if (R() < d.opt) { life.decisions.push(d.id); continue; }
       }
       if (!queued(d)) life.decQueue.push(d.id);
     }
@@ -1010,6 +1283,18 @@
   }
 
   function applyChoice(life, dec, ch) {
+    // 연인 카드: 고른 사람이 이 삶의 연인이 된다
+    if (dec && dec.dyn === "love") {
+      if (ch && ch.lover != null) setPartner(life, life.loverCands[ch.lover]);
+      if (ch && ch.st) for (const k in ch.st) if (ch.st[k]) bump(life, k, ch.st[k]);
+      life.loveRound = (life.loveRound || 0) + 1;
+      life.loverCands = [];
+      if (life.decQueue) life.decQueue = life.decQueue.filter(x => x !== dec.id);
+      if (life.decisions.indexOf(dec.id) < 0) life.decisions.push(dec.id);
+      life.flags[dec.id] = ch ? ch.id : "skip";
+      life.flags.empType = empTypeOf(life);
+      return;
+    }
     let dHap = 0, dRel = 0, dHea = 0;
     for (const k of ["health", "happiness", "knowledge", "relation", "reputation", "spec", "stress"]) {
       const v = (ch.st && ch.st[k]) || 0;
@@ -1062,6 +1347,8 @@
       causeEn: cause ? cause.causeEn : "Old age",
       line: cause ? cause.line : { ko: "잠든 채로 아침이 오지 않았다.", en: "The morning did not come." }
     };
+    // 이 삶에서 나온 사건을 기억에 남긴다: 다음 삶은 다른 사건들로 채워진다
+    try { recordLife(life); } catch (e) { /* 기억 저장 실패는 삶을 막지 않는다 */ }
     return life.death;
   }
 
@@ -1163,7 +1450,58 @@
     const famEvs = familyTick(life);
     yearEconomics(life);
 
-    const evs = liveEvs.concat(famEvs).concat(pickEvents(life, life.age < 6 ? 1 : (R() < 0.42 ? 2 : 1)));
+    let evs = liveEvs.concat(famEvs).concat(pickEvents(life, life.age < 6 ? 1 : (R() < 0.55 ? 2 : 1)));
+    // 태어난 집: 첫해 기록 맨 앞에 그 집의 냄새·소리를 한 장면 남긴다
+    if (life.age === 1 && !life.flags.homeShown) {
+      const h = homeRef(life);
+      if (h) {
+        evs.unshift({
+          id: "home_open_" + (life.homeKind || "x"), ic: "🏠", src: "src_census", cat: "family",
+          t: { ko: "태어난 집", en: "The House You Were Born Into" }, b: h.open
+        });
+      }
+      life.flags.homeShown = true;
+    }
+    // 연인을 고른 직후: 그 사람과의 첫 주를 한 장면으로
+    if (life.flags.justMet) {
+      const p = life.family && life.family.partner;
+      if (p) {
+        evs.unshift({
+          id: "meet_first_" + (life.flags.partnerId || "x"), ic: "💌", src: "src_marriage", cat: "love",
+          t: { ko: "사귀기로 한 첫 주", en: "The First Week Together" }, b: p.first
+        });
+      }
+      life.flags.justMet = 0;
+    }
+    // 가족의 마지막 장면도 매번 같은 문장이 되지 않게 여러 결로 쓴다
+    const FAM_VAR = {
+      fam_mother: [
+        { ko: "어머니가 돌아오지 못한 뒤 병실에서 가져온 겉옷을 세탁소에 맡깁니다. 옷깃에 밴 소독양 냉새가 덜 빠지지 않아 며칠을 창가에 걸어 두고, 냉장고 문에는 누가 마지막으로 적어 둔 장보기 메모가 아직 남아 있습니다.", en: "The coat brought back from the hospital goes to the cleaners. The smell of disinfectant lingers, so it hangs by the window for days, while a shopping list in someone else's handwriting stays on the fridge door." },
+        { ko: "어머니의 병원비 영수증이 봉토째 쓀입니다. 그것을 상자에 넣어 다락에 올리고, 대신 냉장고의 반찬통을 하나씩 바우고 씻습니다. 마지막 통을 씻을 때 흐르는 물소리가 부억 전체를 채웁니다.", en: "Receipts for your mother's hospital bills pile up in an envelope. You put them in a box, carry it to the loft, and empty the side-dish containers one by one. The water runs loud in the empty kitchen as you wash the last one." }
+      ],
+      fam_father: [
+        { ko: "아버지가 떠난 뒤에도 새벽에 현관 등이 켜져 있던 습관을 고치지 못합니다. 사흘 빈소를 지키고 돌아온 날, 구두 한 켤레에 신문지를 접어 넣고 전화를 받지 않습니다. 다음 날 아침 그 신문지의 날짜가 장례 첫날이라는 것을 알아차립니다.", en: "Your father's habit of leaving the porch light on at dawn outlasts him. The evening you come home from three days at the funeral hall, you stuff newspaper into a pair of his shoes and let the phone ring. In the morning you notice the date on the paper is the first day of the funeral." },
+        { ko: "아버지의 서랍에서 영수증과 함께 저축통장이 나옵니다. 잔액보다 먼저 눈에 들어온 것은 마지막 거래일이고, 당신은 그 통장을 덮은 뒤 현관의 구두를 정리합니다. 장례 뒤 사흘째, 신발장 아래진 휴지가 서류로 가득 차 있습니다.", en: "In your father's drawer, a savings passbook turns up with the receipts. You notice the date of the last transaction before the balance, close it, and go sort the shoes at the door. Three days after the funeral, the bin below the shoe cabinet is full of paper." }
+      ],
+      fam_spouse: [
+        { ko: "배우자가 먼저 떠난 뒤 이불장의 두계운 이불을 하나만 남기고 나머지를 포장합니다. 지녁상에 그릇을 두 개 올렸다가 하나를 내려놓고, 사흘째 되는 날에야 욕실의 침솔 하나를 버립니다.", en: "After your spouse goes first, all but one of the heavy duvets are wrapped and stored. You set two bowls for dinner, then take one away, and only on the third day throw out the second toothbrush." },
+        { ko: "장례 뒤 집으로 돌아오는 길에 배우자의 운전면허증 사진이 생각납니다. 현관을 열고 신발 한 켜레를 아래칸으로 옮기고, 냉장고 문을 열었다 그대로 닫습니다. 다음 주에야 반찬을 절반으로 줄여 담습니다.", en: "On the walk home from the funeral you think of the photo on your spouse's driving licence. At the door you move one pair of shoes to the lower shelf, open the fridge, and close it again. Only the next week do you cook half the side dishes." }
+      ],
+      fam_gma: [
+        { ko: "할머니가 떠난 뒤 마당의 장독 뚜껑을 처음으로 직접 엽니다. 상을 치르는 동안 이웃이 가져온 국그릇을 씻어 돌려주고, 부억 문턱에 놓인 고무신 한 켜레는 그대로 뒀습니다. 그 집 부억의 시계는 아직 할머니가 맞춰 둔 시간에 서 있습니다.", en: "For the first time you lift the lids of the soy jars in the yard yourself. During the funeral you wash and return the soup bowls neighbours brought, and leave a pair of rubber shoes on the kitchen step. The clock in her kitchen still shows the time she set." }
+      ],
+      fam_gpa: [
+        { ko: "할아버지의 방에서 라디오를 켜 봅니다. 안경집과 손때 묻은 성냥갑, 서랍의 동전 봉지를 한 곳에 모으고, 장례 뒤에 그 방문을 닫아 뒀습니다. 복도 끝에서 아직 담배 냉새가 납니다.", en: "You switch on the radio in your grandfather's room. The glasses case, a matchbox worn smooth, and the pouch of coins from the drawer go into one place; after the funeral you close the door. Tobacco still hangs at the end of the corridor." }
+      ]
+    };
+    evs = evs.map(e => {
+      const v = FAM_VAR[e.id];
+      if (!v || !v.length || R() > 0.7) return e;
+      return Object.assign({}, e, { b: v[Math.floor(R() * v.length)] });
+    });
+    // 같은 사건이라도 매번 같은 문장이 되지 않게, alt(다른 결말)를 절반좀 쓴다
+    evs = evs.map(e => (e.alt && R() < 0.45 ? { id: e.id, ic: e.ic, src: e.src, cat: e.cat, t: e.t, b: e.alt, alt: e.b, st: e.st, money: e.money, inc: e.inc, set: e.set, fam: e.fam, cond: e.cond } : e));
+    evs = evs.map(e => filledEvent(e, life));
     // 사건이 일어나기 직전의 상태(선후관계 검증의 기준)
     const pre = {
       age: life.age, year: life.year, role: life.role,
@@ -1305,7 +1643,13 @@
     }
     if (f.spouse) {
       out.push({ who: "spouse", role: "배우자", name: f.spouse.name, nameEn: f.spouse.nameEn || "", alive: f.spouse.alive, age: f.spouse.age,
-        health: Math.round(f.spouse.health), relation: Math.round(f.spouse.relation), job: f.spouse.alive ? f.spouse.job : "—", income: f.spouse.income || 0 });
+        health: Math.round(f.spouse.health), relation: Math.round(f.spouse.relation), job: f.spouse.alive ? f.spouse.job : "—", income: f.spouse.income || 0,
+        fam: f.spouse.fam || "", famEn: f.spouse.famEn || "", trait: f.spouse.trait || "", traitEn: f.spouse.traitEn || "" });
+    } else if (f.partner && f.partner.alive) {
+      out.push({ who: "partner", role: "연인", name: f.partner.name, nameEn: f.partner.nameEn || "", alive: true, age: f.partner.age,
+        health: Math.round(f.partner.health), relation: Math.round(f.partner.relation),
+        job: f.partner.job || "—", income: f.partner.income || 0,
+        fam: f.partner.fam || "", famEn: f.partner.famEn || "", trait: f.partner.trait || "", traitEn: f.partner.traitEn || "" });
     }
     (f.children || []).forEach((k, i) => {
       out.push({ who: "child" + i, role: "자녀", name: k.name, nameEn: k.nameEn || "", alive: k.alive, age: k.age,
@@ -1320,6 +1664,13 @@
     if (life.stats.spec == null) life.stats.spec = 12;
     if (life.stats.stress == null) life.stats.stress = 25;
     life.flags = life.flags || {};
+    // v3.0: 예전 저장본에도 집·연인 자리를 만든다
+    if (life.homeKind == null && life.flags.homeKind) life.homeKind = life.flags.homeKind;
+    life.loverCands = life.loverCands || [];
+    life.loverSeen = life.loverSeen || [];
+    life.loveRound = life.loveRound || 0;
+    if (!life.loveAt) life.loveAt = [ri(21, 24), ri(27, 31), ri(33, 35)];
+    life._mem = loadMem();
     const d = {
       fatherAlive: !!life.parents.father, motherAlive: !!life.parents.mother,
       married: !!life.married, childrenCount: life.kids || 0, retired: !!life.retired,
@@ -1433,7 +1784,7 @@
       const ex = expenseBreakdown(life);
       life.expenseItems = ex; life.expenses = ex.total;
     },
-    createLife, tick, applyChoice, lifeType, netWorth, wealthPercentile, incomePercentile,
+    createLife, tick, applyChoice, lifeType, homeRef, rollLovers, loadMem, netWorth, wealthPercentile, incomePercentile,
     survivalCurve, HOUSING_INDEX, JOB_KO, JOB_EN, koreanName, macroFor, homePrice,
     MAJORS, ROLES, FOCUS_CAT, condOK, entryGrade, gradeFor, familyView, expenseBreakdown, computeIncome, migrate,
     choiceAvailable,

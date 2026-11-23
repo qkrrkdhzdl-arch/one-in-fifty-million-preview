@@ -65,9 +65,16 @@
       : `${life.region.ko} ${life.district.ko}`;
     const where = m === 'city' ? L('아파트 골목', 'a street of flats') : m === 'field' ? L('논밭 사이 집', 'a house among the fields') : L('동네 골목', 'a neighbourhood lane');
     let home = life.home === 'own' ? L('내 집', 'your own home') : life.home === 'jeonse' ? L('전세 살이', 'a jeonse lease') : life.home === 'wolse' ? L('월세 살이', 'a rented room') : (life.age < 19 ? L('부모님 집', "your parents' home") : L('얹혀 사는 집', 'a room in someone else\'s house'));
+    // tago난 집: 태어난 집의 이름을 그대로 쓴다(반지하 셋방, 옥탑방, 사택 …)
+    if (life.age < 19 && life.homeKind) {
+      const hs = (window.CONTENT && window.CONTENT.homes) || [];
+      const h = hs.find(x => x.id === life.homeKind);
+      if (h && h.cap) home = L(h.cap.ko, h.cap.en);
+    }
     if (life.age >= 65) home = life.home === 'own' ? L('내 집, 은퇴', 'your own home, retired') : home;
     const who = life.age < 19 ? (life.family === 'single' ? L('한부모와 함께', 'with one parent') : L('가족과 함께', 'with family'))
-      : life.married ? (life.kids ? L('식구들과 함께', 'with the household') : L('배우자와 함께', 'with a spouse')) : L('혼자', 'alone');
+      : life.married ? (life.kids ? L('식구들과 함께', 'with the household') : L('배우자와 함께', 'with a spouse'))
+      : (life.family && life.family.partner && life.family.partner.alive) ? L('연인과 함께', 'with a partner') : L('혼자', 'alone');
     return `${place} · ${where} · ${home} · ${who}`;
   }
 
