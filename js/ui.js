@@ -389,15 +389,15 @@
     const e0 = lifeExpectancy(life);
     const share = regionShare().find(x => x.r.id === life.region.id);
     const el = $('#screen-birth');
-    const parentAge = `${life.familyAges.mother != null ? L('어머니 ', 'mother ') + life.familyAges.mother + L('세', '') : ''}${life.familyAges.mother != null && life.familyAges.father != null ? ' · ' : ''}${life.familyAges.father != null ? L('아버지 ', 'father ') + life.familyAges.father + L('세', '') : ''}`;
+    const parentAge = `${life.familyAges.mother != null ? L('어머니 ', 'Mother ') + life.familyAges.mother + L('세', '') : ''}${life.familyAges.mother != null && life.familyAges.father != null ? ' · ' : ''}${life.familyAges.father != null ? L('아버지 ', 'Father ') + life.familyAges.father + L('세', '') : ''}`;
     // 집안의 배경: 이 아이가 어디서, 누구와 자라는가
     const g = life.bg || {};
     const side = g.gpSide === 'maternal' ? '외가' : '친가';
     const gma = life.family.gma, gpa = life.family.gpa;
-    const sideLabel = en() ? (g.gpSide === 'maternal' ? 'maternal' : 'paternal') : side;
+    const sideLabel = en() ? (g.gpSide === 'maternal' ? 'Maternal' : 'Paternal') : side;
     const gpLabel = !gma && !gpa
       ? L('안 계심', 'none living')
-      : sideLabel + ' · ' + [gma ? L('할머니 ', 'grandmother ') + gma.age + L('세', '') : '', gpa ? L('할아버지 ', 'grandfather ') + gpa.age + L('세', '') : ''].filter(Boolean).join(' · ');
+      : sideLabel + ' · ' + [gma ? L('할머니 ', 'Grandmother ') + gma.age + L('세', '') : '', gpa ? L('할아버지 ', 'Grandfather ') + gpa.age + L('세', '') : ''].filter(Boolean).join(' · ');
     const gpStory = (en() ? {
       cohabit: `Your ${g.gpSide === 'maternal' ? 'maternal' : 'paternal'} grandmother lives in the same house.`,
       near: `Your grandmother lives two stops away.`,
@@ -425,7 +425,7 @@
           <div class="lbl">${L('이름', 'Name')}</div>
           <h2>${en() ? life.name.en : life.name.ko}</h2>
           <p class="story">${en()
-              ? `You were born in ${life.district.en}, ${life.region.en}, in ${life.birthYear}, a ${life.sex === 'f' ? 'girl' : 'boy'} in a ${clsName(life.cls)} household. ${life.family === 'single' ? 'One parent is raising you.' : life.siblings ? `You have ${life.siblings} older ${life.siblings > 1 ? 'siblings' : 'sibling'}.` : 'You are the first child.'} The family lives in ${life.region.en}. ${gpStory}`
+              ? `You were born in ${life.district.en}, ${life.region.en}, in ${life.birthYear}, a ${life.sex === 'f' ? 'girl' : 'boy'} in a ${clsName(life.cls)} household. ${life.family === 'single' ? 'One parent is raising you.' : life.siblings ? (life.siblings === 1 ? 'You have an older sibling.' : `You have ${life.siblings} older siblings.`) : 'You are the first child.'} The family lives in ${life.region.en}. ${gpStory}`
               : `${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 ${life.sex === 'f' ? '여자아이' : '남자아이'}로 태어났습니다. ${life.family === 'single' ? '한부모 가정입니다.' : life.siblings ? `위로 형제자매 ${life.siblings}명이 있습니다.` : '첫아이입니다.'} 가족은 ${life.region.ko}에서 살아갑니다. ${gpStory}`}</p>
           <p class="certpace">${L(
               `기대수명까지 살면 약 ${Math.round(e0 * YEAR_MS[APP.pace] / 60000)}분이 걸려요 (1년 ≈ ${Math.round(YEAR_MS[APP.pace] / 1000)}초). 사는 동안 일시정지와 배속이 되고, 중간에 닫아도 이 브라우저에 저장됩니다.`,
@@ -445,7 +445,7 @@
                     <figure class="certmap"><canvas id="certMap"></canvas>
             <figcaption>${L(`${life.region.ko} ${life.district.ko}는 여기에 있어요.`, `Here is ${life.district.en}, ${life.region.en}.`)}</figcaption></figure>
           <div class="odds-line">${en()
-              ? `Among children born in ${life.district.en}, ${life.region.en} in ${life.birthYear}, one in ${life.cls === 'high' ? 'five' : life.cls === 'low' ? 'three' : 'two and a half'} comes from a ${life.cls === 'high' ? 'top-20%' : life.cls === 'low' ? 'bottom-30%' : 'middle'} household. You are one of the 254,341 children born in this country that year.`
+              ? `Among children born in ${life.district.en}, ${life.region.en} in ${life.birthYear}, about ${life.cls === 'high' ? 20 : life.cls === 'low' ? 30 : 40}% come from a ${life.cls === 'high' ? 'top-20%' : life.cls === 'low' ? 'bottom-30%' : 'middle'} household. You are one of the 254,341 children born in this country that year.`
               : `${life.birthYear}년 ${life.region.ko} ${life.district.ko}에서 태어난 아이 가운데 ${life.cls === 'high' ? '상위 20%' : life.cls === 'low' ? '하위 30%' : '중간 40%'} 가정 출신은 ${life.cls === 'high' ? '다섯 중 하나꼴' : life.cls === 'low' ? '셋 중 하나꼴' : '열에 넷꼴'}입니다. 같은 해 이 나라에서 태어난 아이 254,341명 중 한 명입니다.`}</div>
           <div class="certcomps"><span class="lbl">${L('같은 1초에 태어난 네 사람', 'Four people born the same second')}</span>
             <ul>${life.peers.map(p => `<li><b>${en() && p.nameEn ? p.nameEn : p.name}</b><span>${en() && p.regEn ? p.regEn : p.reg} · ${p.sex === 'f' ? L('여', 'F') : L('남', 'M')}</span></li>`).join('')}</ul>
