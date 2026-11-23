@@ -1114,7 +1114,7 @@
             <h1>${life.name.ko}</h1>
             <p class="rec-life">${life.birthYear} – ${life.year} · 향년 ${d.age}세 · ${life.region.ko} ${life.district.ko}</p>
             <p class="rec-color"><b style="background:${colorHex(type)}"></b>${U.L(type.name)}</p>
-            <p class="rec-story">${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 태어났습니다. ${life.edu && life.edu !== 'none' ? EDU_KO[life.edu] + '를 마쳤습니다. ' : ''}${(life.lastJob || life.job) !== 'none' ? JOB_KO[life.lastJob || life.job] + '으로 일했습니다. ' : ''}${life.married ? '배우자와 함께 살았습니다. ' : '배우자 없이 살았습니다. '}${life.kids ? `아이 ${life.kids}명을 키웠습니다. ` : ''}${d.age}세에 ${cause}${josa(cause, '으로', '로')} 세상을 떠났습니다.</p>
+            <p class="rec-story">${life.birthYear}년 ${life.region.ko} ${life.district.ko}의 ${CLASS_KO[life.cls]} 가정에서 태어났습니다. ${life.edu && life.edu !== 'none' ? EDU_KO[life.edu] + josa(EDU_KO[life.edu], '을', '를') + ' 마쳤습니다. ' : ''}${(life.role && life.role !== 'none') ? (ROLE_KO[life.role] || '') + ' 일을 했습니다. ' : ((life.lastJob || life.job) !== 'none' ? JOB_KO[life.lastJob || life.job] + '으로 일했습니다. ' : '')}${life.married ? '배우자와 함께 살았습니다. ' : (life.flags.widowed ? '배우자와 사별했습니다. ' : (life.flags.divorced ? '이혼 뒤 혼자 살았습니다. ' : '배우자 없이 살았습니다. '))}${life.kids ? `아이 ${life.kids}명을 키웠습니다. ` : ''}${d.age}세에 ${cause}${josa(cause, '으로', '로')} 세상을 떠났습니다.</p>
             <p class="rec-cause">사인 · ${cause}</p>
             <p class="rec-cause-note">${causeNote(cause)}</p>
             ${helpLine(cause) ? `<p class="rec-note" style="margin-top:4px">${helpLine(cause)}</p>` : ''}

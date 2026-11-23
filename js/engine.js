@@ -375,8 +375,10 @@
     const h = housingCost(life);
     it.housing = Math.round(h.rent + h.upkeep);
     const kids = (life.family.children || []).filter(k => k.alive !== false);
-    it.food = Math.round((215 + 32 * kids.length) * nom * (life.married ? 1.25 : 1));
-    it.living = Math.round((168 + 26 * kids.length) * nom * (life.home === "own" ? 1.15 : 1));
+    // 소득이 늘면 식비·생활비·여가도 함께 는다(저축률이 비현실적으로 커지지 않게)
+    const inc = life.income || 0;
+    it.food = Math.round(Math.max((215 + 32 * kids.length) * nom * (life.married ? 1.25 : 1), inc * 0.105));
+    it.living = Math.round(Math.max((168 + 26 * kids.length) * nom * (life.home === "own" ? 1.15 : 1), inc * 0.115));
     let edu = 0;
     if (life.flags.inCollege) edu += 760;
     for (const k of kids) {
@@ -394,7 +396,7 @@
     it.care = Math.round(care * nom);
     it.taxInterest = Math.round((life.income || 0) * 0.078 + (life.debt || 0) * 0.042);
     const leisureBase = life.stats.stress > 65 ? 70 : 128;
-    it.leisure = Math.round(leisureBase * nom * (life.flags.retired ? 0.85 : 1));
+    it.leisure = Math.round(Math.max(leisureBase * nom * (life.flags.retired ? 0.85 : 1), inc * 0.07));
     it.health = Math.round((38 + Math.max(0, 55 - life.stats.health) * 2.2 + (life.age > 60 ? 55 : 0)) * nom);
     let total = Object.values(it).reduce((a, b) => a + b, 0);
     // 소득이 있는데 지출이 소득을 넘으면 항목 비율을 유지한 채 소득의 97%로 줄인다
