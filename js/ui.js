@@ -42,7 +42,7 @@
     const el = $("#screen-cover");
     el.innerHTML = `
       <div class="cover">
-        <div class="cover-seal">1/50M<br>대한민국</div>
+        <div class="cover-seal">1/50M<br>${U.lang() === "ko" ? "대한민국" : "KOREA"}</div>
         <h1>${t("title")}<br><span style="font-size:20px;color:var(--ink-3);font-weight:600;letter-spacing:-.3px">${t("titleSub")}</span></h1>
         <div class="en">1 IN 50,000,000 · KOREA</div>
         <p class="tag">${t("tagline")}</p>
