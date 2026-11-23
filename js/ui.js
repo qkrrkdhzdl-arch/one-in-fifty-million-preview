@@ -1014,6 +1014,8 @@
     const cause = d ? d.cause : '노환';
     const el = $('#screen-record');
     const color = type.color || null;
+    const lastJob = life.lastJob && life.lastJob !== 'none' ? JOB_KO[life.lastJob]
+      : (life.job !== 'none' ? JOB_KO[life.job] : (life.retired ? '은퇴' : '—'));
     el.innerHTML = `<div class="wrap"><div class="rec">
       <div class="rec-band"><span>사망 기록 · RECORD OF DEATH</span><span>${certNo(life)}</span></div>
       <div class="rec-body">
@@ -1031,7 +1033,7 @@
           <div>
             <div class="rec-fields" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:0;border-top:0">
               <div><span>최종 학력</span><b>${EDU_KO[life.edu] || '—'}</b></div>
-              <div><span>마지막 일</span><b>${JOB_KO[life.lastJob || life.job] || '—'}${life.retired ? ' · 은퇴' : ''}</b></div>
+              <div><span>마지막 일</span><b>${lastJob}${life.retired && lastJob !== '은퇴' ? ' · 은퇴' : ''}</b></div>
               <div><span>함께한 사람</span><b>${life.married ? '배우자' : '없음'}</b></div>
               <div><span>자녀</span><b>${life.kids ? life.kids + '명' : '없음'}</b></div>
               <div><span>가장 행복했던 해</span><b>${happy.age}세 (${life.birthYear + happy.age}년)</b></div>
