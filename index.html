@@ -718,8 +718,8 @@
               id: "stay",
               titleKo: "버틴다 — 팀장 눈을 보며 남은 프로젝트 2개를 맡는다",
               titleEn: "Hold out — take two leftover projects under your manager",
-              metaKo: "고용 유지 · 마음 소모 큼",
-              metaEn: "Keep job · heavy mental strain",
+              metaKo: "고용 유지 · 프로젝트 수당 +1,400만 원 · 마음 소모 큼",
+              metaEn: "Keep job · +₩14M project pay · heavy strain",
               ratios: [49, 31, 20],
               sidenoteKo: "희망퇴직 — 회사가 위로금을 주고 자발적 퇴사를 받는 절차.",
               sidenoteEn: "Voluntary buyout: severance offered to shrink headcount without firing.",
@@ -852,25 +852,40 @@
               id: "renew_push",
               titleKo: L.jeonseSigned ? "추가 2,500만 원을 마련해 재계약한다" : "모은 돈으로 1억 원대 소형 전세에 들어간다",
               titleEn: L.jeonseSigned ? "Raise ₩25M more and renew the lease" : "Move into a smaller ₩100M jeonse",
-              metaKo: "고정지출 재조정 · 현금 감소",
-              metaEn: "Cash reduced · housing stabilized",
+              metaKo: L.jeonseSigned ? "현금 감소 · 대출 증가" : "현금 감소 · 은행 대출 발생",
+              metaEn: L.jeonseSigned ? "Cash down · debt up" : "Cash down · new bank loan",
               ratios: [46, 33, 21],
               sidenoteKo: "전세금반환보증 — 집주인이 보증금을 못 돌려줄 때 보증기관이 대신 주는 보험.",
               sidenoteEn: "Deposit insurance: covers you if the landlord fails to return the lump sum.",
               apply: (life) => {
-                spend(life, 1200);
-                life.debt += 1300;
-                life.mindScore -= 6;
-                const open = life.ledger.find(x => x.status === "active");
-                if (open) open.status = "kept";
+                if (life.jeonseSigned) {
+                  // 재계약: 오른 보증금 2,500만 원을 현금과 은행 대출로 나눠 마련한다
+                  spend(life, 1200);
+                  life.debt += 1300;
+                  life.mindScore -= 6;
+                  const open = life.ledger.find(x => x.status === "active" && x.titleKo.indexOf("전세") >= 0);
+                  if (open) open.status = "kept";
+                  life.ledger.push({ titleKo: "전세 재계약 · 보증금 2억 1,000만 원", titleEn: "Lease renewed · ₩210M deposit", status: "active", noteKo: "2년 뒤 다시 청구", noteEn: "Due again in two years" });
+                } else {
+                  // 월세로 지내다 1억 원대 소형 전세로 옮긴다
+                  const need = Math.max(0, 10000 - Math.max(0, life.cash - 300));
+                  life.cash = Math.max(300, life.cash - (10000 - need));
+                  life.debt += need;
+                  life.jeonseLoan = need;
+                  life.jeonseSigned = true;
+                  const interest = Math.round((need * 0.042) / 12);
+                  life.monthlyOut += interest;
+                  life.mindScore -= 4;
+                  life.ledger.push({ titleKo: "소형 전세 보증금 1억 원 · 은행 대출", titleEn: "Small jeonse ₩100M · bank loan", status: "active", noteKo: `월 이자 ${interest}만 원 · 만기 반환`, noteEn: "Refundable at lease end" });
+                }
               }
             },
             {
               id: "renegotiate",
               titleKo: "집주인(또는 가족)과 조건 재협의를 요청한다 — 이사비 380만 원 대비",
               titleEn: "Request renegotiation — prepare ₩3.8M moving cost",
-              metaKo: "장부에 '재협의' 기록 · 50% 확률로 절반 감액",
-              metaEn: "Logs 'Renegotiated' · partial relief",
+              metaKo: "장부에 '재협의' 기록 · 이사비 380만 원",
+              metaEn: "Logs 'Renegotiated' · ₩3.8M moving cost",
               ratios: [33, 46, 21],
               sidenoteKo: "재협의는 출구가 아니라 요청이다. 상대가 받아야 성립한다.",
               sidenoteEn: "Renegotiation is a request, not an exit; the other party must agree.",
@@ -912,8 +927,8 @@
               id: "pay_all",
               titleKo: "계산서를 들고 원무과로 가서 내 카드로 먼저 결제한다",
               titleEn: "Walk to billing and pay the ₩1.87M bill yourself",
-              metaKo: "현금 -187만 원 · 간병 약속 시작",
-              metaEn: "-₩1.87M cash · caregiving promise opens",
+              metaKo: "현금 -187만 원 · 장부에 정산 기록 · 몸 부담 증가",
+              metaEn: "-₩1.87M cash · settlement logged · body strain",
               ratios: [52, 34, 14],
               sidenoteKo: "관계의 이자는 숫자가 아니라, 위기 때 누가 먼저 오는지로 드러난다.",
               sidenoteEn: "Relational interest shows in who arrives first during a crisis.",
@@ -1143,7 +1158,7 @@
 
           ${r.ratios ? `
             <div class="ratio-bar">
-              <div><strong>${ko ? `모형 참고 비율 — 같은 길목에서 ${r.ratios[0]}%가 이 길을 골랐다` : `Model Reference — ${r.ratios[0]}% chose this path here`}</strong></div>
+              <div><strong>${ko ? `기획 모형 예시 비율 · 이 길 ${r.ratios[0]}% (실제 참가자 집계 아님)` : `Design-model sample · ${r.ratios[0]}% took this path (not live player data)`}</strong></div>
               <div class="bar-track">
                 <div style="width:${r.ratios[0]}%;background:var(--jade);"></div>
                 <div style="width:${r.ratios[1]}%;background:var(--ochre);"></div>
