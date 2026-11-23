@@ -199,7 +199,8 @@
   // ---------- events ----------
   function matchEvent(e, life, pad) {
     const p = pad || 0;
-    if (life.age < e.age[0] - p || life.age > e.age[1] + p) return false;
+    if (life.age < e.age[0]) return false;           // never fire an event before the age it describes
+    if (life.age > e.age[1] + p) return false;
     if (e.yr && (life.year < e.yr[0] || life.year > e.yr[1])) return false;
     if (e.reg !== "any" && e.reg !== life.zone) return false;
     if (e.cls !== "any" && e.cls !== life.cls) return false;
@@ -241,10 +242,10 @@
     const out = [];
     const recent = (x) => (life.lastSeen && life.lastSeen[x.id] != null) ? (life.age - life.lastSeen[x.id]) : 99;
     for (let i = 0; i < count; i++) {
-      let pool = C.events.filter(e => matchEvent(e, life) && !out.includes(e) && recent(e) > 9);
-      if (!pool.length) pool = C.events.filter(e => matchEvent(e, life, 3) && !out.includes(e) && recent(e) > 7);
-      if (!pool.length) pool = C.events.filter(e => matchEvent(e, life, 6) && !out.includes(e) && recent(e) > 5);
-      if (!pool.length) pool = C.events.filter(e => matchEvent(e, life, 10) && !out.includes(e) && recent(e) > 3);
+      let pool = C.events.filter(e => matchEvent(e, life) && !out.includes(e) && !life.seen[e.id]);
+      if (!pool.length) pool = C.events.filter(e => matchEvent(e, life, 2) && !out.includes(e) && !life.seen[e.id]);
+      if (!pool.length) pool = C.events.filter(e => matchEvent(e, life, 4) && !out.includes(e) && !life.seen[e.id]);
+      if (!pool.length) pool = C.events.filter(e => matchEvent(e, life, 3) && !out.includes(e) && recent(e) > 20);
       if (!pool.length) break;
       const e = wpick(pool, x => x.w * (1 / (1 + (life.seen[x.id] || 0) * 1.2)) * (x.age[1] === x.age[0] ? 1.25 : 1));
       out.push(e);
@@ -320,7 +321,10 @@
     for (const k of ["health", "happiness", "knowledge", "relation"]) {
       life.stats[k] = clamp(life.stats[k] + (ch.st[k] || 0), 0, 100);
     }
-    if (ch.money) {
+    if (ch.money && life.age < 19) {
+      // parents' decisions move household money, not a child's account
+      if (ch.money > 0) life.cash += Math.round(ch.money * 0.03);
+    } else if (ch.money) {
       if (ch.money > 0) life.cash += ch.money;
       else {
         let need = -ch.money;
