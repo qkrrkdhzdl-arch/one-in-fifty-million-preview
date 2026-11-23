@@ -66,6 +66,13 @@
         <div class="cover-actions">
           <button class="primary" id="btn-born">${t("start")}</button>
         </div>
+        <div class="region-chart hide-mobile">
+          <div class="mini-title">${U.lang() === "ko" ? "어디서 태어날 확률" : "WHERE YOU MAY BE BORN"}</div>
+          ${C.regions.slice().sort((a, b) => b.w - a.w).map(r => `
+            <div class="rc-row"><span>${U.lang() === "ko" ? r.ko : r.en}</span>
+              <i style="width:${Math.max(2, r.w / 26.5 * 100)}%"></i><b>${r.w.toFixed(1)}%</b></div>`).join("")}
+          <p class="rc-note">${U.lang() === "ko" ? "주민등록 인구 비중을 근사한 값입니다. 실제 출생지 분포와는 차이가 있습니다." : "Approximated from registered population shares, not exact birth distribution."}</p>
+        </div>
         <div class="cover-foot">${t("coverFoot")}<br>${t("footerNote")}</div>
       </div>`;
     el.querySelectorAll('[data-seg="pace"] button').forEach(b => b.onclick = () => {
@@ -357,6 +364,7 @@
     open.events.forEach(ev => {
       ["health", "happiness", "knowledge", "relation"].forEach(k => life.stats[k] = Math.max(0, Math.min(100, life.stats[k] + (ev.st[k] || 0))));
     });
+    open.events.forEach(ev => { life.seen[ev.id] = 1; life.lastSeen = life.lastSeen || {}; life.lastSeen[ev.id] = 0; });
     life.yearLog.push(open);
     life.history.push({ age: 0, year: life.birthYear, happiness: Math.round(life.stats.happiness), health: Math.round(life.stats.health), wealth: life.cash, income: 0, event: open.events[0] ? open.events[0].t : null });
     renderFeedAll();

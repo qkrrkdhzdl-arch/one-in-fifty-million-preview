@@ -308,3 +308,17 @@ textarea.refl:focus{outline:2px solid rgba(30,106,74,.3);border-color:var(--jade
   .side{display:block!important}
 }
 @media(max-width:919px){.side{display:none}}
+
+/* cover region chart (desktop) */
+.region-chart{display:none;margin-top:26px}
+@media(min-width:900px){
+  .cover{max-width:1000px;padding:56px 40px 40px;display:grid;grid-template-columns:minmax(0,1fr) 330px;column-gap:56px;align-content:center}
+  .cover > *{grid-column:1}
+  .region-chart{grid-column:2;grid-row:1 / span 12;display:block;align-self:center;margin-top:0}
+  .hide-mobile{display:block}
+}
+.rc-row{display:grid;grid-template-columns:64px 1fr 42px;gap:8px;align-items:center;font-size:11.5px;color:var(--ink-2);padding:3px 0}
+.rc-row i{height:7px;border-radius:2px;background:linear-gradient(90deg,var(--seal),#c9776a);display:block;min-width:3px}
+.rc-row b{text-align:right;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);font-weight:600}
+.rc-note{font-size:10px;color:var(--ink-3);margin-top:10px;line-height:1.6}
+@media(max-width:899px){.region-chart{display:none}}
