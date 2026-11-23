@@ -28,6 +28,43 @@
   }
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+  // ---------- 지표 ----------
+  // '지식'과 '역량'은 하나로 통합한다. 학습·공부로 쌓은 것도 역량으로 들어가고,
+  // 조건 검사에 남아 있는 knowledge는 역량과 같은 값으로 유지한다.
+  function bump(life, k, v) {
+    if (!v) return;
+    if (k === "knowledge") {
+      // 학습으로 얻은 것은 역량의 일부로만 쌓인다(경험·직무 역량과 같은 눈금)
+      life.stats.spec = clamp((life.stats.spec || 0) + v * 0.18, 0, 100);
+      life.stats.knowledge = life.stats.spec;
+      return;
+    }
+    const g = v > 0 ? v * (k === "spec" ? 0.32 : k === "happiness" ? 0.65 : k === "relation" ? 0.55 : 1) : v;
+    life.stats[k] = clamp((life.stats[k] || 0) + g, 0, 100);
+  }
+  function syncStats(life) { life.stats.knowledge = life.stats.spec; }
+
+  // 관계·행복이 오르면 스트레스가 내려가고, 떨어지면 올라간다
+  function stressLink(life, dHap, dRel, dHea) {
+    const up = Math.max(0, dHap) + Math.max(0, dRel) + Math.max(0, dHea) * 0.5;
+    const down = Math.max(0, -dHap) + Math.max(0, -dRel) + Math.max(0, -dHea) * 0.5;
+    if (up || down) bump(life, "stress", down * 0.30 - up * 0.22);
+    if (life.stats.stress > 72) bump(life, "happiness", -0.3);
+    else if (life.stats.stress < 24) bump(life, "happiness", 0.2);
+  }
+
+  // 고용 형태: 창업자·프리랜서에게 희망퇴직·임금피크·직장 상사가 나오지 않게 구분한다
+  function empTypeOf(life) {
+    const r = life.role || "none";
+    if (r === "self") return "founder";
+    if (r === "free") return "freelance";
+    if (r === "public" || r === "edu") return "public";
+    if (r === "trade" || r === "farm") return "sme";
+    if (r === "med" || r === "research") return life.flags.entryGrade === "대기업·전문직" ? "corp" : "sme";
+    if (r === "none") return life.flags.employed ? "sme" : "none";
+    return (life.flags.entryGrade === "대기업·전문직" || (life.stats.reputation >= 62 && life.stats.spec >= 62)) ? "corp" : "sme";
+  }
+
   // ---------- macro eras ----------
   const MACRO = [
     { from: 1997, to: 1998, id: "imf", job: 0.84, house: -0.09, mood: -7, infl: 0.045 },
@@ -135,11 +172,14 @@
         mother: parents.mother ? 76 + ri(-8, 12) : null,
         father: parents.father ? 72 + ri(-9, 12) : null
       },
-      stats: {
-        health: clamp(baseHealth, 30, 80), happiness: 56 + ri(-6, 8),
-        knowledge: 28 + ri(-6, 8), relation: 60 + ri(-8, 6),
-        reputation: 30 + ri(-6, 8), spec: 8 + ri(0, 6), stress: 20 + ri(-6, 8)
-      },
+      stats: (function () {
+        const ability = clamp(Math.round((28 + ri(-6, 8)) * 0.35 + (8 + ri(0, 6)) * 0.65), 8, 40);
+        return {
+          health: clamp(baseHealth, 30, 80), happiness: 56 + ri(-6, 8),
+          knowledge: ability, relation: 60 + ri(-8, 6),
+          reputation: 30 + ri(-6, 8), spec: ability, stress: 20 + ri(-6, 8)
+        };
+      })(),
       cash: cls === "high" ? ri(200, 600) : cls === "low" ? ri(0, 40) : ri(40, 160),
       assets: 0, homeValue: 0, deposit: 0, debt: 0, home: "none",
       job: "none", role: "none", major: "none", lastJob: "", lastRole: "", edu: "none",
@@ -161,8 +201,11 @@
       childrenCount: 0, retired: false, wagePeak: false, inCollege: false, graduated: false,
       employed: false, militaryDone: false, hasHome: false, caregivingParent: false,
       inherited: false, majorChosen: false, roleChosen: false, chronic: false,
-      contestWin: false, albaExp: 0, spec: 0
+      contestWin: false, albaExp: 0, spec: 0,
+      dating: false, wantChild: false, hospitalized: false, recovering: false,
+      empType: "none", investStyle: "safe"
     };
+    life.spendMode = { food: "normal", leisure: "normal", living: "normal", health: "normal" };
     life.family = {
       mother: parents.mother ? { name: "어머니", alive: true, age: motherAge, health: 66 + ri(-8, 10), relation: 68 + ri(-8, 8), job: "전업주부", income: 0 } : null,
       father: parents.father ? { name: "아버지", alive: true, age: fatherAge, health: 64 + ri(-8, 10), relation: 62 + ri(-10, 8), job: "회사원", income: 320 } : null,
@@ -218,6 +261,16 @@
     if (c.era && c.era.indexOf(life.era) < 0) return false;
     if (c.path && c.path.indexOf(life.flags.path || "academic") < 0) return false;
     if (c.job && c.job.indexOf(life.job) < 0) return false;
+    if (c.emp) {
+      const et = life.flags.empType || empTypeOf(life);
+      const want = Array.isArray(c.emp) ? c.emp : [c.emp];
+      if (want.indexOf(et) < 0) return false;
+    }
+    if (c.invest) {
+      const want = Array.isArray(c.invest) ? c.invest : [c.invest];
+      const style = life.flags.investStyle || life.alloc || "safe";
+      if (want.indexOf(style) < 0) return false;
+    }
     if (c.edu && c.edu.indexOf(life.edu) < 0) return false;
     if (c.major && c.major.indexOf(life.major) < 0) return false;
     if (c.role && c.role.indexOf(life.role) < 0) return false;
@@ -398,6 +451,14 @@
     const leisureBase = life.stats.stress > 65 ? 70 : 128;
     it.leisure = Math.round(Math.max(leisureBase * nom * (life.flags.retired ? 0.85 : 1), inc * 0.07));
     it.health = Math.round((38 + Math.max(0, 55 - life.stats.health) * 2.2 + (life.age > 60 ? 55 : 0)) * nom);
+    // 생활비 모드: 사용자가 고른 식비·여가·생활·건강 지출 수준을 반영한다
+    const sm = life.spendMode || {};
+    const mul = { food: { save: 0.8, normal: 1, generous: 1.24 }, leisure: { save: 0.55, normal: 1, generous: 1.5 },
+                  living: { save: 0.88, normal: 1, generous: 1.12 }, health: { save: 0.75, normal: 1, generous: 1.4 } };
+    for (const k of ["food", "living", "leisure", "health"]) {
+      const m = (mul[k] || {})[sm[k]] || 1;
+      if (m !== 1) it[k] = Math.round((it[k] || 0) * m);
+    }
     let total = Object.values(it).reduce((a, b) => a + b, 0);
     // 소득이 있는데 지출이 소득을 넘으면 항목 비율을 유지한 채 소득의 97%로 줄인다
     const cap = (life.income || 0) * 0.97;
@@ -410,6 +471,20 @@
     return it;
   }
 
+  // 지출을 어디에 쓸지는 몸과 마음에도 남는다
+  function spendModeEffect(life) {
+    const sm = life.spendMode || {};
+    const pick = (k) => sm[k] || "normal";
+    if (pick("food") === "save") { bump(life, "health", -0.4); bump(life, "happiness", -0.5); bump(life, "stress", 0.3); }
+    if (pick("food") === "generous") { bump(life, "health", 0.6); bump(life, "happiness", 0.8); bump(life, "stress", -0.4); }
+    if (pick("leisure") === "save") { bump(life, "happiness", -1.0); bump(life, "stress", 0.9); }
+    if (pick("leisure") === "generous") { bump(life, "happiness", 1.4); bump(life, "stress", -1.6); }
+    if (pick("health") === "save") { bump(life, "health", -0.8); }
+    if (pick("health") === "generous") { bump(life, "health", 1.1); bump(life, "stress", -0.3); }
+    if (pick("living") === "generous") { bump(life, "happiness", 0.3); }
+    if (pick("living") === "save") { bump(life, "happiness", -0.3); }
+  }
+
   function yearEconomics(life) {
     updateIncome(life);
     lifeCycleCost(life);
@@ -418,6 +493,7 @@
     life.expenseItems = ex;
     life.expenses = ex.total;
     if (life.age < 19) { life.expenses = 0; return; }
+    spendModeEffect(life);
 
     const net = life.income - life.expenses;
     if (net > 0) {
@@ -586,10 +662,14 @@
   }
 
   function applyEvent(life, e) {
+    let dHap = 0, dRel = 0, dHea = 0;
     for (const k of ["health", "happiness", "knowledge", "relation", "reputation", "spec", "stress"]) {
       const v = (e.st && e.st[k]) || 0;
-      if (v) life.stats[k] = clamp(life.stats[k] + v, 0, 100);
+      if (!v) continue;
+      bump(life, k, v);
+      if (k === "happiness") dHap += v; else if (k === "relation") dRel += v; else if (k === "health") dHea += v;
     }
+    stressLink(life, dHap, dRel, dHea);
     if (e.money) {
       if (life.age < 19) { if (e.money > 0) life.cash += Math.round(e.money * 0.05); }
       else if (e.money > 0) life.cash += e.money;
@@ -623,6 +703,7 @@
       life.flags.roleChosen = true;
       const r = ROLES[s.role];
       if (r && r.job) life.job = r.job;
+      life.flags.empType = empTypeOf(life);
     }
     if ((s.role || s.job) && s.job !== "none" && s.employed !== false && !life.flags.entryGrade) {
       const g = gradeFor(life);
@@ -663,12 +744,19 @@
     if (s.alba) life.flags.albaExp = (life.flags.albaExp || 0) + s.alba;
     if (s.invest) life.alloc = s.invest === "safe" ? "safe" : s.invest === "stock" ? "stock" : s.invest === "coin" ? "coin" : life.alloc;
     if (s.stat) for (const k in s.stat) life.stats[k] = clamp(s.stat[k], 0, 100);
-    if (s.flags) for (const k in s.flags) life.flags[k] = s.flags[k];
+    if (s.flags) for (const k in s.flags) {
+      life.flags[k] = s.flags[k];
+      // 수술·입원은 몇 해 동안 다른 사건을 막는 상태로 남는다
+      if (k === "recovering" && s.flags[k]) life.flags.recoveringUntil = life.age + 2;
+      if (k === "hospitalized" && s.flags[k]) life.flags.hospitalizedUntil = life.age + 1;
+    }
+    syncStats(life);
   }
 
   function marry(life) {
     if (life.flags.widowed) life.flags.widowed = false;
     life.flags.married = true; life.married = 1;
+    life.flags.dating = false;
     if (!life.family.spouse || !life.family.spouse.alive) {
       const sex = life.sex === "f" ? "m" : "f";
       const nm = koreanName(sex);
@@ -701,6 +789,7 @@
 
   // ---------- yearly focus ----------
   const FOCUS_EFFECT = {
+    study:   { health: -0.3, happiness: -0.1, knowledge: 1.4, relation: -0.7, reputation: 0.3, spec: 1.6, stress: 1.1, income: 0 },
     health:  { health: 2.6, happiness: 0.5, knowledge: 0, relation: -0.3, reputation: 0, spec: 0, stress: -3.2, income: 0 },
     work:    { health: -1.0, happiness: -0.2, knowledge: 0.5, relation: -0.9, reputation: 0.7, spec: 1.5, stress: 2.0, income: 0.045 },
     love:    { health: 0.3, happiness: 1.3, knowledge: 0, relation: 2.8, reputation: 0.2, spec: 0, stress: -1.4, income: -0.02 },
@@ -713,7 +802,7 @@
     const f = FOCUS_EFFECT[life.focus] || FOCUS_EFFECT.balance;
     life.stats.health = clamp(life.stats.health + f.health, 0, 100);
     life.stats.happiness = clamp(life.stats.happiness + f.happiness, 0, 100);
-    life.stats.knowledge = clamp(life.stats.knowledge + f.knowledge * (life.age > 60 ? 0.3 : 1), 0, 100);
+    bump(life, "knowledge", f.knowledge * (life.age > 60 ? 0.3 : 1));
     life.stats.relation = clamp(life.stats.relation + f.relation, 0, 100);
     life.stats.reputation = clamp(life.stats.reputation + f.reputation, 0, 100);
     life.stats.spec = clamp(life.stats.spec + f.spec * (life.age > 65 ? 0.1 : life.age > 55 ? 0.5 : 1), 0, 100);
@@ -732,25 +821,34 @@
     if (life.flags.chronic) dh -= 0.5;
     if (life.stats.stress > 65) dh -= 0.45;
     life.stats.health = clamp(life.stats.health + dh, 0, 100);
-    const target = 40 + life.stats.health * 0.2 + life.stats.relation * 0.2 - Math.max(0, life.stats.stress - 55) * 0.25;
-    life.stats.happiness = clamp(life.stats.happiness + (target - life.stats.happiness) * 0.08, 0, 100);
-    if (a > 22) life.stats.relation = clamp(life.stats.relation - 0.25, 0, 100);
-    if (a < 22) life.stats.knowledge = clamp(life.stats.knowledge + 0.45, 0, 100);
-    if (a > 55) life.stats.knowledge = clamp(life.stats.knowledge - 0.35, 0, 100);
-    // 스트레스는 저절로 조금씩 풀린다
-    life.stats.stress = clamp(life.stats.stress - (a > 60 ? 1.2 : 0.7), 0, 100);
+    const target = 38 + life.stats.health * 0.19 + life.stats.relation * 0.17 - Math.max(0, life.stats.stress - 55) * 0.3;
+    life.stats.happiness = clamp(life.stats.happiness + (target - life.stats.happiness) * 0.1, 0, 100);
+    if (a > 22) life.stats.relation = clamp(life.stats.relation - 0.45, 0, 100);
+    if (a < 22) bump(life, "knowledge", 0.18);
+    if (a > 55) bump(life, "knowledge", -0.35);
+    // 스트레스는 저절로 조금씩 풀리고, 관계가 좋을수록 더 빨리 풀린다
+    const relEase = life.stats.relation > 60 ? (life.stats.relation - 60) * 0.02 : 0;
+    const happyEase = life.stats.happiness > 65 ? (life.stats.happiness - 65) * 0.015 : 0;
+    const dailyLoad = (a >= 19 && a < 70 && life.flags.employed) ? 0.9 : 0;
+    life.stats.stress = clamp(life.stats.stress - (a > 60 ? 1.2 : 0.55) - relEase - happyEase + dailyLoad, 0, 100);
+    // 일하는 동안은 스트레스가 완전히 사라지지 않는다
+    if (life.flags.employed && a >= 19 && a < 68 && life.stats.stress < 22) life.stats.stress += (22 - life.stats.stress) * 0.2;
+    if (life.stats.stress > 70) life.stats.happiness = clamp(life.stats.happiness - 0.4, 0, 100);
     // 임금 보정은 해마다 조금씩 원래 자리로 돌아간다(한 해의 성과가 영구 배수가 되지 않게)
     life.wageBonus = clamp((life.wageBonus || 0) * 0.9, -0.15, 0.2);
     // 역량은 40대까지 조금씩 늘고, 60 이후에는 천천히 줄어든다
-    if (a >= 22 && a < 45) life.stats.spec = clamp(life.stats.spec + 0.35, 0, 100);
+    if (a >= 22 && a < 45) life.stats.spec = clamp(life.stats.spec + 0.15, 0, 100);
     if (a >= 60) life.stats.spec = clamp(life.stats.spec - 0.25, 0, 100);
   }
 
   // ---------- decisions ----------
+  // 한 해에 한 장만 띄운다. 같은 나이에 두 장이 겹치면 다음 해로 넘긴다.
   function decisionFor(life) {
+    if (!life.decQueue) life.decQueue = [];
+    const queued = d => life.decQueue.indexOf(d.id) >= 0;
     for (const d of C.decisions) {
-      if (d.age !== life.age) continue;
-      if (life.decisions.indexOf(d.id) >= 0) continue;
+      if (life.decisions.indexOf(d.id) >= 0 || queued(d)) continue;
+      if (d.age != null && (life.age < d.age || life.age > d.age + 1)) continue;
       const c = d.cond;
       if (c) {
         // 결정 카드의 cond도 같은 규칙으로 검사한다(성별·부모 생존 등)
@@ -760,6 +858,29 @@
         if (d.only && d.only.indexOf(path) < 0) continue;
         if (d.sex && d.sex !== "any" && d.sex !== "all" && String(d.sex).toUpperCase() !== String(life.sex).toUpperCase()) continue;
       }
+      if (!queued(d)) life.decQueue.push(d.id);
+    }
+    // 예정된 결정이 없는 해에는 일상 결정이 가끔 온다
+    if (!life.decQueue.length && life.age >= 8) {
+      const p = life.age < 19 ? 0.34 : 0.5;
+      if (R() < p) {
+        const pool = (C.daily || []).filter(d => {
+          if (life.decisions.indexOf(d.id) >= 0 || queued(d)) return false;
+          if (life.age < d.age[0] || life.age > d.age[1]) return false;
+          if (d.usedIn && life.usedIds["dly_" + d.id]) return false;
+          return condOK(life, d.cond);
+        });
+        if (pool.length) life.decQueue.push(wpick(pool, x => x.w || 1).id);
+      }
+    }
+    while (life.decQueue.length) {
+      const id = life.decQueue[0];
+      const d = (C.decisions || []).find(x => x.id === id) || (C.daily || []).find(x => x.id === id);
+      if (!d || !condOK(life, d.cond)) { life.decQueue.shift(); continue; }
+      if (d.age != null && life.age > (Array.isArray(d.age) ? d.age[1] : d.age + 1)) { life.decQueue.shift(); continue; }
+      if (life.decisions.indexOf(d.id) >= 0) { life.decQueue.shift(); continue; }
+      // 일상 결정은 나이 범위를 가지므로, 화면에 띄울 때는 지금 나이를 붙인다
+      if (Array.isArray(d.age)) return Object.assign({}, d, { ageRange: d.age, age: life.age });
       return d;
     }
     return null;
@@ -775,10 +896,14 @@
   }
 
   function applyChoice(life, dec, ch) {
+    let dHap = 0, dRel = 0, dHea = 0;
     for (const k of ["health", "happiness", "knowledge", "relation", "reputation", "spec", "stress"]) {
       const v = (ch.st && ch.st[k]) || 0;
-      if (v) life.stats[k] = clamp(life.stats[k] + v, 0, 100);
+      if (!v) continue;
+      bump(life, k, v);
+      if (k === "happiness") dHap += v; else if (k === "relation") dRel += v; else if (k === "health") dHea += v;
     }
+    stressLink(life, dHap, dRel, dHea);
     if (ch.money && life.age < 19) {
       if (ch.money > 0) life.cash += Math.round(ch.money * 0.03);
     } else if (ch.money) {
@@ -793,8 +918,10 @@
     if (ch.inc) life.wageBonus = clamp((life.wageBonus || 0) + ch.inc, -0.15, 0.2);
     applySet(life, ch.set || {});
     if (ch.flags) for (const k in ch.flags) life.flags[k] = ch.flags[k];
-    life.decisions.push(dec.id);
+    if (life.decQueue) life.decQueue = life.decQueue.filter(x => x !== dec.id);
+    if (life.decisions.indexOf(dec.id) < 0) life.decisions.push(dec.id);
     life.flags[dec.id] = ch.id;
+    life.flags.empType = empTypeOf(life);
   }
 
   // ---------- death ----------
@@ -911,14 +1038,28 @@
     if (life.death) return { death: life.death };
     life.age += 1;
     life.year += 1;
-
+    // 지난해의 수술·입원 상태는 정해진 해가 지나면 풀린다
+    if (life.flags.recovering && life.age > (life.flags.recoveringUntil || 0)) { life.flags.recovering = false; delete life.flags.recoveringUntil; }
+    if (life.flags.hospitalized && life.age > (life.flags.hospitalizedUntil || 0)) { life.flags.hospitalized = false; delete life.flags.hospitalizedUntil; }
+    if (life.spendMode == null) life.spendMode = { food: "normal", leisure: "normal", living: "normal", health: "normal" };
     applyFocus(life);
+    life.flags.empType = empTypeOf(life);
     drift(life);
     const liveEvs = ensureLivelihood(life);
     const famEvs = familyTick(life);
     yearEconomics(life);
 
     const evs = liveEvs.concat(famEvs).concat(pickEvents(life, life.age < 6 ? 1 : (R() < 0.42 ? 2 : 1)));
+    // 사건이 일어나기 직전의 상태(선후관계 검증의 기준)
+    const pre = {
+      age: life.age, year: life.year, role: life.role,
+      empType: life.flags.empType || empTypeOf(life),
+      married: !!life.flags.married, dating: !!life.flags.dating, widowed: !!life.flags.widowed,
+      fatherAlive: !!life.flags.fatherAlive, motherAlive: !!life.flags.motherAlive,
+      spouseAlive: !!(life.family.spouse && life.family.spouse.alive),
+      kids: life.flags.childrenCount || 0,
+      recovering: !!life.flags.recovering, hospitalized: !!life.flags.hospitalized
+    };
     evs.forEach(e => applyEvent(life, e));
 
     // 동기
@@ -949,18 +1090,18 @@
     life.statLog.push({ age: life.age, health: rec.health, happiness: rec.happiness, relation: Math.round(life.stats.relation), knowledge: Math.round(life.stats.knowledge), reputation: rec.reputation, spec: rec.spec, stress: rec.stress });
 
     const dec = decisionFor(life);
-    if (dec) { life.pendingDecision = dec; return { events: evs, decision: dec }; }
+    if (dec) { life.pendingDecision = dec; return { events: evs, pre, decision: dec }; }
 
     const refl = [5, 30, 50, 70].includes(life.age);
-    if (refl) { life.pendingReflection = true; return { events: evs, reflection: life.age }; }
+    if (refl) { life.pendingReflection = true; return { events: evs, pre, reflection: life.age }; }
 
     const dead = life.age >= 105 ? true : R() < hazard(life);
     if (dead) {
       const c = pickDeathCause(life);
       const d = makeDeath(life, life.age >= 100 && life.stats.health > 55 ? C.deaths.find(x => x.cause === "노환") : c);
-      return { events: evs, death: d };
+      return { events: evs, pre, death: d };
     }
-    return { events: evs };
+    return { events: evs, pre };
   }
 
   // ---------- record ----------
@@ -1066,13 +1207,81 @@
     life.lastSeen = life.lastSeen || {};
     life.incomeLog = life.incomeLog || [];
     life.statLog = life.statLog || [];
+    life.decQueue = life.decQueue || [];
+    life.careUsed = life.careUsed || {};
+    life.spendMode = life.spendMode || { food: "normal", leisure: "normal", living: "normal", health: "normal" };
+    if (life.flags.dating == null) life.flags.dating = false;
+    if (life.flags.investStyle == null) life.flags.investStyle = life.alloc || "safe";
+    syncStats(life);
     life.expenseItems = life.expenseItems || { housing: 0, food: 0, living: 0, education: 0, care: 0, taxInterest: 0, leisure: 0, health: 0 };
     return life;
+  }
+
+  // ---------- 직접 관리 (돈과 시간을 써서 지표를 올린다) ----------
+  const SELF_CARE = {
+    exercise:   { cost: 45, label: "운동·PT", st: { health: 4.2, happiness: 1, stress: -3.2 } },
+    checkup:    { cost: 30, label: "정기검진", st: { health: 1.2, stress: -1.4 } },
+    rest:       { cost: 10, label: "휴식·숙면", st: { health: 1.6, happiness: 1.4, stress: -6 } },
+    supplement: { cost: 22, label: "영양제·보약", st: { health: 2.2, stress: -0.6 } },
+    dental:     { cost: 55, label: "치과·검진", st: { health: 2, happiness: 0.6 } }
+  };
+  const FAMILY_CARE = {
+    checkup: { cost: 70, label: "부모님 건강검진", who: ["mother", "father"], health: 9, rel: 3, st: { stress: -1 } },
+    tonic:   { cost: 35, label: "부모님 보약", who: ["mother", "father"], health: 4, rel: 2, st: {} },
+    meal:    { cost: 30, label: "가족 외식", rel: 4, st: { happiness: 2, stress: -2 } },
+    trip:    { cost: 220, label: "가족 여행", rel: 8, st: { happiness: 5, stress: -5, health: 1 } },
+    spouse:  { cost: 25, label: "배우자와 시간", spouseRel: 6, st: { happiness: 3, stress: -2.5 } },
+    child:   { cost: 40, label: "자녀와 시간", childRel: 6, st: { happiness: 3, stress: -2 } }
+  };
+  function careAction(life, kind) {
+    const self = SELF_CARE[kind], fam = FAMILY_CARE[kind], def = self || fam;
+    if (!def) return { ok: false, why: "알 수 없는 항목" };
+    if (life.age < 16) return { ok: false, why: "아직 직접 고를 수 없습니다" };
+    life.careUsed = life.careUsed || {};
+    if (life.careUsed[kind] === life.age) return { ok: false, why: "올해는 이미 했습니다" };
+    const have = (life.cash || 0) + (life.assets || 0);
+    if (have < def.cost) return { ok: false, why: "돈이 모자랍니다", need: def.cost - have };
+    const fromCash = Math.min(life.cash || 0, def.cost);
+    life.cash -= fromCash;
+    if (def.cost - fromCash > 0) life.assets = Math.max(0, life.assets - (def.cost - fromCash));
+    life.careUsed[kind] = life.age;
+    let dHap = 0, dRel = 0, dHea = 0;
+    const st = def.st || {};
+    for (const k in st) {
+      bump(life, k, st[k]);
+      if (k === "happiness") dHap += st[k]; else if (k === "relation") dRel += st[k]; else if (k === "health") dHea += st[k];
+    }
+    if (fam) {
+      for (const p of (fam.who || [])) {
+        const f = life.family[p];
+        if (f && f.alive) {
+          f.health = clamp((f.health || 0) + (fam.health || 0), 0, 100);
+          if (fam.rel) f.relation = clamp((f.relation || 0) + fam.rel, 0, 100);
+        }
+      }
+      if (fam.spouseRel && life.family.spouse && life.family.spouse.alive)
+        life.family.spouse.relation = clamp((life.family.spouse.relation || 0) + fam.spouseRel, 0, 100);
+      if (fam.childRel) for (const k of (life.family.children || [])) if (k.alive !== false)
+        k.relation = clamp((k.relation || 0) + fam.childRel, 0, 100);
+      bump(life, "relation", 1.5);
+      dRel += 1.5;
+    }
+    stressLink(life, dHap, dRel, dHea);
+    return { ok: true, cost: def.cost, label: def.label };
   }
 
   prepAll();
 
   window.ENGINE = {
+    careAction, SELF_CARE, FAMILY_CARE, empTypeOf, applyEvent, bump, stressLink,
+    setSpend(life, k, v) {
+      if (!life.spendMode) life.spendMode = { food: "normal", leisure: "normal", living: "normal", health: "normal" };
+      if (["save", "normal", "generous"].indexOf(v) < 0) return;
+      if (["food", "leisure", "living", "health"].indexOf(k) < 0) return;
+      life.spendMode[k] = v;
+      const ex = expenseBreakdown(life);
+      life.expenseItems = ex; life.expenses = ex.total;
+    },
     createLife, tick, applyChoice, lifeType, netWorth, wealthPercentile, incomePercentile,
     survivalCurve, HOUSING_INDEX, JOB_KO, JOB_EN, koreanName, macroFor, homePrice,
     MAJORS, ROLES, FOCUS_CAT, condOK, entryGrade, gradeFor, familyView, expenseBreakdown, computeIncome, migrate,

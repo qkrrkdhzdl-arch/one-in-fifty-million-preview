@@ -19,9 +19,12 @@
     ['work', '일·배움', '역량↑ 소득↑ 스트레스↑'],
     ['love', '관계·사랑', '관계↑ 행복↑'],
     ['health', '건강·쉼', '건강↑ 스트레스↓'],
-    ['money', '돈·투자', '소득·재산↑ 지식↑'],
+    ['study', '학습·공부', '역량↑ 성적↑ 스트레스↑'],
+    ['money', '돈·투자', '소득·재산↑ 역량↑'],
     ['balance', '균형', '모두 조금씩']
   ];
+  // 어릴 때는 '돈·투자' 대신 '학습·공부'로 시간을 쓰고, 자라면 둘 다 고를 수 있다
+  const focusList = (age) => age < 19 ? FOCUS.filter(f => f[0] !== 'money') : FOCUS.filter(f => f[0] !== 'study');
   const ALLOC = [['safe', '예금'], ['stock', '주식'], ['coin', '코인']];
 
   const APP = window.APP = {
@@ -160,7 +163,7 @@
     <div class="wrap">
       <div class="hero">
         <div class="herotext">
-          <div class="kicker">v2.0 · 무료 인생 시뮬레이션 · 17개 시·도 62개 시군구 · 사건 570종 · 15세 이상</div>
+          <div class="kicker">v2.1 · 무료 인생 시뮬레이션 · 17개 시·도 62개 시군구 · 사건 656종 · 결정 42장 · 일상 결정 22장</div>
           <h1>5천만<br>분의 <em>1</em></h1>
           <p class="lede">2025년, 이 나라에서 254,341명이 태어났습니다. 그중 한 명이 되어 한 번뿐인 삶을 끝까지 살아봅니다. 어느 동네, 누구의 아이로 태어날지는 고를 수 없습니다. 당신이 그랬던 것처럼.</p>
           <div class="counter">
@@ -437,6 +440,7 @@
           <div class="spend" id="spendBox"></div>
           <button type="button" class="ghost wide expbtn" id="expToggle" aria-expanded="false">연소득·연지출 내역</button>
           <div class="expdetail" id="expDetail" hidden></div>
+          <button type="button" class="ghost wide" id="selfCareBtn">내 건강 관리</button>
         </div>
         <div class="panel p-fam" id="p-fam">
           <h3><span class="ttl">가족과 삶</span><span class="lbl" id="famLbl"></span></h3>
@@ -503,6 +507,7 @@
     $('#goFamily').onclick = () => { const p = $('#p-fam'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
     $('#goStats').onclick = () => { const p = $('#p-stats'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
     const fm2 = $('#famMore'); if (fm2) fm2.onclick = openFamilySheet;
+    const scb = $('#selfCareBtn'); if (scb) scb.onclick = openSelfCare;
     const et = $('#expToggle');
     if (et) et.onclick = () => {
       const box = $('#expDetail'); if (!box) return;
@@ -553,7 +558,7 @@
     // 상태
     const rows = $('#statRows');
     if (rows) {
-      const L = [['health', '건강'], ['happiness', '행복'], ['knowledge', '지식'], ['relation', '관계']];
+      const L = [['health', '건강'], ['happiness', '행복'], ['spec', '역량'], ['relation', '관계']];
       rows.innerHTML = L.map(([k, nm]) => `
         <div class="statrow" data-k="${k}"><span class="sn">${nm}</span>
           <span class="sb"><i style="width:${Math.round(life.stats[k])}%"></i></span>
@@ -561,7 +566,7 @@
     }
     const mini = $('#statMini');
     if (mini) {
-      const M = [['reputation', '평판', '사회적 신뢰'], ['spec', '역량', '스펙·직무 경험'], ['stress', '스트레스', '낮을수록 좋아요']];
+      const M = [['reputation', '평판', '사회적 신뢰'], ['stress', '스트레스', '낮을수록 좋아요']];
       mini.innerHTML = M.map(([k, nm, tip]) => `
         <div class="statrow mini" data-k="${k}" title="${tip}">
           <span class="sn">${nm}</span>
@@ -657,11 +662,27 @@
     }).join('');
     const incRows = [['근로소득', inc.labor], ['연금', inc.pension], ['이자·배당', inc.asset], ['기타', inc.other]]
       .filter(x => x[1]).map(([n, v]) => `<li><span class="el">${n}</span><span class="eb"></span><span class="ev">${U.money(v)}</span></li>`).join('');
+    const sm = life.spendMode || {};
+    const SM_LABEL = { food: '식비', living: '생활·공과금', leisure: '여가·문화', health: '의료·건강' };
+    const SM_VAL = { save: '절약', normal: '균형', generous: '여유' };
+    const smRows = Object.keys(SM_LABEL).map(k => `
+      <div class="smrow"><span class="sml">${SM_LABEL[k]}</span>
+        <span class="smseg">${['save', 'normal', 'generous'].map(v =>
+          `<button type="button" data-sm="${k}" data-sv="${v}" aria-pressed="${(sm[k] || 'normal') === v}">${SM_VAL[v]}</button>`).join('')}</span>
+      </div>`).join('');
     box.innerHTML = `<div class="exh">올해 연소득 <b>${U.money(life.income || 0)}</b></div>
       <ul class="exl">${incRows || '<li><span class="el">소득 없음</span><span class="eb"></span><span class="ev">—</span></li>'}</ul>
       <div class="exh">올해 연지출 <b>${U.money(life.expenses || 0)}</b></div>
       <ul class="exl">${rows || '<li><span class="el">지출 없음</span><span class="eb"></span><span class="ev">—</span></li>'}</ul>
-      <p class="exn">${life.flags.retired ? '은퇴 뒤에는 근로소득이 0원이고 연금·이자만 남습니다.' : life.flags.wagePeak ? '임금피크제 기간에는 급여가 해마다 줄어듭니다.' : '모든 금액은 그해 기준 명목값입니다.'}</p>`;
+      <div class="exh">생활비 모드 <b>${U.money((life.income || 0) - (life.expenses || 0))} 남김</b></div>
+      <div class="spendmode">${smRows}</div>
+      <p class="exn">절약하면 지출이 줄고 남는 돈이 늘지만 식사·여가의 질이 떨어집니다. 여유를 고르면 몸과 마음이 편해지는 대신 저축이 줄어듭니다.
+      ${life.flags.retired ? ' 은퇴 뒤에는 근로소득이 0원이고 연금·이자만 남습니다.' : life.flags.wagePeak ? ' 임금피크제 기간에는 급여가 해마다 줄어듭니다.' : ''} 모든 금액은 그해 기준 명목값입니다.</p>`;
+    box.querySelectorAll('[data-sm]').forEach(b => b.onclick = () => {
+      E.setSpend(life, b.dataset.sm, b.dataset.sv);
+      U.toast(`${SM_LABEL[b.dataset.sm]} ${SM_VAL[b.dataset.sv]} · 연지출 ${U.money(life.expenses)}`);
+      renderPanels(); renderFocus(); save();
+    });
   }
 
   function openFamilySheet() {
@@ -686,21 +707,87 @@
       <p class="dec-b">부모·배우자·자녀의 생사와 건강, 나와의 관계를 한자리에 모았습니다. 사람이 떠나면 그 자리는 바로 비워집니다.</p>
       <div class="fgrid">${cards || '<p class="hint">기록된 가족이 없습니다.</p>'}</div>
       <p class="hint">관계 막대는 0–100입니다. 건강이 낮아지면 간병비가 늘고, 관계가 낮으면 정서 지표가 떨어집니다.</p>
+      ${careBlock(life)}
       <div class="dec-foot"><button class="cta sm" id="famClose">닫고 이어 살기</button></div>`, { kind: 'family' });
     $('#famClose').onclick = () => { closeModal(); APP.playing = true; refreshControls(); };
+    bindCare(life, () => { openFamilySheet(); });
+  }
+
+  /* ---------- 직접 관리 ---------- */
+  const CARE_HINT = {
+    checkup: '부모님 두 분의 건강을 크게 올립니다(70만).', tonic: '부모님 건강을 조금 올리고 관계도 좋아집니다(35만).',
+    meal: '가족과 한 끼. 관계와 기분이 오릅니다(30만).', trip: '가족 여행. 관계가 크게 오르고 스트레스가 풀립니다(220만).',
+    spouse: '배우자와 시간을 냅니다. 관계와 기분이 오릅니다(25만).', child: '자녀와 시간을 냅니다. 관계와 기분이 오릅니다(40만).'
+  };
+  const SELF_HINT = { exercise: '몸을 만들고 스트레스를 풉니다', checkup: '이상 신호를 미리 잡습니다', rest: '잠과 쉼으로 회복합니다', supplement: '꾸준한 보충', dental: '치아와 잇몸' };
+
+  function careBlock(life) {
+    const used = life.careUsed || {};
+    const av = (k) => used[k] === life.age;
+    const row = (k) => {
+      const d = E.FAMILY_CARE[k];
+      if (!d) return '';
+      if (k === 'spouse' && !(life.family.spouse && life.family.spouse.alive)) return '';
+      if (k === 'child' && !(life.flags.childrenCount > 0)) return '';
+      if ((k === 'checkup' || k === 'tonic') && !(life.flags.fatherAlive || life.flags.motherAlive)) return '';
+      return `<button type="button" class="careb" data-care="${k}" ${av(k) ? 'disabled' : ''}>
+        <span class="cb-t">${d.label}</span>
+        <span class="cb-c">${av(k) ? '올해 완료' : U.money(d.cost)}</span>
+        <span class="cb-n">${CARE_HINT[k]}</span></button>`;
+    };
+    const html = ['checkup', 'tonic', 'meal', 'trip', 'spouse', 'child'].map(row).join('');
+    return `<div class="carebox"><h3 class="careh">가족 돌보기 <span class="lbl">돈을 써서 지금 올립니다</span></h3>
+      <div class="caregrid">${html || '<p class="hint">지금 돌볼 가족이 없습니다.</p>'}</div></div>`;
+  }
+
+  function bindCare(life, after) {
+    document.querySelectorAll('[data-care]').forEach(b => b.onclick = () => {
+      const r = E.careAction(life, b.dataset.care);
+      U.toast(r.ok ? `${r.label} · ${U.money(r.cost)}` : (r.why || '지금은 할 수 없습니다'));
+      if (r.ok) { renderPanels(); save(); }
+      if (after) after();
+    });
+  }
+
+  function openSelfCare() {
+    const life = APP.life; if (!life) return;
+    APP.playing = false; refreshControls();
+    const used = life.careUsed || {};
+    const rows = Object.keys(E.SELF_CARE).map(k => {
+      const d = E.SELF_CARE[k];
+      const done = used[k] === life.age;
+      const eff = Object.entries(d.st).map(([s, v]) => `${({ health: '건강', happiness: '행복', stress: '스트레스' })[s] || s} ${v > 0 ? '+' : ''}${Math.round(v * 10) / 10}`).join(' · ');
+      return `<button type="button" class="careb" data-self="${k}" ${done ? 'disabled' : ''}>
+        <span class="cb-t">${d.label}</span><span class="cb-c">${done ? '올해 완료' : U.money(d.cost)}</span>
+        <span class="cb-n">${SELF_HINT[k] || ''} · ${eff}</span></button>`;
+    }).join('');
+    openModal(`
+      <div class="dec-top"><span class="lbl">내 건강 관리</span><span class="dec-meta">${life.age}세 · ${life.year}년</span></div>
+      <h2>돈을 써서 몸을 돌본다</h2>
+      <p class="dec-b">건강은 세월이 지나며 조금씩 줄어듭니다. 지금 돈과 시간을 들이면 그 속도를 늦출 수 있습니다. 한 해에 같은 항목은 한 번씩만 할 수 있습니다.</p>
+      <div class="caregrid">${rows}</div>
+      <p class="hint">현재 건강 ${Math.round(life.stats.health)} · 스트레스 ${Math.round(life.stats.stress)} · 쓸 수 있는 돈 ${U.money((life.cash || 0) + (life.assets || 0))}</p>
+      <div class="dec-foot"><button class="cta sm" id="selfClose">닫고 이어 살기</button></div>`, { kind: 'selfcare' });
+    document.querySelectorAll('[data-self]').forEach(b => b.onclick = () => {
+      const r = E.careAction(life, b.dataset.self);
+      U.toast(r.ok ? `${r.label} · ${U.money(r.cost)}` : (r.why || '지금은 할 수 없습니다'));
+      if (r.ok) { renderPanels(); save(); }
+      openSelfCare();
+    });
+    $('#selfClose').onclick = () => { closeModal(); APP.playing = true; refreshControls(); };
   }
 
   function renderFocus() {
     const life = APP.life; if (!life) return;
     const fy = $('#focusYear'); if (fy) fy.textContent = life.year + '년';
     const st = $('#focusStatus');
-    const eff = (k) => FOCUS.find(f => f[0] === k)[1];
+    const eff = (k) => (FOCUS.find(f => f[0] === k) || FOCUS[0])[1];
     if (st) st.innerHTML = life.age < 6
       ? `이 나이에는 부모의 선택으로 살아갑니다. 한 해 한 해가 몸과 마음의 바탕이 됩니다.`
       : `지금은 <b>${eff(life.focus)}</b> 쪽으로 시간을 씁니다. 올해 무엇에 마음을 둘까요?`;
     const chips = $('#focusChips');
     if (chips) {
-      chips.innerHTML = FOCUS.map(([k, nm, ef]) =>
+      chips.innerHTML = focusList(life.age).map(([k, nm, ef]) =>
         `<button class="chip" data-f="${k}" aria-pressed="${life.focus === k}">${nm}<small>${ef}</small></button>`).join('');
       chips.querySelectorAll('[data-f]').forEach(b => b.onclick = () => {
         life.focus = b.dataset.f; renderFocus(); U.toast(`올해의 초점: ${eff(life.focus)}`);
@@ -920,10 +1007,12 @@
 
   function deltaText(ch, age) {
     const out = [];
-    [['health', '건강'], ['happiness', '행복'], ['knowledge', '지식'], ['relation', '관계'], ['reputation', '평판'], ['spec', '역량'], ['stress', '스트레스']].forEach(([k, nm]) => {
+    [['health', '건강'], ['happiness', '행복'], ['relation', '관계'], ['reputation', '평판'], ['stress', '스트레스']].forEach(([k, nm]) => {
       const v = ch.st && ch.st[k]; if (!v) return;
-      out.push(`${nm} ${v > 0 ? '+' : ''}${v}`);
+      out.push(`${nm} ${v > 0 ? '+' : ''}${Math.round(v * 10) / 10}`);
     });
+    const ab = ((ch.st && ch.st.spec) || 0) + ((ch.st && ch.st.knowledge) || 0);
+    if (ab) out.push(`역량 ${ab > 0 ? '+' : ''}${Math.round(ab * 10) / 10}`);
     if (ch.money && age >= 19) out.push(U.money(ch.money));
     if (ch.inc) out.push(`소득 ${ch.inc > 0 ? '+' : ''}${Math.round(ch.inc * 100)}%`);
     if (ch.set && ch.set.job && ch.set.job !== 'none') out.push(JOB_KO[ch.set.job] || '');
@@ -1331,6 +1420,10 @@
     window.addEventListener('beforeunload', save);
     document.addEventListener('keydown', (e) => {
       if (APP.screen !== 'life') return;
+      // 입력칸에 글을 쓰는 중에는 단축키를 쓰지 않는다(띄어쓰기가 먹히지 않던 문제)
+      const t = e.target;
+      const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable || (t.closest && t.closest('input,textarea,select,[contenteditable="true"]')));
+      if (typing) return;
       if (e.key === ' ') { e.preventDefault(); APP.playing = !APP.playing; refreshControls(); }
       if (['1', '2', '3', '4', '5'].includes(e.key)) { APP.speed = SPEEDS[+e.key - 1]; refreshControls(); }
       if (e.key === 'Escape' && APP.modal) { closeModal(); APP.playing = true; }
