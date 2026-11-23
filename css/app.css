@@ -143,8 +143,10 @@ ul,ol{padding:0;list-style:none}
 .oddsmore{align-self:flex-start;margin-top:14px}
 @media (max-width:900px){
   .hero{grid-template-columns:1fr;gap:24px;padding-block:18px 0}
-  .heroside{order:-1}
-  .tg-bg{max-height:220px}
+  /* 지도만 제목 위로 올리고, 확률 패널은 본문 뒤로 보낸다 */
+  .heroside{display:contents}
+  .tg-bg{order:-1;max-height:220px}
+  .odds{order:2}
   .heroopts{grid-template-columns:1fr}
   .cta{width:100%;justify-content:center;padding:16px 20px;font-size:18px}
 }
