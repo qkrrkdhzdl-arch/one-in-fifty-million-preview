@@ -126,12 +126,12 @@ a{color:var(--jade)}
 /* year progress gauge — 이번 해가 차오르는 실시간 게이지 */
 .yg-row{display:flex;align-items:center;gap:8px;margin-top:8px}
 .yg-track{position:relative;flex:1 1 auto;min-width:0;height:6px;border-radius:4px;background:#e3d9c4;overflow:hidden;box-shadow:inset 0 1px 1px rgba(0,0,0,.07)}
-.yg-track i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:4px;background:linear-gradient(90deg,var(--jade),#4d8a6a 70%,var(--seal))}
+.yg-track i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:4px;background:linear-gradient(90deg,#4f9c79,var(--jade))}
 .yg-note{flex:0 0 auto;min-width:52px;text-align:right;font-family:var(--mono);font-size:10px;color:var(--ink-3);letter-spacing:.02em;white-space:nowrap}
 .yg-row.paused .yg-track i{background:var(--ink-3);opacity:.55}
 .yg-row.paused .yg-note{color:var(--seal)}
 .yg-row.ff .yg-track i{background:var(--ink-3)}
-.yg-row.full .yg-track i{background:var(--seal)}
+.yg-row.full .yg-track i{background:var(--jade-2)}
 
 /* peer strip */
 .peer-strip{display:flex;gap:6px;overflow-x:auto;padding:8px 16px;border-bottom:1px solid var(--line);scrollbar-width:none;background:rgba(236,228,211,.28)}
