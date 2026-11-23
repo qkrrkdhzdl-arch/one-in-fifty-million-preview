@@ -1,0 +1,1381 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>5천만 분의 1 · One in Fifty Million (Preview)</title>
+  <style>
+    :root {
+      --hanji: #f6f2e8;
+      --hanji-deep: #ece5d5;
+      --card: #fffdf8;
+      --ink: #1e1d1a;
+      --ink-soft: #5c574d;
+      --ink-faint: #8c8578;
+      --line: #dcd4c3;
+      --jade: #1f6b45;
+      --jade-soft: #eaf3ed;
+      --seal: #b5382a;
+      --seal-soft: #faeae8;
+      --ochre: #b07428;
+      --ochre-soft: #fbf3e4;
+      --shadow: 0 2px 10px rgba(30, 29, 26, 0.06);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      -webkit-text-size-adjust: 100%;
+      background: var(--hanji);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+      line-height: 1.55;
+      font-size: 15px;
+    }
+
+    .app {
+      max-width: 560px;
+      margin: 0 auto;
+      min-height: 100dvh;
+      padding: 12px 14px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Topbar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 2px 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .seal-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: var(--seal);
+      color: #fff;
+      font-weight: 800;
+      font-size: 9.5px;
+      letter-spacing: -0.6px;
+      flex-shrink: 0;
+    }
+    .brand-title {
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: -0.3px;
+    }
+    .brand-sub {
+      font-size: 11px;
+      color: var(--ink-soft);
+    }
+    .top-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .pill-btn {
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .pill-btn:hover { background: var(--hanji-deep); }
+
+    /* Cards */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    .card-muted {
+      background: var(--hanji-deep);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .tag {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--hanji-deep);
+      color: var(--ink-soft);
+    }
+    .tag.obs { background: var(--jade-soft); color: var(--jade); }
+    .tag.prom { background: var(--seal-soft); color: var(--seal); }
+    .tag.time { background: var(--ochre-soft); color: var(--ochre); }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      line-height: 1.3;
+      letter-spacing: -0.5px;
+    }
+    h2 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      line-height: 1.35;
+      letter-spacing: -0.3px;
+    }
+    h3 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      color: var(--ink-soft);
+    }
+    p { margin: 0 0 10px; }
+    p:last-child { margin-bottom: 0; }
+
+    .mono-stat {
+      font-variant-numeric: tabular-nums;
+      font-weight: 700;
+    }
+
+    /* Status panel */
+    .status-panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 11px 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .money-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .money-box {
+      background: var(--hanji);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 6px 8px;
+    }
+    .money-label {
+      font-size: 10px;
+      color: var(--ink-faint);
+      font-weight: 600;
+    }
+    .money-val {
+      font-size: 13px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      margin-top: 1px;
+    }
+    .money-val.debt { color: var(--seal); }
+    .obs-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 12.5px;
+      color: var(--ink-soft);
+      border-top: 1px dashed var(--line);
+      padding-top: 7px;
+    }
+    .ledger-toggle {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--hanji-deep);
+      border: none;
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--ink);
+      cursor: pointer;
+      width: 100%;
+    }
+    .ledger-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .ledger-item {
+      border-left: 3px solid var(--ink-faint);
+      padding: 5px 9px;
+      background: var(--hanji);
+      border-radius: 0 8px 8px 0;
+      font-size: 12px;
+    }
+    .ledger-item.active { border-left-color: var(--ochre); }
+    .ledger-item.kept { border-left-color: var(--jade); }
+    .ledger-item.broken { border-left-color: var(--seal); }
+
+    /* Progress */
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .step-dot {
+      flex: 1;
+      height: 5px;
+      border-radius: 99px;
+      background: var(--line);
+    }
+    .step-dot.done { background: var(--jade); }
+    .step-dot.now { background: var(--seal); }
+
+    /* Choices */
+    .choices {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .choice-btn {
+      text-align: left;
+      background: var(--hanji);
+      border: 1.5px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 13px;
+      cursor: pointer;
+      transition: transform 0.06s ease, border-color 0.12s ease, background 0.12s ease;
+      width: 100%;
+      color: var(--ink);
+    }
+    .choice-btn:hover {
+      border-color: var(--ink);
+      background: #fff;
+    }
+    .choice-btn:active { transform: scale(0.99); }
+    .choice-title {
+      font-weight: 700;
+      font-size: 14.5px;
+      margin-bottom: 3px;
+    }
+    .choice-meta {
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+
+    .primary-btn {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      background: var(--ink);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 13px 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .primary-btn.jade { background: var(--jade); }
+    .primary-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .secondary-btn {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--card);
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 700;
+      padding: 11px 14px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    /* Allocation controls */
+    .alloc-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--hanji);
+      margin-bottom: 7px;
+      gap: 8px;
+    }
+    .alloc-ctrl {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .alloc-ctrl button {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      font-weight: 800;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    .alloc-num {
+      min-width: 34px;
+      text-align: center;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Side note (옆주석) */
+    .sidenote {
+      margin-top: 10px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      background: var(--jade-soft);
+      border: 1px solid #c5dece;
+      font-size: 12.5px;
+      color: #164e32;
+    }
+    .ratio-bar {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--ink-soft);
+      background: var(--hanji);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 11px;
+    }
+    .bar-track {
+      display: flex;
+      height: 8px;
+      border-radius: 99px;
+      overflow: hidden;
+      margin-top: 6px;
+      background: var(--hanji-deep);
+    }
+
+    /* Life map */
+    .lifemap-wrap {
+      background: #f2ead8;
+      border: 1px solid #d4cab4;
+      border-radius: 12px;
+      padding: 12px;
+    }
+    canvas.lifemap {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 6px;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--ink-soft);
+    }
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .sw {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    .compare-box {
+      border: 1.5px solid var(--jade);
+      background: #f5faf7;
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+    .disclaimer {
+      font-size: 11px;
+      color: var(--ink-faint);
+      margin-top: 8px;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="app" id="app"></div>
+
+  <script>
+    const REGION_WEIGHTS = [
+      { ko: "경기", en: "Gyeonggi", w: 30.09, traitKo: "신도시 아파트 단지", traitEn: "New-town apartment complex" },
+      { ko: "서울", en: "Seoul", w: 18.24, traitKo: "지하철역까지 도보 11분", traitEn: "11-minute walk to subway" },
+      { ko: "인천", en: "Incheon", w: 6.60, traitKo: "항구와 공단 사이", traitEn: "Between port and industrial park" },
+      { ko: "부산", en: "Busan", w: 5.56, traitKo: "산복도로와 시장 골목", traitEn: "Hillside road and market alley" },
+      { ko: "경남", en: "South Gyeongsang", w: 5.47, traitKo: "조선·기계 공단 인근", traitEn: "Near shipyard & machinery complex" },
+      { ko: "대구", en: "Daegu", w: 4.32, traitKo: "분지의 여름과 상가", traitEn: "Basin summer & street shops" },
+      { ko: "경북", en: "North Gyeongsang", w: 4.16, traitKo: "읍내 버스터미널 근처", traitEn: "Near town bus terminal" },
+      { ko: "충남", en: "South Chungcheong", w: 4.08, traitKo: "공장과 논이 섞인 길", traitEn: "Factories beside rice paddies" },
+      { ko: "전남", en: "South Jeolla", w: 3.46, traitKo: "막차가 20시 40분인 면", traitEn: "Last bus leaves at 8:40 PM" },
+      { ko: "충북", en: "North Chungcheong", w: 3.28, traitKo: "내륙 물류단지 부근", traitEn: "Near inland logistics hub" },
+      { ko: "대전", en: "Daejeon", w: 3.07, traitKo: "연구단지와 오래된 빵집", traitEn: "Research district & old bakery" },
+      { ko: "전북", en: "North Jeolla", w: 2.81, traitKo: "천변 주택가", traitEn: "Riverside residential block" },
+      { ko: "강원", en: "Gangwon", w: 2.67, traitKo: "눈이 잦은 산간 시내", traitEn: "Snowy mountain town" },
+      { ko: "광주", en: "Gwangju", w: 2.58, traitKo: "구도심 상가 2층", traitEn: "Second floor in old downtown" },
+      { ko: "울산", en: "Ulsan", w: 2.22, traitKo: "석유화학·자동차 사택", traitEn: "Petrochemical & auto housing" },
+      { ko: "제주", en: "Jeju", w: 1.29, traitKo: "지하철 대신 배 시간표", traitEn: "Ferry schedules instead of subways" },
+      { ko: "세종", en: "Sejong", w: 1.17, traitKo: "정부청사 인근 단지", traitEn: "Complex near government ministries" }
+    ];
+
+    const COHORTS = [
+      { year: 1981, births: "867,409", imfAge: 17, labelKo: "1981년생", labelEn: "Born 1981", noteKo: "1997년 IMF 때 고1. 대학 등록금과 첫 취업이 외환위기 직후와 겹친 세대.", noteEn: "Age 16 during the 1997 IMF crisis. Entering adulthood in the aftermath." },
+      { year: 1990, births: "649,738", imfAge: 8, labelKo: "1990년생", labelEn: "Born 1990", noteKo: "2008년 금융위기 때 고3. 청년 전세난과 대출 규제를 정면으로 맞은 세대.", noteEn: "Age 18 during the 2008 crisis. Facing steep jeonse deposits in their late 20s." },
+      { year: 1998, births: "641,594", imfAge: 0, labelKo: "1998년생", labelEn: "Born 1998", noteKo: "IMF의 해에 태어난 세대. 전세 보증금 2억 시대에 20대 후반을 보낸다.", noteEn: "Born the year of the IMF bailout. Navigating a ₩200M deposit market in their 20s." }
+    ];
+
+    const TEMPERS = [
+      { ko: "흙과 돌을 오래 들여다본다", en: "Watches dirt and pebbles for a long time" },
+      { ko: "있는 힘껏 달려 나간다", en: "Runs ahead as hard as possible" },
+      { ko: "우는 아이에게 다가간다", en: "Walks over to a crying child" },
+      { ko: "넘어져도 혼자 일어난다", en: "Gets back up alone after falling" }
+    ];
+
+    const ITEMS = [
+      { ko: "어머니의 낡은 통장", en: "Mother's worn bankbook" },
+      { ko: "아버지의 작업복 명찰", en: "Father's coverall name tag" },
+      { ko: "첫 알바로 산 운동화", en: "Sneakers from first part-time job" }
+    ];
+
+    let state = {
+      lang: "ko",
+      screen: "cover", // cover | step | feedback | ending
+      ledgerOpen: false,
+      compareOpen: false,
+      life: null,
+      stepIdx: 0,
+      lastResult: null,
+      alloc: { study: 4, work: 4, club: 2, sibling: 2 }
+    };
+
+    function pickWeightedRegion() {
+      const total = REGION_WEIGHTS.reduce((s, r) => s + r.w, 0);
+      let roll = Math.random() * total;
+      for (const r of REGION_WEIGHTS) {
+        roll -= r.w;
+        if (roll <= 0) return r;
+      }
+      return REGION_WEIGHTS[0];
+    }
+
+    function newLife(forcedCohortIdx) {
+      const region = pickWeightedRegion();
+      const cohort = forcedCohortIdx !== undefined ? COHORTS[forcedCohortIdx] : COHORTS[Math.floor(Math.random() * COHORTS.length)];
+      const gender = Math.random() < 0.51 ? "M" : "F";
+      const familyRoll = Math.random();
+      const family = familyRoll < 0.45 ? "wage" : familyRoll < 0.78 ? "shop" : "office";
+      const temper = TEMPERS[Math.floor(Math.random() * TEMPERS.length)];
+      const item = ITEMS[Math.floor(Math.random() * ITEMS.length)];
+      const startCash = family === "office" ? 1800 : family === "wage" ? 650 : 400; // 만원
+      state.life = {
+        region,
+        cohort,
+        gender,
+        family,
+        temper,
+        item,
+        cash: startCash, // 만원
+        debt: family === "shop" ? 1200 : 0, // 만원
+        monthlyOut: 42, // 만원
+        monthlyIncome: 245, // 만원 (adult baseline)
+        mindScore: 68, // internal only, never shown as number
+        bodyScore: 76,
+        ledger: [],
+        history: [],
+        siblingTrust: 1,
+        jeonseSigned: false,
+        jeonseLoan: 0,
+        parentLoan: 0,
+        skippedTime: [],
+        altSupportGranted: false
+      };
+      state.stepIdx = 0;
+      state.lastResult = null;
+      state.ledgerOpen = false;
+      state.compareOpen = false;
+      state.alloc = { study: 4, work: 4, club: 2, sibling: 2 };
+    }
+
+    function fmtMan(v) {
+      const ko = state.lang === "ko";
+      if (v === 0) return ko ? "0원" : "₩0";
+      const abs = Math.abs(v);
+      const sign = v < 0 ? "-" : "";
+      if (abs >= 10000) {
+        const eok = Math.floor(abs / 10000);
+        const rem = abs % 10000;
+        if (ko) return sign + eok + "억" + (rem ? " " + rem.toLocaleString() + "만" : "");
+        return sign + "₩" + (abs * 10000).toLocaleString();
+      }
+      return ko ? sign + abs.toLocaleString() + "만" : sign + "₩" + (abs * 10000).toLocaleString();
+    }
+
+    function bodySentence() {
+      const s = state.life.bodyScore;
+      if (state.lang === "ko") {
+        if (s >= 72) return "몸: 계단을 두 칸씩 올라도 숨이 차지 않는다.";
+        if (s >= 55) return "몸: 야근 다음 날 어깨가 쉽게 굳는다.";
+        return "몸: 병원 예약 문자를 두 달째 미루고 있다.";
+      }
+      if (s >= 72) return "Body: Takes two stairs at a time without losing breath.";
+      if (s >= 55) return "Body: Shoulders stiffen easily after late shifts.";
+      return "Body: Has postponed a clinic checkup text for two months.";
+    }
+
+    function mindSentence() {
+      const s = state.life.mindScore;
+      if (state.lang === "ko") {
+        if (s >= 68) return "마음: 불을 끄면 15분 안에 잠든다.";
+        if (s >= 50) return "마음: 요즘 잠들기까지 한 시간이 넘는다.";
+        return "마음: 휴대폰 진동만 울려도 통장 잔고부터 떠올린다.";
+      }
+      if (s >= 68) return "Mind: Falls asleep within fifteen minutes of turning off the light.";
+      if (s >= 50) return "Mind: Takes over an hour to fall asleep these days.";
+      return "Mind: Checks the bank balance mentally whenever the phone buzzes.";
+    }
+
+    function getSteps() {
+      const L = state.life;
+      const y14 = L.cohort.year + 14;
+      const y19 = L.cohort.year + 19;
+      const y24 = L.cohort.year + 24;
+      const y29 = L.cohort.year + 29;
+      const y34 = L.cohort.year + 34;
+      const y45 = L.cohort.year + 45;
+
+      return [
+        {
+          id: "age14",
+          type: "alloc",
+          age: 14,
+          year: y14,
+          badgeKo: "배분 · 시간 12시간",
+          badgeEn: "Allocation · 12 Hours",
+          titleKo: `${y14}년 · 14세, ${L.region.ko}`,
+          titleEn: `${y14} · Age 14, ${L.region.en}`,
+          bodyKo: `중학교 2학년. 방과 후 쓸 수 있는 자유 시간이 주당 12시간 남았다. 무엇을 줄이든 이름은 남는다.`,
+          bodyEn: `Eighth grade. You have 12 free hours a week after school. Whatever gets pushed aside will return by name later.`,
+          sidenoteKo: "시간 배분은 한 생애에 세 번뿐이다. 밀린 칸이 5년 뒤 장면으로 돌아온다.",
+          sidenoteEn: "Time is allocated only three times in a life. What you skip returns five years later."
+        },
+        {
+          id: "age19",
+          type: "choice",
+          age: 19,
+          year: y19,
+          badgeKo: "약속 · 첫 서명",
+          badgeEn: "Promise · First Signature",
+          titleKo: `${y19}년 · 19세, 첫 갈림길`,
+          titleEn: `${y19} · Age 19, First Fork`,
+          bodyKo: L.gender === "M"
+            ? `병역 통지서가 식탁 위에 놓였다. 공책에 육군 18개월과 산업기능요원 34개월, 그리고 야간대학 등록금 240만 원을 나란히 적었다.`
+            : `야간대학 합격 통지서가 왔다. 등록금은 240만 원. 6개월 할부로 하면 매달 40만 원이고, 지금 버는 돈은 월 112만 원이다.`,
+          bodyEn: L.gender === "M"
+            ? `Your draft notice sits on the table. Beside it: 18 months active duty, 34 months in a factory track, or evening-college tuition of ₩2.4M.`
+            : `You got into evening college. Tuition is ₩2,400,000—₩400,000 a month for six months while earning ₩1,120,000.`,
+          choices: L.gender === "M" ? [
+            {
+              id: "army",
+              titleKo: "육군 현역 18개월에 서명한다",
+              titleEn: "Sign for 18 months of active army duty",
+              metaKo: "18개월 공백 · 복무 중 월급 저축 800만 원",
+              metaEn: "18-month gap · saves ₩8M during service",
+              ratios: [58, 24, 18],
+              sidenoteKo: "병역 — 남자는 18~21개월 복무한다. 대체복무는 34개월이다.",
+              sidenoteEn: "Military duty: 18–21 months active service, or 34 months at a designated plant.",
+              apply: (life) => {
+                life.cash += 800;
+                life.bodyScore += 4;
+                life.ledger.push({ titleKo: "육군 18개월 복무 만기", titleEn: "18-month army service", status: "kept", noteKo: "이행 완료", noteEn: "Fulfilled" });
+              }
+            },
+            {
+              id: "factory",
+              titleKo: "산업기능요원 34개월 계약서에 도장을 찍는다",
+              titleEn: "Sign the 34-month industrial service contract",
+              metaKo: "경력 단절 없음 · 주 52시간 교대 · 중도 퇴사 시 현역 재입대",
+              metaEn: "No career gap · shift work · quitting restarts active draft",
+              ratios: [24, 58, 18],
+              sidenoteKo: "산업기능요원 — 지정 업체에서 34개월 일하면 병역을 마친다.",
+              sidenoteEn: "Industrial track: 34 months at an approved factory fulfills the draft.",
+              apply: (life) => {
+                life.cash += 1900;
+                life.bodyScore -= 8;
+                life.mindScore -= 5;
+                life.ledger.push({ titleKo: "산업기능요원 34개월", titleEn: "34-month factory contract", status: "kept", noteKo: "만기 복무 완료", noteEn: "Completed" });
+              }
+            },
+            {
+              id: "tuition",
+              titleKo: "입대를 미루고 야간대학 6개월 할부(월 40만 원)에 서명한다",
+              titleEn: "Defer draft and sign 6-month evening tuition (₩400k/mo)",
+              metaKo: "자기 약속 등록 · 고정지출 +40만 원",
+              metaEn: "Self-promise logged · +₩400k monthly outflow",
+              ratios: [18, 24, 58],
+              sidenoteKo: "자기 약속 — '5년 전의 나'가 서명한 이유로 장부에 남는다.",
+              sidenoteEn: "Self-promise: logged with the reason your younger self gave.",
+              apply: (life) => {
+                life.monthlyOut += 40;
+                life.cash -= 240;
+                life.mindScore -= 4;
+                life.ledger.push({ titleKo: "야간대학 등록금 240만 원 (자기 약속)", titleEn: "Evening tuition ₩2.4M (self-promise)", status: "active", noteKo: "이유: 기술직으로 옮기기 위해", noteEn: "Reason: to move into technical work" });
+              }
+            }
+          ] : [
+            {
+              id: "enroll",
+              titleKo: "6개월 할부(월 40만 원)로 등록한다",
+              titleEn: "Enroll on a 6-month plan (₩400k/month)",
+              metaKo: "자기 약속 등록 · 고정지출 +40만 원",
+              metaEn: "Self-promise logged · +₩400k monthly",
+              ratios: [63, 21, 16],
+              sidenoteKo: "자기 약속 — 5년 뒤 '이유: 승진하려면 학위가 필요하다'로 돌아온다.",
+              sidenoteEn: "Self-promise: returns in 5 years with the reason you signed.",
+              apply: (life) => {
+                life.monthlyOut += 40;
+                life.cash -= 240;
+                life.ledger.push({ titleKo: "야간대학 등록금 240만 원 (자기 약속)", titleEn: "Evening tuition ₩2.4M (self-promise)", status: "active", noteKo: "이유: 승진하려면 학위가 필요하다", noteEn: "Reason: degree needed for promotion" });
+              }
+            },
+            {
+              id: "defer",
+              titleKo: "등록을 6개월 미루고 돈을 먼저 모은다",
+              titleEn: "Defer enrollment 6 months and save cash first",
+              metaKo: "현금 +450만 원 · 학위 1년 늦어짐",
+              metaEn: "+₩4.5M cash · degree delayed 1 year",
+              ratios: [21, 63, 16],
+              sidenoteKo: "지연은 기록된다. 장부에 '미룸 1회'가 적힌다.",
+              sidenoteEn: "Delays stay in the ledger as 'Deferred once.'",
+              apply: (life) => {
+                life.cash += 450;
+                life.ledger.push({ titleKo: "야간대학 등록 6개월 미룸", titleEn: "Deferred college 6 months", status: "active", noteKo: "미룸 1회 기록", noteEn: "Logged 1 deferral" });
+              }
+            },
+            {
+              id: "ask_dad",
+              titleKo: "아버지께 등록금 절반(120만 원)을 부탁한다",
+              titleEn: "Ask father for half of tuition (₩1.2M)",
+              metaKo: "가족 약속 등록 · 동생·부모님 기대치 상승",
+              metaEn: "Family promise logged · raises family expectations",
+              ratios: [16, 21, 63],
+              sidenoteKo: "가족에게 빌린 돈은 이자 대신 뒷날의 부탁으로 돌아온다.",
+              sidenoteEn: "Money borrowed from family returns later as a favor owed.",
+              apply: (life) => {
+                life.cash -= 120;
+                life.parentLoan += 120;
+                life.siblingTrust += 1;
+                life.ledger.push({ titleKo: "아버지 등록금 지원 120만 원", titleEn: "Father's tuition help ₩1.2M", status: "active", noteKo: "가족 약속 · 미상환", noteEn: "Family promise · open" });
+              }
+            }
+          ]
+        },
+        {
+          id: "age24",
+          type: "choice",
+          age: 24,
+          year: y24,
+          badgeKo: "대처 · 경제 충격",
+          badgeEn: "Response · Economic Shock",
+          titleKo: `${y24}년 · 24세, 회사의 희망퇴직 공고`,
+          titleEn: `${y24} · Age 24, Voluntary Layoff Notice`,
+          bodyKo: `첫 직장에 들어간 지 14개월째. 화요일 아침 사내 게시판에 희망퇴직 공고가 떴다. 14세 때 비워 둔 시간(${L.skippedTime.join(", ") || "없음"})이 문득 떠오른다.`,
+          bodyEn: `Fourteen months into your first job. Tuesday morning, a voluntary buyout notice goes up. You think of what you skipped at 14 (${L.skippedTime.join(", ") || "none"}).`,
+          choices: [
+            {
+              id: "stay",
+              titleKo: "버틴다 — 팀장 눈을 보며 남은 프로젝트 2개를 맡는다",
+              titleEn: "Hold out — take two leftover projects under your manager",
+              metaKo: "고용 유지 · 마음 소모 큼",
+              metaEn: "Keep job · heavy mental strain",
+              ratios: [49, 31, 20],
+              sidenoteKo: "희망퇴직 — 회사가 위로금을 주고 자발적 퇴사를 받는 절차.",
+              sidenoteEn: "Voluntary buyout: severance offered to shrink headcount without firing.",
+              apply: (life) => {
+                life.cash += 1400;
+                life.mindScore -= 12;
+                life.bodyScore -= 6;
+              }
+            },
+            {
+              id: "take_package",
+              titleKo: "위로금 1,800만 원을 받고 나와 동종 업계를 알아본다",
+              titleEn: "Take the ₩18M buyout and search elsewhere",
+              metaKo: "현금 +1,800만 원 · 공백기 위험",
+              metaEn: "+₩18M cash · risk of long gap",
+              ratios: [31, 49, 20],
+              sidenoteKo: "퇴직 위로금은 6개월치 월급처럼 보이지만, 재취업이 늦으면 금세 바닥난다.",
+              sidenoteEn: "A buyout looks like 6 months' pay until the job search stretches.",
+              apply: (life) => {
+                life.cash += 1800;
+                life.monthlyIncome = 220;
+                life.mindScore -= 4;
+              }
+            },
+            {
+              id: "help_family",
+              titleKo: "집안 사정이 급해 주말 알바까지 겹쳐 뛴다",
+              titleEn: "Keep the job and add weekend shifts for family cash",
+              metaKo: "현금 +2,100만 원 · 몸 크게 소모 · 동생 신뢰 +1",
+              metaEn: "+₩21M cash · heavy fatigue · sibling trust +1",
+              ratios: [20, 31, 49],
+              sidenoteKo: "주 6일 노동은 통장을 지키지만, 40대의 무릎과 허리를 미리 당겨 쓴다.",
+              sidenoteEn: "Six-day weeks protect your account by borrowing from your 40s.",
+              apply: (life) => {
+                life.cash += 2100;
+                life.bodyScore -= 14;
+                life.siblingTrust += 1;
+              }
+            }
+          ]
+        },
+        {
+          id: "age29",
+          type: "choice",
+          age: 29,
+          year: y29,
+          badgeKo: "약속 · 전세 계약",
+          badgeEn: "Promise · Jeonse Lease",
+          titleKo: `${y29}년 · 29세, 중개사의 계산기`,
+          titleEn: `${y29} · Age 29, The Broker's Calculator`,
+          bodyKo: `전세 계약서에 1억 8,500만 원이 적혀 있다. 내 통장에는 ${fmtMan(L.cash)}이 있다. 이 돈은 월 실수령액(${L.monthlyIncome}만 원)의 ${Math.round(18500 / L.monthlyIncome)}배다. 중개사 사무실은 6시에 닫는다.`,
+          bodyEn: `The lease reads ₩185,000,000. Your account holds ${fmtMan(L.cash)}—about ${Math.round(18500 / L.monthlyIncome)} times your monthly take-home pay. The broker's office closes at six.`,
+          choices: [
+            {
+              id: "jeonse_bank",
+              titleKo: "도장을 찍는다 — 부족한 만큼 은행 보증금 대출(연 4.2%)",
+              titleEn: "Stamp the contract — bank deposit loan at 4.2%/yr",
+              metaKo: "5년 뒤 재계약 시 청구됨 · 월 이자 증가",
+              metaEn: "Returns at 5-year renewal · monthly interest rises",
+              ratios: [54, 29, 17],
+              sidenoteKo: "전세 — 목돈을 맡기고 2년 사는 임대. 계약이 끝나면 돌려받아야 한다.",
+              sidenoteEn: "Jeonse: 2-year lease with a large refundable lump-sum deposit.",
+              apply: (life) => {
+                const need = Math.max(4000, 18500 - Math.max(0, life.cash - 500));
+                life.cash = Math.max(500, life.cash - (18500 - need));
+                life.debt += need;
+                life.jeonseLoan = need;
+                const interest = Math.round((need * 0.042) / 12);
+                life.monthlyOut += interest;
+                life.jeonseSigned = true;
+                life.ledger.push({ titleKo: `전세 대출 ${fmtMan(need)} (연 4.2%)`, titleEn: `Deposit loan ${fmtMan(need)} (4.2%)`, status: "active", noteKo: `월 이자 ${interest}만 원 · 만기 2~5년`, noteEn: `₩${interest*10}k/mo interest` });
+              }
+            },
+            {
+              id: "jeonse_parents",
+              titleKo: "부모님께 3,000만 원을 빌리고 은행 대출을 줄인다",
+              titleEn: "Borrow ₩30M from parents to shrink the bank loan",
+              metaKo: "월 이자 절감 · 가족 장부에 3,000만 원 등록",
+              metaEn: "Lower interest · ₩30M logged in family ledger",
+              ratios: [29, 54, 17],
+              sidenoteKo: "가족에게 빌린 3,000만 원은 명절마다 말 없는 이자가 붙는다.",
+              sidenoteEn: "The ₩30M from parents carries unspoken interest at every holiday.",
+              apply: (life) => {
+                const need = Math.max(2000, 18500 - 3000 - Math.max(0, life.cash - 500));
+                life.cash = Math.max(500, life.cash - Math.max(0, 15500 - need));
+                life.debt += need;
+                life.jeonseLoan = need;
+                life.parentLoan += 3000;
+                const interest = Math.round((need * 0.042) / 12);
+                life.monthlyOut += interest;
+                life.jeonseSigned = true;
+                life.ledger.push({ titleKo: `부모님 전세 지원 3,000만 원 + 대출 ${fmtMan(need)}`, titleEn: `Parents ₩30M + Loan ${fmtMan(need)}`, status: "active", noteKo: "가족 채무 · 상환 기한 미정", noteEn: "Family debt · open due date" });
+              }
+            },
+            {
+              id: "wolse",
+              titleKo: "전세를 포기하고 보증금 2,000만 원에 월세 68만 원으로 간다",
+              titleEn: "Walk away — rent at ₩20M deposit + ₩680k/month",
+              metaKo: "빚 0원 유지 · 매달 68만 원 소멸",
+              metaEn: "No new debt · ₩680k spent monthly",
+              ratios: [17, 29, 54],
+              sidenoteKo: "월세 — 매달 내고 돌려받지 못하는 임대료. 빚은 남지 않는다.",
+              sidenoteEn: "Wolse: non-refundable monthly rent. Keeps your debt ledger clean.",
+              apply: (life) => {
+                life.cash = Math.max(200, life.cash - 2000);
+                life.monthlyOut += 68;
+                life.jeonseSigned = false;
+                life.ledger.push({ titleKo: "보증금 2,000만 원 월세 계약", titleEn: "Monthly rent lease (₩20M dep.)", status: "kept", noteKo: "대출 없이 시작", noteEn: "Debt-free start" });
+              }
+            }
+          ]
+        },
+        {
+          id: "age34",
+          type: "choice",
+          age: 34,
+          year: y34,
+          badgeKo: "청구 · 5년 뒤의 서명",
+          badgeEn: "Due · 5 Years Later",
+          titleKo: `${y34}년 · 34세, ${L.jeonseSigned ? "재계약 3개월 전 문자" : "이사 날 아침"}`,
+          titleEn: `${y34} · Age 34, ${L.jeonseSigned ? "3 Months Before Renewal" : "Moving Morning"}`,
+          bodyKo: L.jeonseSigned
+            ? `집주인에게 문자가 왔다. "주변 시세가 올라 보증금 2억 1,000만 원으로 올려야겠습니다." 현재 대출 잔액 ${fmtMan(L.jeonseLoan)}. 장부에는 5년 전 서명이 그대로 남아 있다.`
+            : `5년 동안 월세로 4,080만 원이 나갔다. 대신 빚은 없다. 이제 직장 근처로 옮기느냐, 부모님 집을 도울 것이냐를 정할 때다.`,
+          bodyEn: L.jeonseSigned
+            ? `Text from the landlord: "Market rates went up. Next deposit is ₩210,000,000." Your remaining loan is ${fmtMan(L.jeonseLoan)}. Your 29-year-old signature is still open.`
+            : `You paid ₩40.8M in rent over five years, with zero debt. Now you decide between moving closer to work or backing your parents' house.`,
+          choices: [
+            {
+              id: "renew_push",
+              titleKo: L.jeonseSigned ? "추가 2,500만 원을 마련해 재계약한다" : "모은 돈으로 1억 원대 소형 전세에 들어간다",
+              titleEn: L.jeonseSigned ? "Raise ₩25M more and renew the lease" : "Move into a smaller ₩100M jeonse",
+              metaKo: "고정지출 재조정 · 현금 감소",
+              metaEn: "Cash reduced · housing stabilized",
+              ratios: [46, 33, 21],
+              sidenoteKo: "전세금반환보증 — 집주인이 보증금을 못 돌려줄 때 보증기관이 대신 주는 보험.",
+              sidenoteEn: "Deposit insurance: covers you if the landlord fails to return the lump sum.",
+              apply: (life) => {
+                life.cash -= 1200;
+                life.debt += 1300;
+                life.mindScore -= 6;
+                const open = life.ledger.find(x => x.status === "active");
+                if (open) open.status = "kept";
+              }
+            },
+            {
+              id: "renegotiate",
+              titleKo: "집주인(또는 가족)과 조건 재협의를 요청한다 — 이사비 380만 원 대비",
+              titleEn: "Request renegotiation — prepare ₩3.8M moving cost",
+              metaKo: "장부에 '재협의' 기록 · 50% 확률로 절반 감액",
+              metaEn: "Logs 'Renegotiated' · partial relief",
+              ratios: [33, 46, 21],
+              sidenoteKo: "재협의는 출구가 아니라 요청이다. 상대가 받아야 성립한다.",
+              sidenoteEn: "Renegotiation is a request, not an exit; the other party must agree.",
+              apply: (life) => {
+                life.cash -= 380;
+                life.mindScore += 2;
+                life.ledger.push({ titleKo: "주거 조건 재협의", titleEn: "Housing terms renegotiated", status: "kept", noteKo: "합의 변경 완료", noteEn: "Agreed modification" });
+              }
+            },
+            {
+              id: "delay_move",
+              titleKo: "미룬다 — 다음 달 5일까지 다른 집을 찾아본다",
+              titleEn: "Defer — look for another place by the 5th of next month",
+              metaKo: "장부에 '미룸' 기록 · 마음 부담 증가",
+              metaEn: "Logs deferral · higher mental strain",
+              ratios: [21, 33, 46],
+              sidenoteKo: "기한을 적어 미루는 것도 선택이다. 다만 다음 위기에서 먼저 불려 간다.",
+              sidenoteEn: "Postponing with a date is still a choice, and it surfaces at the next crisis.",
+              apply: (life) => {
+                life.mindScore -= 9;
+                life.ledger.push({ titleKo: "34세 주거 결정 미룸", titleEn: "34-year housing deferred", status: "broken", noteKo: "기한 내 미해결", noteEn: "Unresolved by deadline" });
+              }
+            }
+          ]
+        },
+        {
+          id: "age45",
+          type: "choice",
+          age: 45,
+          year: y45,
+          badgeKo: "대처 · 장부 정산",
+          badgeEn: "Response · Ledger Reckoning",
+          titleKo: `${y45}년 · 45세, 중환자실 앞 복도`,
+          titleEn: `${y45} · Age 45, ICU Hallway`,
+          bodyKo: `아버지가 현관에서 쓰러졌다. 뇌졸중. 중환자실 8일째. 중간 진료비 계산서 1,867,400원이 손에 들려 있다. ${L.siblingTrust >= 2 ? "14세 때부터 동생을 챙겼던 기억 때문인지, 동생이 한 시간 만에 병원으로 올라왔다." : "예전에 미뤘던 가족 약속 때문인지, 동생은 아직 전화를 받지 않는다."}`,
+          bodyEn: `Your father collapsed by the front door. Stroke. Day 8 in the ICU. Interim hospital bill: ₩1,867,400. ${L.siblingTrust >= 2 ? "Your sibling arrives within an hour—still remembering the years you stepped up." : "Your sibling hasn't picked up the phone yet."}`,
+          choices: [
+            {
+              id: "pay_all",
+              titleKo: "계산서를 들고 원무과로 가서 내 카드로 먼저 결제한다",
+              titleEn: "Walk to billing and pay the ₩1.87M bill yourself",
+              metaKo: "현금 -187만 원 · 간병 약속 시작",
+              metaEn: "-₩1.87M cash · caregiving promise opens",
+              ratios: [52, 34, 14],
+              sidenoteKo: "관계의 이자는 숫자가 아니라, 위기 때 누가 먼저 오는지로 드러난다.",
+              sidenoteEn: "Relational interest shows in who arrives first during a crisis.",
+              apply: (life) => {
+                life.cash -= 187;
+                life.bodyScore -= 5;
+                life.ledger.push({ titleKo: "아버지 병원비 및 간병 분담", titleEn: "Father's hospital bill & care", status: "kept", noteKo: "직접 정산 완료", noteEn: "Settled directly" });
+              }
+            },
+            {
+              id: "split_sibling",
+              titleKo: "동생에게 절반을 나눠 내자고 요청한다",
+              titleEn: "Ask your sibling to split the bill in half",
+              metaKo: L.siblingTrust >= 2 ? "동생이 수락함 (-94만 원)" : "동생이 다음 달로 미룸 (합의 지연)",
+              metaEn: L.siblingTrust >= 2 ? "Sibling agrees (-₩940k)" : "Sibling delays until next month",
+              ratios: [34, 52, 14],
+              sidenoteKo: "동생의 대답은 오늘 만든 것이 아니라, 지난 20년 장부의 결과다.",
+              sidenoteEn: "Your sibling's reply reflects twenty years of your ledger, not just today.",
+              apply: (life) => {
+                if (life.siblingTrust >= 2) {
+                  life.cash -= 94;
+                  life.mindScore += 5;
+                  life.ledger.push({ titleKo: "아버지 병원비 형제 분담", titleEn: "Shared hospital bill", status: "kept", noteKo: "합의 이행", noteEn: "Agreed & paid" });
+                } else {
+                  life.cash -= 187;
+                  life.mindScore -= 8;
+                  life.ledger.push({ titleKo: "동생 병원비 분담 미이행", titleEn: "Sibling share unpaid", status: "broken", noteKo: "합의 없음", noteEn: "No agreement" });
+                }
+              }
+            },
+            {
+              id: "wait_chair",
+              titleKo: "호출이 올 때까지 복도 의자에 앉아 있는다",
+              titleEn: "Sit on the hallway chair until the nurse calls",
+              metaKo: "다음 날 연체 고지서 도착 · 마음 -10",
+              metaEn: "Overdue notice tomorrow · heavy strain",
+              ratios: [14, 34, 52],
+              sidenoteKo: "기다리는 동안에도 시간은 가고, 병원은 다음 계산서를 낸다.",
+              sidenoteEn: "Waiting is also an action; time moves and the next bill prints.",
+              apply: (life) => {
+                life.cash -= 230;
+                life.mindScore -= 10;
+                life.ledger.push({ titleKo: "병원비 정산 지연", titleEn: "Delayed hospital settlement", status: "broken", noteKo: "미룸 기록", noteEn: "Delayed" });
+              }
+            }
+          ]
+        }
+      ];
+    }
+
+    function renderStatusPanel() {
+      const L = state.life;
+      const ko = state.lang === "ko";
+      const keptCount = L.ledger.filter(x => x.status === "kept").length;
+      const activeCount = L.ledger.filter(x => x.status === "active").length;
+      const brokenCount = L.ledger.filter(x => x.status === "broken").length;
+
+      return `
+        <div class="status-panel">
+          <div class="money-grid">
+            <div class="money-box">
+              <div class="money-label">${ko ? "현금" : "Cash"}</div>
+              <div class="money-val">${fmtMan(L.cash)}</div>
+            </div>
+            <div class="money-box">
+              <div class="money-label">${ko ? "빚" : "Debt"}</div>
+              <div class="money-val ${L.debt > 0 ? "debt" : ""}">${fmtMan(L.debt)}</div>
+            </div>
+            <div class="money-box">
+              <div class="money-label">${ko ? "매달 나가는 돈" : "Monthly Out"}</div>
+              <div class="money-val">${fmtMan(L.monthlyOut)}</div>
+            </div>
+          </div>
+          <div class="obs-lines">
+            <div>${bodySentence()}</div>
+            <div>${mindSentence()}</div>
+          </div>
+          <button class="ledger-toggle" onclick="toggleLedger()">
+            <span>📒 ${ko ? "약속 장부" : "Promise Ledger"} (${ko ? `이행 ${keptCount} · 유효 ${activeCount} · 미이행 ${brokenCount}` : `Kept ${keptCount} · Open ${activeCount} · Broken ${brokenCount}`})</span>
+            <span>${state.ledgerOpen ? "▲" : "▼"}</span>
+          </button>
+          ${state.ledgerOpen ? `
+            <div class="ledger-list">
+              ${L.ledger.length === 0 ? `<div style="font-size:12px;color:var(--ink-faint);padding:4px 2px;">${ko ? "아직 서명한 약속이 없습니다." : "No signed promises yet."}</div>` :
+                L.ledger.map(item => `
+                  <div class="ledger-item ${item.status}">
+                    <strong>${ko ? item.titleKo : item.titleEn}</strong>
+                    <div style="color:var(--ink-soft);font-size:11.5px;">${ko ? item.noteKo : item.noteEn}</div>
+                  </div>
+                `).join("")
+              }
+            </div>
+          ` : ""}
+        </div>
+      `;
+    }
+
+    function renderCover() {
+      const L = state.life;
+      const ko = state.lang === "ko";
+      const genderText = ko ? (L.gender === "M" ? "남자" : "여자") : (L.gender === "M" ? "Male" : "Female");
+      const famText = ko
+        ? (L.family === "wage" ? "아버지는 공장, 어머니는 마트 파트타임." : L.family === "shop" ? "부모님은 상가 1층에서 작은 가게를 연다." : "아버지는 회사원, 어머니는 전업주부.")
+        : (L.family === "wage" ? "Father at a factory, mother working part-time." : L.family === "shop" ? "Parents run a small ground-floor shop." : "Father in an office job, mother at home.");
+
+      return `
+        <div class="card">
+          <div class="tag-row">
+            <span class="tag obs">${ko ? "관측 · 2025 대한민국 통계 기반" : "Observed · Korean National Stats"}</span>
+            <span class="tag prom">${ko ? "체험판 미리보기" : "Interactive Preview"}</span>
+          </div>
+          <h1>${ko ? "태어난 곳은 고를 수 없다.<br/>서명은 고를 수 있다." : "You cannot choose where you are born.<br/>You can choose what you sign."}</h1>
+          <p style="color:var(--ink-soft);font-size:13.5px;">
+            ${ko
+              ? "정확히는 5,170만 분의 1입니다. 제목에서 5천만으로 반올림했습니다. 이 게임은 당신이 살면서 서명한 약속들을 기억합니다."
+              : "Technically 1 in 51.7 million, rounded to 50 million. This game remembers every promise you sign."}
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="tag-row">
+            <span class="tag time">${ko ? "출생 카드" : "Birth Certificate"}</span>
+            <span class="tag">${ko ? `전국 출생 확률 ${L.region.w}%` : `Birth share ${L.region.w}%`}</span>
+          </div>
+          <h2>${ko ? `${L.cohort.year}년, ${L.region.ko}` : `${L.cohort.year}, ${L.region.en}`}</h2>
+          <p><strong>${genderText}</strong> · ${ko ? L.region.traitKo : L.region.traitEn}</p>
+          <p>${famText}</p>
+          <p style="font-size:13px;color:var(--ink-soft);">
+            ${ko ? `그해 이 나라에서 ${L.cohort.births}명이 태어났다.` : `${L.cohort.births} babies were born in this country that year.`}<br/>
+            ${ko ? L.cohort.noteKo : L.cohort.noteEn}
+          </p>
+          <div class="card-muted" style="margin-top:10px;font-size:12.5px;">
+            <div><strong>${ko ? "기질" : "Temperament"}:</strong> ${ko ? L.temper.ko : L.temper.en}</div>
+            <div><strong>${ko ? "소지품" : "Keepsake"}:</strong> ${ko ? L.item.ko : L.item.en}</div>
+          </div>
+
+          <button class="primary-btn jade" onclick="startGame()">
+            ${ko ? "이 삶으로 시작하기 (6개 길목 미리보기)" : "Begin This Life (6-Milestone Preview)"}
+          </button>
+          <button class="secondary-btn" onclick="rerollBirth()">
+            🎲 ${ko ? "다른 시대·지역으로 다시 태어나기" : "Reroll Birth Cohort & Region"}
+          </button>
+        </div>
+      `;
+    }
+
+    function renderStep() {
+      const steps = getSteps();
+      const step = steps[state.stepIdx];
+      const ko = state.lang === "ko";
+      const dots = steps.map((_, i) => `<div class="step-dot ${i < state.stepIdx ? "done" : i === state.stepIdx ? "now" : ""}"></div>`).join("");
+
+      if (step.type === "alloc") {
+        const used = state.alloc.study + state.alloc.work + state.alloc.club + state.alloc.sibling;
+        const left = 12 - used;
+        const rows = [
+          { key: "study", ko: "보습학원", en: "Cram School", subKo: "성적 유지", subEn: "Keep grades" },
+          { key: "work", ko: "전단지·편의점 알바", en: "Part-time Job", subKo: "월 18만 원", subEn: "₩180k/month" },
+          { key: "club", ko: "동아리·친구", en: "Club & Friends", subKo: "단짝 카드", subEn: "Close friend" },
+          { key: "sibling", ko: "동생 돌보기", en: "Watch Sibling", subKo: "가족 신뢰 +1", subEn: "Family trust +1" }
+        ];
+        return `
+          <div class="progress-row">${dots}</div>
+          ${renderStatusPanel()}
+          <div class="card">
+            <div class="tag-row"><span class="tag time">${ko ? step.badgeKo : step.badgeEn}</span></div>
+            <h2>${ko ? step.titleKo : step.titleEn}</h2>
+            <p>${ko ? step.bodyKo : step.bodyEn}</p>
+            <div style="font-size:12.5px;font-weight:700;margin:8px 0;color:${left < 0 ? "var(--seal)" : "var(--jade)"};">
+              ${ko ? `남은 시간: ${left}시간 (12시간 이내)` : `Remaining: ${left}h (max 12h)`}
+            </div>
+            <div style="font-size:11.5px;color:var(--ink-faint);margin:-4px 0 8px;">
+              ${ko ? "한 칸을 늘리려면 다른 칸을 먼저 줄여야 합니다. 비워 둔 칸은 나중에 이름으로 돌아옵니다." : "To add an hour, take one from another row. Whatever you leave empty returns by name later."}
+            </div>
+            ${rows.map(r => `
+              <div class="alloc-row">
+                <div>
+                  <div style="font-weight:700;font-size:14px;">${ko ? r.ko : r.en}</div>
+                  <div style="font-size:11.5px;color:var(--ink-soft);">${ko ? r.subKo : r.subEn}</div>
+                </div>
+                <div class="alloc-ctrl">
+                  <button onclick="chgAlloc('${r.key}', -1)">−</button>
+                  <span class="alloc-num">${state.alloc[r.key]}h</span>
+                  <button onclick="chgAlloc('${r.key}', 1)">+</button>
+                </div>
+              </div>
+            `).join("")}
+            <button class="primary-btn" ${left < 0 ? "disabled" : ""} onclick="submitAlloc()">
+              ${ko ? "이대로 중학교 3년을 보낸다" : "Confirm 3-Year Allocation"}
+            </button>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="progress-row">${dots}</div>
+        ${renderStatusPanel()}
+        <div class="card">
+          <div class="tag-row"><span class="tag ${step.badgeKo.includes("약속") ? "prom" : "time"}">${ko ? step.badgeKo : step.badgeEn}</span></div>
+          <h2>${ko ? step.titleKo : step.titleEn}</h2>
+          <p>${ko ? step.bodyKo : step.bodyEn}</p>
+          <div class="choices">
+            ${step.choices.map((c, idx) => `
+              <button class="choice-btn" onclick="pickChoice(${idx})">
+                <div class="choice-title">${ko ? c.titleKo : c.titleEn}</div>
+                <div class="choice-meta">${ko ? c.metaKo : c.metaEn}</div>
+              </button>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderFeedback() {
+      const ko = state.lang === "ko";
+      const r = state.lastResult;
+      const steps = getSteps();
+      const dots = steps.map((_, i) => `<div class="step-dot ${i <= state.stepIdx ? "done" : ""}"></div>`).join("");
+
+      return `
+        <div class="progress-row">${dots}</div>
+        ${renderStatusPanel()}
+        <div class="card">
+          <div class="tag-row"><span class="tag obs">${ko ? "선택 기록됨" : "Choice Recorded"}</span></div>
+          <h2>${ko ? r.titleKo : r.titleEn}</h2>
+          <p style="font-size:14px;">${ko ? r.summaryKo : r.summaryEn}</p>
+
+          ${r.ratios ? `
+            <div class="ratio-bar">
+              <div><strong>${ko ? `모형 참고 비율 — 같은 길목에서 ${r.ratios[0]}%가 이 길을 골랐다` : `Model Reference — ${r.ratios[0]}% chose this path here`}</strong></div>
+              <div class="bar-track">
+                <div style="width:${r.ratios[0]}%;background:var(--jade);"></div>
+                <div style="width:${r.ratios[1]}%;background:var(--ochre);"></div>
+                <div style="width:${r.ratios[2]}%;background:var(--ink-faint);"></div>
+              </div>
+            </div>
+          ` : ""}
+
+          <div class="sidenote">
+            <strong>${ko ? "옆주석" : "Side Note"}</strong> · ${ko ? r.sidenoteKo : r.sidenoteEn}
+          </div>
+
+          <button class="primary-btn" onclick="nextStep()">
+            ${state.stepIdx < steps.length - 1 ? (ko ? "다음 길목으로 →" : "Next Milestone →") : (ko ? "한지 삶의 지도 펼치기 →" : "Open Hanji Life Map →")}
+          </button>
+        </div>
+      `;
+    }
+
+    function renderEnding() {
+      const L = state.life;
+      const ko = state.lang === "ko";
+      const kept = L.ledger.filter(x => x.status === "kept").length;
+      const active = L.ledger.filter(x => x.status === "active").length;
+      const broken = L.ledger.filter(x => x.status === "broken").length;
+
+      // 조건 변경 비교: 부모 지원 5,000만 원이 전세 대출을 그만큼 줄인다고 가정 (연 4.2%)
+      const supportAmount = 5000; // 만원
+      const savedMonthlyInterest = Math.round((supportAmount * 0.042) / 12); // 약 18만 원
+      const savedTotalInterest = savedMonthlyInterest * 60; // 5년 누적
+
+      return `
+        <div class="card">
+          <div class="tag-row">
+            <span class="tag obs">${ko ? "결산 · 한지 삶의 지도" : "Ending · Hanji Life Map"}</span>
+            <span class="tag">${ko ? `${L.cohort.year}년생 · ${L.region.ko}` : `Born ${L.cohort.year} · ${L.region.en}`}</span>
+          </div>
+          <h2>${ko ? `지킨 약속 ${kept}개, 남은 약속 ${active}개, 미이행 ${broken}개` : `${kept} Kept, ${active} Open, ${broken} Broken`}</h2>
+          <p style="font-size:13.5px;color:var(--ink-soft);">
+            ${ko
+              ? `최종 현금 ${fmtMan(L.cash)} · 남은 빚 ${fmtMan(L.debt)} · 매달 나가는 돈 ${fmtMan(L.monthlyOut)}`
+              : `Final Cash ${fmtMan(L.cash)} · Debt ${fmtMan(L.debt)} · Monthly Out ${fmtMan(L.monthlyOut)}`}
+          </p>
+
+          <div class="lifemap-wrap">
+            <canvas id="lifemapCanvas" class="lifemap" width="520" height="220"></canvas>
+            <div class="legend">
+              <span><i class="sw" style="background:#2d2a24;"></i> ${ko ? "평온한 해" : "Calm year"}</span>
+              <span><i class="sw" style="background:#1f6b45;"></i> ${ko ? "약속 이행" : "Promise kept"}</span>
+              <span><i class="sw" style="background:#b07428;"></i> ${ko ? "빚·부담 증가" : "Debt / Strain"}</span>
+              <span><i class="sw" style="background:#b5382a;"></i> ${ko ? "위기·미이행" : "Crisis / Missed"}</span>
+            </div>
+          </div>
+
+          <button class="secondary-btn" onclick="toggleCompare()">
+            🔁 ${ko ? "같은 선택, 다른 출발선으로 20초 재연" : "20-Second Replay: Same Choices, Different Start"}
+          </button>
+
+          ${state.compareOpen ? `
+            <div class="compare-box">
+              <strong>${ko ? "조건 변경: 부모 지원금 0원 → 5,000만 원" : "Changed Condition: Family Support ₩0 → ₩50M"}</strong>
+              <p style="margin-top:6px;">
+                ${ko
+                  ? `두 삶 모두 같은 길목에서 같은 서명을 했습니다. 지원금이 있던 삶은 29세 전세 계약에서 5,000만 원을 덜 빌렸고, 연 4.2% 기준으로 월 이자를 약 <strong>${savedMonthlyInterest}만 원</strong> 덜 냈습니다. 5년을 채우면 누적 <strong>${savedTotalInterest.toLocaleString()}만 원</strong> 차이입니다. 같은 서명, 다른 출발선.`
+                  : `Both lives signed the same promises. The supported life borrowed ₩50M less at 29, paying about <strong>₩${(savedMonthlyInterest*10).toLocaleString()}k less interest a month</strong> at 4.2%—roughly <strong>₩${(savedTotalInterest*10).toLocaleString()}k over five years</strong>. Same signatures, different starting line.`}
+              </p>
+              <div class="disclaimer">
+                ${ko ? "※ 게임 모형 안의 비교이며 현실의 인과 효과가 아닙니다." : "※ Comparison inside the game model, not real-world causal proof."}
+              </div>
+            </div>
+          ` : ""}
+
+          <button class="primary-btn jade" onclick="rerollBirth()">
+            ${ko ? "다시 태어나기 (새 시대·새 지역)" : "Be Born Again (New Era & Region)"}
+          </button>
+        </div>
+      `;
+    }
+
+    function drawLifeMap() {
+      const canvas = document.getElementById("lifemapCanvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const L = state.life;
+      ctx.fillStyle = "#f2ead8";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 5 acts x 15 years = 75 cells (15 cols x 5 rows)
+      const cols = 15, rows = 5;
+      const padX = 16, padY = 18;
+      const gap = 5;
+      const cellW = Math.floor((canvas.width - padX * 2 - gap * (cols - 1)) / cols);
+      const cellH = Math.floor((canvas.height - padY * 2 - gap * (rows - 1)) / rows);
+
+      const brokenCnt = L.ledger.filter(x => x.status === "broken").length;
+      const keptCnt = L.ledger.filter(x => x.status === "kept").length;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const age = r * cols + c;
+          const x = padX + c * (cellW + gap);
+          const y = padY + r * (cellH + gap);
+
+          let color = "#2d2a24";
+          if (age === 14 || age === 19 || age === 29) {
+            color = "#1f6b45";
+          } else if (age === 24 || (age >= 30 && age <= 34 && L.debt > 5000)) {
+            color = "#b07428";
+          } else if ((age === 34 || age === 45) && brokenCnt > 0) {
+            color = "#b5382a";
+          } else if (age > 45) {
+            color = keptCnt >= 2 && L.mindScore >= 55 ? "#1f6b45" : (L.debt > 8000 ? "#b07428" : "#6b6559");
+          } else if ((age * 7 + L.cohort.year) % 5 === 0) {
+            color = "#6b6559";
+          }
+
+          ctx.fillStyle = color;
+          ctx.fillRect(x, y, cellW, cellH);
+
+          if ([0, 14, 19, 24, 29, 34, 45, 70].includes(age)) {
+            ctx.strokeStyle = "#fffdf8";
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x + 1, y + 1, cellW - 2, cellH - 2);
+          }
+        }
+      }
+    }
+
+    function render() {
+      const ko = state.lang === "ko";
+      const app = document.getElementById("app");
+      let body = "";
+      if (state.screen === "cover") body = renderCover();
+      else if (state.screen === "step") body = renderStep();
+      else if (state.screen === "feedback") body = renderFeedback();
+      else body = renderEnding();
+
+      app.innerHTML = `
+        <div class="topbar">
+          <div class="brand">
+            <div class="seal-badge">1/50M</div>
+            <div>
+              <div class="brand-title">${ko ? "5천만 분의 1" : "One in Fifty Million"}</div>
+              <div class="brand-sub">${ko ? "기획서 미리보기 체험판" : "Design Doc Interactive Preview"}</div>
+            </div>
+          </div>
+          <div class="top-actions">
+            <button class="pill-btn" onclick="toggleLang()">${ko ? "EN" : "한국어"}</button>
+            <button class="pill-btn" onclick="rerollBirth()">${ko ? "새 삶" : "Reset"}</button>
+          </div>
+        </div>
+        ${body}
+      `;
+
+      if (state.screen === "ending") {
+        requestAnimationFrame(drawLifeMap);
+      }
+    }
+
+    // Actions
+    window.toggleLang = () => {
+      state.lang = state.lang === "ko" ? "en" : "ko";
+      document.documentElement.lang = state.lang;
+      render();
+    };
+    window.toggleLedger = () => {
+      state.ledgerOpen = !state.ledgerOpen;
+      render();
+    };
+    window.toggleCompare = () => {
+      state.compareOpen = !state.compareOpen;
+      render();
+    };
+    window.rerollBirth = () => {
+      newLife();
+      state.screen = "cover";
+      render();
+    };
+    window.startGame = () => {
+      state.screen = "step";
+      render();
+    };
+    window.chgAlloc = (key, delta) => {
+      const nxt = state.alloc[key] + delta;
+      if (nxt < 0 || nxt > 12) return;
+      const a = state.alloc;
+      const used = a.study + a.work + a.club + a.sibling;
+      if (delta > 0 && used >= 12) return; // 12시간을 넘길 수 없다
+      state.alloc[key] = nxt;
+      render();
+    };
+    window.submitAlloc = () => {
+      const L = state.life;
+      const a = state.alloc;
+      if (a.work >= 4) L.cash += 220;
+      if (a.sibling >= 2) L.siblingTrust += 1;
+      if (a.study < 2) L.skippedTime.push(state.lang === "ko" ? "학원" : "Cram school");
+      if (a.club < 1) L.skippedTime.push(state.lang === "ko" ? "친구" : "Friends");
+      if (a.sibling < 1) L.skippedTime.push(state.lang === "ko" ? "동생" : "Sibling");
+
+      const step = getSteps()[0];
+      state.lastResult = {
+        titleKo: "14세의 시간표가 확정되었다",
+        titleEn: "Your Age-14 Schedule Is Set",
+        summaryKo: `학원 ${a.study}시간 · 알바 ${a.work}시간 · 동아리 ${a.club}시간 · 동생 ${a.sibling}시간. ${a.sibling >= 2 ? "동생과의 약속이 장부에 좋은 기억으로 남았다." : "비워 둔 시간은 몇 년 뒤 다른 자리에서 이름으로 불린다."}`,
+        summaryEn: `Study ${a.study}h · Work ${a.work}h · Club ${a.club}h · Sibling ${a.sibling}h. ${a.sibling >= 2 ? "Time with your sibling builds quiet trust." : "What you skipped will resurface later by name."}`,
+        sidenoteKo: step.sidenoteKo,
+        sidenoteEn: step.sidenoteEn,
+        ratios: null
+      };
+      state.screen = "feedback";
+      render();
+    };
+    window.pickChoice = (idx) => {
+      const step = getSteps()[state.stepIdx];
+      const c = step.choices[idx];
+      c.apply(state.life);
+      state.lastResult = {
+        titleKo: c.titleKo,
+        titleEn: c.titleEn,
+        summaryKo: c.metaKo,
+        summaryEn: c.metaEn,
+        sidenoteKo: c.sidenoteKo,
+        sidenoteEn: c.sidenoteEn,
+        ratios: c.ratios
+      };
+      state.screen = "feedback";
+      render();
+    };
+    window.nextStep = () => {
+      const steps = getSteps();
+      if (state.stepIdx < steps.length - 1) {
+        state.stepIdx += 1;
+        state.screen = "step";
+      } else {
+        state.screen = "ending";
+      }
+      render();
+    };
+
+    newLife();
+    render();
+  </script>
+</body>
+</html>
