@@ -695,7 +695,7 @@
   /* ---------- 모달 ---------- */
   function openModal(html, opts) {
     closeModal();
-    APP.modal = opts || {};
+    APP.modal = opts || {}; APP.modal.kind = (opts && opts.kind) || 'modal';
     const root = $('#modalroot');
     root.innerHTML = `<div class="scrim" id="modal"><div class="dec" id="decCard">${html}</div></div>`;
     APP.modalOpen = true;
@@ -802,7 +802,7 @@
           <button data-q="이 나이에 가장 잘한 선택은?">가장 잘한 선택은?</button>
           <button data-q="지키고 싶은 것은?">지키고 싶은 것은?</button></div>
       </div>
-      <div class="dec-foot"><button class="ghost" id="reflSkip">그냥 지나가기</button><button class="cta sm" id="reflSave">남기고 계속 살기</button></div>`);
+      <div class="dec-foot"><button class="ghost" id="reflSkip">그냥 지나가기</button><button class="cta sm" id="reflSave">남기고 계속 살기</button></div>`, { kind: 'reflect' });
     $('#reflText').focus();
     document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { $('#reflText').value = b.dataset.q; $('#reflText').focus(); });
     const done = (txt) => {
@@ -811,6 +811,8 @@
     };
     $('#reflSkip').onclick = () => done(null);
     $('#reflSave').onclick = () => done($('#reflText').value.trim());
+    // 자동 결정 중에는 회고 창도 알아서 닫는다(멈춰 선 채로 남지 않게)
+    if (APP.auto) setTimeout(() => { if (APP.modal && APP.modal.kind === 'reflect') done(null); }, APP.speed >= 8 ? 1600 : 5000);
   }
 
   /* ---------- 사망 ---------- */
