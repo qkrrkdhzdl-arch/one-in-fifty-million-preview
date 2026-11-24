@@ -6,6 +6,14 @@
   U.el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
   U.esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+  /* 저장소가 막힌 브라우저(임베드된 iframe 등)에서도 게임이 서지 않게 한다.
+     저장이 안 되면 이번 판은 기억되지 않을 뿐이다. */
+  U.store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) { /* nothing to forget */ } }
+  };
+
   /* 처음 온 사람에게 어느 언어로 열지: 한국어 브라우저면 한국어, 그 밖에는 영어.
      주소에 붙은 ?lang=과 앞서 고른 언어가 언제나 이보다 먼저다. */
   U.autoLang = () => {

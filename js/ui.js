@@ -68,15 +68,15 @@
     lang: (function () {
       try {
         const q = new URLSearchParams(location.search).get('lang');
-        if (q === 'en' || q === 'ko') { localStorage.setItem('oifm2_lang', q); return q; }
-        const s = localStorage.getItem('oifm2_lang');
+        if (q === 'en' || q === 'ko') { U.store.set('oifm2_lang', q); return q; }
+        const s = U.store.get('oifm2_lang');
         if (s === 'en' || s === 'ko') return s;
       } catch (e) {}
       return (window.APP_LANG_DEFAULT || (U.autoLang ? U.autoLang() : 'ko'));
     })(),
-    pace: localStorage.getItem('oifm2_pace') || 'normal',
+    pace: U.store.get('oifm2_pace') || 'normal',
     speed: 1, playing: false, auto: false, ff: false,
-    autoHide: localStorage.getItem('oifm2_autohide') === '1',
+    autoHide: U.store.get('oifm2_autohide') === '1',
     screen: 'cover', life: null, modal: null, peek: false,
     yearT: 0, hold: 0, queue: [], qi: 0, lastTs: 0, raf: null, pendingDeath: null,
     deathStep: 0, recDecade: null, shareKind: 'record'
@@ -100,7 +100,7 @@
       if (!APP.life) return;   // 화면을 닫을 때 지난 삶을 지우지 않는다(새로 시작할 때만 비운다)
       const l = APP.life;
       const slim = Object.assign({}, l, { yearLog: (l.yearLog || []).slice(-6), feed: (l.feed || []).slice(-400) });
-      localStorage.setItem('oifm2_life', JSON.stringify({ life: slim, screen: APP.screen, pace: APP.pace }));
+      U.store.set('oifm2_life', JSON.stringify({ life: slim, screen: APP.screen, pace: APP.pace }));
     } catch (e) { /* 저장 실패는 게임을 막지 않는다 */ }
   }
   function loadSave() {
@@ -227,7 +227,7 @@
             <div class="optgroup wide"><span class="lbl">${L('태어날 때', 'Born in')}</span>
               <div class="seg" data-seg="cohort">
                 ${[['now', '지금', 'Today'], ['w2000', '2000년대', 'the 2000s'], ['w1990', '1990년대', 'the 1990s'], ['any', '아무 때나', 'Any era']].map(([k, ko, e]) =>
-                  `<button data-v="${k}" aria-pressed="${(localStorage.getItem('oifm2_cohort') || 'now') === k}">${L(ko, e)}</button>`).join('')}
+                  `<button data-v="${k}" aria-pressed="${(U.store.get('oifm2_cohort') || 'now') === k}">${L(ko, e)}</button>`).join('')}
               </div>
               <span class="hint">${L('지난 세대는 그 시절 통계와 사건으로 살아갑니다.', 'Earlier generations live by the statistics and the scenes of their own time.')}</span>
             </div>
@@ -286,11 +286,11 @@
     drawHeroMap($('#mapCanvas'));
 
     el.querySelectorAll('[data-seg="pace"] button').forEach(b => b.onclick = () => {
-      APP.pace = b.dataset.v; localStorage.setItem('oifm2_pace', APP.pace);
+      APP.pace = b.dataset.v; U.store.set('oifm2_pace', APP.pace);
       el.querySelectorAll('[data-seg="pace"] button').forEach(x => x.setAttribute('aria-pressed', x === b));
     });
     el.querySelectorAll('[data-seg="cohort"] button').forEach(b => b.onclick = () => {
-      localStorage.setItem('oifm2_cohort', b.dataset.v);
+      U.store.set('oifm2_cohort', b.dataset.v);
       el.querySelectorAll('[data-seg="cohort"] button').forEach(x => x.setAttribute('aria-pressed', x === b));
     });
     el.querySelectorAll('[data-seg="lang"] button').forEach(b => b.onclick = () => switchLang(b.dataset.v));
@@ -321,12 +321,12 @@
     const cur = document.documentElement.getAttribute('data-theme');
     const next = cur === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('oifm2_theme', next);
+    U.store.set('oifm2_theme', next);
   }
 
   /* ---------- 출생 뽑기 ---------- */
   function cohortFromPref() {
-    const p = localStorage.getItem('oifm2_cohort') || 'now';
+    const p = U.store.get('oifm2_cohort') || 'now';
     if (p === 'w2000') return [1998, 2005];
     if (p === 'w1990') return [1990, 1996];
     if (p === 'any') return null;
@@ -1508,8 +1508,8 @@
     if (ages.length) drawFeed(ages[0]);
 
     $('#copyResult').onclick = () => copyResult(life);
-    $('#againBtn').onclick = () => { APP.life = null; localStorage.removeItem('oifm2_life'); renderCover(); go('cover'); $('#startBtn').click(); };
-    $('#coverBtn').onclick = () => { APP.life = null; localStorage.removeItem('oifm2_life'); renderCover(); go('cover'); };
+    $('#againBtn').onclick = () => { APP.life = null; U.store.del('oifm2_life'); renderCover(); go('cover'); $('#startBtn').click(); };
+    $('#coverBtn').onclick = () => { APP.life = null; U.store.del('oifm2_life'); renderCover(); go('cover'); };
     $('#shareBtn').onclick = () => openShare('record');
   }
 
@@ -1692,7 +1692,7 @@
 
   /* ---------- 시작 ---------- */
   function boot() {
-    const th = localStorage.getItem('oifm2_theme');
+    const th = U.store.get('oifm2_theme');
     if (th) document.documentElement.setAttribute('data-theme', th);
     document.documentElement.lang = APP.lang;
     renderCover();
