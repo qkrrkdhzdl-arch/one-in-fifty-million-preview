@@ -33,7 +33,8 @@
       if (age >= 8) people.push({ x: 12.4, y: 17.0, opt: { cloth: '#6b6f78' } });
     } else if (age < 65) {
       people.push({ x: 15.4, y: 16.9, opt: { cloth: '#3f5d63' } });
-      if (life.married) people.push({ x: 17.8, y: 16.9, opt: { cloth: '#8a5b45' } });
+      const hasPartner = life.married || (life.family && life.family.partner && life.family.partner.alive);
+      if (hasPartner) people.push({ x: 17.8, y: 16.9, opt: { cloth: '#8a5b45' } });
       const kids = Math.min(2, life.kids || 0);
       for (let i = 0; i < kids; i++) people.push({ x: 20.4 + i * 1.5, y: 17.4, opt: { small: true, cloth: '#7d6a58' } });
     } else {
@@ -192,16 +193,28 @@
     const n = 12, s = canvas.width / n;
     const g = canvas.getContext('2d');
     g.imageSmoothingEnabled = false;
-    const skin = '#e8c8a8', hair = life.sex === 'f' ? '#3a2b26' : '#2b2622';
-    const cloth = life.cls === 'high' ? '#3f5d63' : life.cls === 'low' ? '#8a7a62' : '#5c6f74';
+    const skin = '#e8c8a8';
+    const hair = life.age >= 68 ? '#b8c2be' : life.age >= 52 ? '#6d6f6e' : (life.sex === 'f' ? '#3a2b26' : '#2b2622');
+    const cloth = life.flags && life.flags.retired ? '#6b6f78'
+      : life.job === 'office' ? '#314959'
+      : life.job === 'public' ? '#2e4d46'
+      : life.cls === 'high' ? '#3f5d63' : life.cls === 'low' ? '#8a7a62' : '#5c6f74';
     const r = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x * s, y * s, w * s, h * s); };
     g.clearRect(0, 0, canvas.width, canvas.height);
     r(0, 0, 12, 12, life.age > 60 ? '#DDE5E1' : '#D3DEDA');
     r(3, 2, 6, 2, hair); r(2, 4, 1, 4, hair); r(9, 4, 1, 4, hair);
+    if (life.sex === 'f' && life.age >= 12) { r(2, 6, 1, 3, hair); r(9, 6, 1, 3, hair); }
     r(3, 4, 6, 5, skin);
     r(4, 5, 1, 1, '#2b2622'); r(7, 5, 1, 1, '#2b2622');
-    r(5, 7.5, 2, 0.6, '#b07a6a');
-    if (life.age > 55) { r(3, 4, 6, 0.6, '#cfd8d2'); }
+    const glasses = (life.age >= 48) || (life.age >= 14 && ((life.seed % 3 === 0) || life.edu === 'grad'));
+    if (glasses) {
+      r(3.6, 4.7, 1.8, 1.5, 'rgba(20,30,36,0.22)');
+      r(6.6, 4.7, 1.8, 1.5, 'rgba(20,30,36,0.22)');
+      r(5.4, 5.2, 1.2, 0.4, '#2b2622');
+    }
+    const hap = (life.stats && life.stats.happiness) || 50;
+    r(5, 7.4, 2, 0.6, hap >= 65 ? '#a85a52' : '#b07a6a');
+    if (life.age >= 50 && life.age < 68) { r(3, 3.8, 6, 0.5, '#b8c2be'); }
     r(2, 9, 8, 3, cloth); r(5, 9, 2, 3, '#F2F5F3');
   }
 

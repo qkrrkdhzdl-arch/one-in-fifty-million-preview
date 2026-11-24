@@ -412,6 +412,21 @@
     out.b = { ko: tplFill(e.b && e.b.ko, life, false), en: tplFill(e.b && e.b.en, life, true) };
     return out;
   }
+  function filledDecision(d, life) {
+    if (!d) return d;
+    const out = Object.assign({}, d);
+    if (d.t) out.t = { ko: tplFill(d.t.ko, life, false), en: tplFill(d.t.en, life, true) };
+    if (d.b) out.b = { ko: tplFill(d.b.ko, life, false), en: tplFill(d.b.en, life, true) };
+    if (Array.isArray(d.ch)) {
+      out.ch = d.ch.map(c => {
+        const nc = Object.assign({}, c);
+        if (c.t) nc.t = { ko: tplFill(c.t.ko, life, false), en: tplFill(c.t.en, life, true) };
+        if (c.n) nc.n = { ko: tplFill(c.n.ko, life, false), en: tplFill(c.n.en, life, true) };
+        return nc;
+      });
+    }
+    return out;
+  }
 
   // 연인 후보: 매 삶에 다른 사람이 온다. 직업·집안·성격·나이·만남 계기가 조합된다.
   const LOVER_TAGS_OK = ["corp", "public", "teacher", "nurse", "startup", "free", "self", "research",
@@ -1003,6 +1018,11 @@
     const focusCat = life.focus === "work" ? ["work", "study"] : life.focus === "love" ? ["love", "family"] : life.focus === "health" ? ["health"] : life.focus === "money" ? ["money"] : [];
     let pool = eligiblePool(life, 0);
     if (!pool.length) pool = eligiblePool(life, 2);
+    if (life._gentle) {
+      const HEAVY_EV = /자살|학대|폭력|구타|중독|성폭|살해|유산|치매/;
+      const safe = pool.filter(e => !HEAVY_EV.test((e.t && e.t.ko || "") + " " + (e.b && e.b.ko || "")));
+      if (safe.length) pool = safe;
+    }
     if (!pool.length) return out;
     let forced = null;
     if (life.age >= 6 && focusCat.length && R() < 0.72) {
@@ -1267,8 +1287,8 @@
       if (d.age != null && life.age > (Array.isArray(d.age) ? d.age[1] : d.age + 1)) { life.decQueue.shift(); continue; }
       if (life.decisions.indexOf(d.id) >= 0) { life.decQueue.shift(); continue; }
       // 일상 결정은 나이 범위를 가지므로, 화면에 띄울 때는 지금 나이를 붙인다
-      if (Array.isArray(d.age)) return Object.assign({}, d, { ageRange: d.age, age: life.age });
-      return d;
+      if (Array.isArray(d.age)) return filledDecision(Object.assign({}, d, { ageRange: d.age, age: life.age }), life);
+      return filledDecision(d, life);
     }
     return null;
   }
@@ -1333,12 +1353,13 @@
     return clamp(g * hm, 0, 0.5);
   }
   function pickDeathCause(life) {
+    const pool = life._gentle ? C.deaths.filter(d => !/자살/.test(d.cause)) : C.deaths;
     if (life.age < 40) {
-      const young = C.deaths.filter(d => /사고|자살|암/.test(d.cause));
+      const young = pool.filter(d => /사고|자살|암/.test(d.cause));
       return wpick(young, d => d.cause === "사고" ? 5 : d.cause === "암" ? 3 : 2);
     }
     const bucket = life.age >= 90 ? "90" : life.age >= 75 ? "75" : "60";
-    return wpick(C.deaths, d => (d.weight[bucket] || 1) * (life.stats.health < 40 && /암|심장|뇌혈관|폐렴|패혈/.test(d.cause) ? 1.4 : 1));
+    return wpick(pool, d => (d.weight[bucket] || 1) * (life.stats.health < 40 && /암|심장|뇌혈관|폐렴|패혈/.test(d.cause) ? 1.4 : 1));
   }
   function makeDeath(life, cause) {
     life.death = {
@@ -1435,7 +1456,8 @@
   }
 
   // ---------- main tick ----------
-  function tick(life) {
+  function tick(life, opt) {
+    life._gentle = !!(opt && opt.gentle);
     if (life.death) return { death: life.death };
     life.age += 1;
     life.year += 1;
@@ -1476,22 +1498,22 @@
     // 가족의 마지막 장면도 매번 같은 문장이 되지 않게 여러 결로 쓴다
     const FAM_VAR = {
       fam_mother: [
-        { ko: "어머니가 돌아오지 못한 뒤 병실에서 가져온 겉옷을 세탁소에 맡깁니다. 옷깃에 밴 소독양 냉새가 덜 빠지지 않아 며칠을 창가에 걸어 두고, 냉장고 문에는 누가 마지막으로 적어 둔 장보기 메모가 아직 남아 있습니다.", en: "The coat brought back from the hospital goes to the cleaners. The smell of disinfectant lingers, so it hangs by the window for days, while a shopping list in someone else's handwriting stays on the fridge door." },
-        { ko: "어머니의 병원비 영수증이 봉토째 쓀입니다. 그것을 상자에 넣어 다락에 올리고, 대신 냉장고의 반찬통을 하나씩 바우고 씻습니다. 마지막 통을 씻을 때 흐르는 물소리가 부억 전체를 채웁니다.", en: "Receipts for your mother's hospital bills pile up in an envelope. You put them in a box, carry it to the loft, and empty the side-dish containers one by one. The water runs loud in the empty kitchen as you wash the last one." }
+        { ko: "어머니가 돌아오지 못한 뒤 병실에서 가져온 겉옷을 세탁소에 맡깁니다. 옷깃에 밴 소독약 냄새가 덜 빠지지 않아 며칠을 창가에 걸어 두고, 냉장고 문에는 누가 마지막으로 적어 둔 장보기 메모가 아직 남아 있습니다.", en: "The coat brought back from the hospital goes to the cleaners. The smell of disinfectant lingers, so it hangs by the window for days, while a shopping list in someone else's handwriting stays on the fridge door." },
+        { ko: "어머니의 병원비 영수증이 봉투째 쌓입니다. 그것을 상자에 넣어 다락에 올리고, 대신 냉장고의 반찬통을 하나씩 비우고 씻습니다. 마지막 통을 씻을 때 흐르는 물소리가 부엌 전체를 채웁니다.", en: "Receipts for your mother's hospital bills pile up in an envelope. You put them in a box, carry it to the loft, and empty the side-dish containers one by one. The water runs loud in the empty kitchen as you wash the last one." }
       ],
       fam_father: [
         { ko: "아버지가 떠난 뒤에도 새벽에 현관 등이 켜져 있던 습관을 고치지 못합니다. 사흘 빈소를 지키고 돌아온 날, 구두 한 켤레에 신문지를 접어 넣고 전화를 받지 않습니다. 다음 날 아침 그 신문지의 날짜가 장례 첫날이라는 것을 알아차립니다.", en: "Your father's habit of leaving the porch light on at dawn outlasts him. The evening you come home from three days at the funeral hall, you stuff newspaper into a pair of his shoes and let the phone ring. In the morning you notice the date on the paper is the first day of the funeral." },
-        { ko: "아버지의 서랍에서 영수증과 함께 저축통장이 나옵니다. 잔액보다 먼저 눈에 들어온 것은 마지막 거래일이고, 당신은 그 통장을 덮은 뒤 현관의 구두를 정리합니다. 장례 뒤 사흘째, 신발장 아래진 휴지가 서류로 가득 차 있습니다.", en: "In your father's drawer, a savings passbook turns up with the receipts. You notice the date of the last transaction before the balance, close it, and go sort the shoes at the door. Three days after the funeral, the bin below the shoe cabinet is full of paper." }
+        { ko: "아버지의 서랍에서 영수증과 함께 저축통장이 나옵니다. 잔액보다 먼저 눈에 들어온 것은 마지막 거래일이고, 당신은 그 통장을 덮은 뒤 현관의 구두를 정리합니다. 장례 뒤 사흘째, 신발장 아래 휴지통이 서류로 가득 차 있습니다.", en: "In your father's drawer, a savings passbook turns up with the receipts. You notice the date of the last transaction before the balance, close it, and go sort the shoes at the door. Three days after the funeral, the bin below the shoe cabinet is full of paper." }
       ],
       fam_spouse: [
-        { ko: "배우자가 먼저 떠난 뒤 이불장의 두계운 이불을 하나만 남기고 나머지를 포장합니다. 지녁상에 그릇을 두 개 올렸다가 하나를 내려놓고, 사흘째 되는 날에야 욕실의 침솔 하나를 버립니다.", en: "After your spouse goes first, all but one of the heavy duvets are wrapped and stored. You set two bowls for dinner, then take one away, and only on the third day throw out the second toothbrush." },
-        { ko: "장례 뒤 집으로 돌아오는 길에 배우자의 운전면허증 사진이 생각납니다. 현관을 열고 신발 한 켜레를 아래칸으로 옮기고, 냉장고 문을 열었다 그대로 닫습니다. 다음 주에야 반찬을 절반으로 줄여 담습니다.", en: "On the walk home from the funeral you think of the photo on your spouse's driving licence. At the door you move one pair of shoes to the lower shelf, open the fridge, and close it again. Only the next week do you cook half the side dishes." }
+        { ko: "배우자가 먼저 떠난 뒤 이불장의 두꺼운 이불을 하나만 남기고 나머지를 포장합니다. 저녁상에 그릇을 두 개 올렸다가 하나를 내려놓고, 사흘째 되는 날에야 욕실의 칫솔 하나를 버립니다.", en: "After your spouse goes first, all but one of the heavy duvets are wrapped and stored. You set two bowls for dinner, then take one away, and only on the third day throw out the second toothbrush." },
+        { ko: "장례 뒤 집으로 돌아오는 길에 배우자의 운전면허증 사진이 생각납니다. 현관을 열고 신발 한 켤레를 아래칸으로 옮기고, 냉장고 문을 열었다 그대로 닫습니다. 다음 주에야 반찬을 절반으로 줄여 담습니다.", en: "On the walk home from the funeral you think of the photo on your spouse's driving licence. At the door you move one pair of shoes to the lower shelf, open the fridge, and close it again. Only the next week do you cook half the side dishes." }
       ],
       fam_gma: [
-        { ko: "할머니가 떠난 뒤 마당의 장독 뚜껑을 처음으로 직접 엽니다. 상을 치르는 동안 이웃이 가져온 국그릇을 씻어 돌려주고, 부억 문턱에 놓인 고무신 한 켜레는 그대로 뒀습니다. 그 집 부억의 시계는 아직 할머니가 맞춰 둔 시간에 서 있습니다.", en: "For the first time you lift the lids of the soy jars in the yard yourself. During the funeral you wash and return the soup bowls neighbours brought, and leave a pair of rubber shoes on the kitchen step. The clock in her kitchen still shows the time she set." }
+        { ko: "할머니가 떠난 뒤 마당의 장독 뚜껑을 처음으로 직접 엽니다. 상을 치르는 동안 이웃이 가져온 국그릇을 씻어 돌려주고, 부엌 문턱에 놓인 고무신 한 켤레는 그대로 뒀습니다. 그 집 부엌의 시계는 아직 할머니가 맞춰 둔 시간에 서 있습니다.", en: "For the first time you lift the lids of the soy jars in the yard yourself. During the funeral you wash and return the soup bowls neighbours brought, and leave a pair of rubber shoes on the kitchen step. The clock in her kitchen still shows the time she set." }
       ],
       fam_gpa: [
-        { ko: "할아버지의 방에서 라디오를 켜 봅니다. 안경집과 손때 묻은 성냥갑, 서랍의 동전 봉지를 한 곳에 모으고, 장례 뒤에 그 방문을 닫아 뒀습니다. 복도 끝에서 아직 담배 냉새가 납니다.", en: "You switch on the radio in your grandfather's room. The glasses case, a matchbox worn smooth, and the pouch of coins from the drawer go into one place; after the funeral you close the door. Tobacco still hangs at the end of the corridor." }
+        { ko: "할아버지의 방에서 라디오를 켜 봅니다. 안경집과 손때 묻은 성냥갑, 서랍의 동전 봉지를 한 곳에 모으고, 장례 뒤에 그 방문을 닫아 뒀습니다. 복도 끝에서 아직 담배 냄새가 납니다.", en: "You switch on the radio in your grandfather's room. The glasses case, a matchbox worn smooth, and the pouch of coins from the drawer go into one place; after the funeral you close the door. Tobacco still hangs at the end of the corridor." }
       ]
     };
     evs = evs.map(e => {
@@ -1552,7 +1574,7 @@
     const dec = decisionFor(life);
     if (dec) { life.pendingDecision = dec; return { events: evs, pre, decision: dec }; }
 
-    const refl = [5, 30, 50, 70].includes(life.age);
+    const refl = [5, 15, 30, 50, 70].includes(life.age);
     if (refl) { life.pendingReflection = true; return { events: evs, pre, reflection: life.age }; }
 
     const dead = life.age >= 105 ? true : R() < hazard(life);

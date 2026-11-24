@@ -77,6 +77,8 @@
     pace: U.store.get('oifm2_pace') || 'normal',
     speed: 1, playing: false, auto: false, ff: false,
     autoHide: U.store.get('oifm2_autohide') === '1',
+    gentle: U.store.get('oifm2_gentle') === '1',
+    skipRefl: U.store.get('oifm2_skip_refl') === '1',
     screen: 'cover', life: null, modal: null, peek: false,
     yearT: 0, hold: 0, queue: [], qi: 0, lastTs: 0, raf: null, pendingDeath: null,
     deathStep: 0, recDecade: null, shareKind: 'record'
@@ -560,7 +562,7 @@
         <button id="moreBtn" class="ff morebtn" aria-label="${L('더 보기', 'More')}">⋯</button>
         <div id="moreMenu" class="more">
           <div class="mg"><button id="goFamily">${L('가족과 삶 보기', 'Family')}</button><button id="goStats">${L('상태 살펴보기', 'Your state')}</button></div>
-          <div class="mg"><button id="autoHideBtn">${L('결정 창 숨기기', 'Hide decision cards')}</button></div>
+          <div class="mg"><button id="autoHideBtn">${L('결정 창 숨기기', 'Hide decision cards')}</button><button id="gentleBtn">${L('무서운 장면 빼기', 'Soften heavy scenes')}</button></div>
           <div class="mg"><button id="quitBtn">${L('나가기 (저장)', 'Leave (saved)')}</button><button id="themeBtn2">${L('화면 밝기', 'Light or dark')}</button></div>
         </div>
       </div>
@@ -638,9 +640,9 @@
     };
     el.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
       const prev = yearMs();
-      const p = Math.min(1, APP.yearT / (prev / 1000));
+      const p = Math.min(1, APP.yearT / Math.max(1, prev));
       APP.speed = +b.dataset.s;
-      APP.yearT = p * (yearMs() / 1000);
+      APP.yearT = p * yearMs();
       refreshControls(); paintTop(); paint();
     });
     $('#ffBtn').onclick = () => { APP.ff = !APP.ff; APP.playing = true; refreshControls(); paint(); if (APP.ff) U.toast(L('다음 결정까지 빠르게 넘깁니다', 'Skipping ahead to the next decision')); };
@@ -651,6 +653,8 @@
     $('#themeBtn2').onclick = toggleTheme;
     $('#autoHideBtn').onclick = () => setAutoHide(!APP.autoHide);
     paintAutoHide();
+    const gb = $('#gentleBtn'); if (gb) gb.onclick = () => setGentle(!APP.gentle);
+    paintGentle();
     $('#goFamily').onclick = () => { const p = $('#p-fam'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
     $('#goStats').onclick = () => { const p = $('#p-stats'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
     const fm2 = $('#famMore'); if (fm2) fm2.onclick = openFamilySheet;
@@ -699,10 +703,14 @@
       <dt>${L('어릴 적 꿈', 'Childhood dream')}</dt><dd>${ident(life, 'dream')}</dd>
       <dt>${L('집', 'Home')}</dt><dd>${life.age < 19 ? birthHome(life) : homeName(life.home)}${life.flags.wagePeak && !life.flags.retired ? L(' · 임금피크', ' · wage peak') : ''}${life.flags.retired ? L(' · 은퇴', ' · retired') : ''}</dd>`;
     const mrz = $('#mrz');
-    if (mrz) mrz.textContent = `I<KOR${life.name.en.replace(/ /g, '').toUpperCase()}<<${(en() ? life.region.en.replace(/\s+/g, '') : life.region.ko).toUpperCase()}<<<<<<<<<<<<<<<<<<<<<`;
+    if (mrz) {
+      const mName = String(life.name.en || 'CITIZEN').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      const mReg = String(life.region.en || life.region.id || 'KOR').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      mrz.textContent = (`I<KOR${mName}<<${mReg}` + '<'.repeat(44)).slice(0, 44);
+    }
     const cv = $('#avatar');
-    if (cv && !cv._drawn) { window.SCENE.avatar(cv, life); cv._drawn = life.age; }
-    else if (cv && cv._drawn !== life.age + life.cls) { window.SCENE.avatar(cv, life); cv._drawn = life.age + life.cls; }
+    const avKey = `${life.age}|${life.cls}|${life.job}|${!!(life.flags && life.flags.retired)}|${Math.round((life.stats && life.stats.happiness) || 50)}`;
+    if (cv && cv._drawn !== avKey) { window.SCENE.avatar(cv, life); cv._drawn = avKey; }
   }
 
   function renderPanels() {
@@ -773,8 +781,9 @@
         const ms = p.milestones.filter(m => m.age <= life.age);
         const last = ms[ms.length - 1];
         const one = last ? String(U.L(last)).split('. ')[0] : '';
-        return `<li title="${U.esc(one)}"><b>${en() && p.nameEn ? p.nameEn : p.name}</b><span class="pa">${p.alive === false ? '†' : AGE(life.age)}</span>
-          <span class="pd">${en() && p.regEn ? p.regEn : p.reg} · ${p.sex === 'f' ? L('여', 'F') : L('남', 'M')}</span></li>`;
+        const deadNote = p.alive === false && last && last.death ? ` · ${causeName(last.death)}` : '';
+        return `<li class="${p.alive === false ? 'dead' : ''}" title="${U.esc(one)}"><b>${en() && p.nameEn ? p.nameEn : p.name}</b><span class="pa">${p.alive === false ? '† ' + AGE(p.milestoneAge) : AGE(life.age)}</span>
+          <span class="pd">${en() && p.regEn ? p.regEn : p.reg} · ${p.sex === 'f' ? L('여', 'F') : L('남', 'M')}${U.esc(deadNote)}</span>${one ? `<span class="pm">${U.esc(one)}</span>` : ''}</li>`;
       }).join('');
     }
     // 지도
@@ -1051,9 +1060,16 @@
     if (!e.target.closest || !e.target.closest('#glpop')) closeGloss();
   });
 
+  const CRISIS_RE = /자살|학대|가정폭력|구타|성폭|음주운전|중독/;
+  function crisisBox(text) {
+    if (!CRISIS_RE.test(String(text || ''))) return '';
+    return `<span class="crisis-note">${L('도움이 필요할 때: 자살예방상담 109 · 정신건강상담 1577-0199 · 여성긴급전화 1366 · 청소년상담 1388', 'Need support? Call 109 (suicide prevention), 1366 (women), 1388 (youth), or findahelpline.com')}</span>`;
+  }
   function feedItemInner(f) {
-    if (f.title && f.body) return `<span class="tt">${U.esc(f.title)}</span><span class="bd">${glossify(f.body)}</span>`;
-    return glossify(f.body || f.text || '');
+    const raw = (f.title || '') + ' ' + (f.body || f.text || '');
+    const cbox = crisisBox(raw);
+    if (f.title && f.body) return `<span class="tt">${U.esc(f.title)}</span><span class="bd">${glossify(f.body)}</span>${cbox}`;
+    return glossify(f.body || f.text || '') + cbox;
   }
   function feedRows(list) {
     const recent = [];
@@ -1153,7 +1169,7 @@
   function endYear() {
     const life = APP.life;
     APP.yearT = 0;
-    const res = E.tick(life);
+    const res = E.tick(life, { gentle: APP.gentle });
     APP.queue = []; APP.qi = 0;
     const evs = (res.events || []).slice();
     evs.forEach((ev, i) => {
@@ -1165,13 +1181,14 @@
       APP.queue.push({ at: 0.35, ev: { ko: U.L(C.quiet[(life.seed + life.age * 7) % C.quiet.length]) }, kind: 'note' });
     }
     paintTop(); renderPanels(); renderFocus();
-    if (res.death) { APP.pendingDeath = res.death; die(); return; }
+    if (res.death) { APP.ff = false; APP.pendingDeath = res.death; die(); return; }
     if (res.decision) {
       // 결정 창 숨기기를 켜 두면 창 없이 알아서 고르고, 고른 일은 인생 기록에 남긴다
       if (APP.autoHide) { commitChoice(res.decision, autoPick(res.decision)); paint(); return; }
-      APP.playing = false; refreshControls(); showDecision(res.decision); return;
+      APP.ff = false; APP.playing = false; refreshControls(); showDecision(res.decision); return;
     }
-    if (res.reflection) { APP.playing = false; refreshControls(); showReflection(res.reflection); return; }
+    if (res.reflection && !APP.skipRefl) { APP.ff = false; APP.playing = false; refreshControls(); showReflection(res.reflection); return; }
+    if (res.reflection && APP.skipRefl) { life.pendingReflection = false; }
     if (life.history.length % 5 === 0) save();
     paint();
   }
@@ -1250,9 +1267,21 @@
     paintAutoHide();
     U.toast(APP.autoHide ? L('이제 결정 창 없이 알아서 고르고, 고른 일은 기록에 남겨요', 'From now on decisions are made without a card, and each one still goes into the record') : L('결정이 오면 창을 띄웁니다', 'A card will appear whenever a decision comes'));
   }
+  function paintGentle() {
+    const b = $('#gentleBtn');
+    if (b) b.textContent = APP.gentle ? L('무서운 장면 빼기 · 켜짐', 'Soften heavy scenes · On') : L('무서운 장면 빼기', 'Soften heavy scenes');
+  }
+  function setGentle(on) {
+    APP.gentle = !!on;
+    try { localStorage.setItem('oifm2_gentle', APP.gentle ? '1' : '0'); } catch (e) {}
+    paintGentle();
+    U.toast(APP.gentle ? L('폭력·자살 등 무거운 장면을 줄여서 진행합니다', 'Heavy and distressing scenes will be softened') : L('모든 장면을 통계대로 보여줍니다', 'Showing all scenes as generated'));
+  }
 
   function showDecision(dec) {
+    if (APP.decTimer) { clearInterval(APP.decTimer); APP.decTimer = null; }
     const life = APP.life;
+    const pickIdx = autoPick(dec);
     const src = dec.src && C.sources[dec.src] ? C.sources[dec.src] : null;
     const card = openModal(`
       <div class="decbar" id="decbar"></div>
@@ -1265,7 +1294,7 @@
       <div class="opts">${dec.ch.map((c, i) => {
         const av = E.choiceAvailable(life, c);
         return `
-        <button class="opt${av.ok ? '' : ' locked'}" data-ch="${i}" aria-pressed="${APP.auto && i === 0}" ${av.ok ? '' : 'disabled'}>
+        <button class="opt${av.ok ? '' : ' locked'}" data-ch="${i}" aria-pressed="${APP.auto && i === pickIdx}" ${av.ok ? '' : 'disabled'}>
           <i>${i + 1}</i><span class="ot">${U.L(c.t)}</span>
           <span class="oe">${deltaText(c, Array.isArray(dec.age) ? life.age : dec.age)}</span>
           ${av.ok ? (c.n && U.L(c.n) ? `<span class="on">${U.L(c.n)}</span>` : '') : `<span class="on lockednote">${U.tr(av.why || '지금은 고를 수 없습니다')}</span>`}
@@ -1274,14 +1303,19 @@
       <div class="dec-foot">
         <button class="ghost" id="autoOff">${APP.auto ? L('자동 결정 끄기', 'Turn auto-decide off') : L('자동 결정 켜기', 'Turn auto-decide on')}</button>
         <button class="ghost" id="decSkip">${L('결정 창 숨기기', 'Hide decision cards')}</button>
-      </div>`);
+      </div>`, { kind: 'decision' });
 
+    let committed = false;
     const choose = (i) => {
+      if (committed) return;
+      committed = true;
+      if (APP.decTimer) { clearInterval(APP.decTimer); APP.decTimer = null; }
       closeModal();
       commitChoice(dec, i);
     };
     card.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => { if (b.disabled) return; choose(+b.dataset.ch); });
     $('#decMin').onclick = () => {
+      if (APP.decTimer) { clearInterval(APP.decTimer); APP.decTimer = null; }
       const t = U.L(dec.t);
       closeModal();
       // 결정을 내릴 때까지 해는 거기서 멈춰 둔다(뒤 화면만 잠깐 볼 수 있게)
@@ -1295,10 +1329,13 @@
       $('#decOpen').onclick = () => { APP.peekDec = null; peek.remove(); APP.playing = false; showDecision(dec); };
       life.__dec = dec;
     };
-    $('#autoOff').onclick = () => { APP.auto = !APP.auto; refreshControls(); closeModal(); APP.playing = false; showDecision(dec); };
+    $('#autoOff').onclick = () => {
+      if (APP.decTimer) { clearInterval(APP.decTimer); APP.decTimer = null; }
+      APP.auto = !APP.auto; refreshControls(); closeModal(); APP.playing = false; showDecision(dec);
+    };
     $('#decSkip').onclick = () => {
       setAutoHide(true);
-      choose(autoPick(dec));
+      choose(pickIdx);
     };
     // 자동 결정 카운트다운: 보통 6초, 8× 이상 배속에서는 2.2초(빨리 넘길 때 기다리지 않게)
     const waitMs = APP.speed >= 8 ? 2200 : 6000;
@@ -1306,35 +1343,79 @@
     const bar = $('#decbar'), cnt = $('#decCount');
     if (APP.auto) {
       APP.decTimer = setInterval(() => {
+        if (committed) { clearInterval(APP.decTimer); APP.decTimer = null; return; }
         left -= 100;
         if (bar) bar.style.transform = `scaleX(${Math.max(0, 1 - left / waitMs).toFixed(3)})`;
         if (cnt) cnt.innerHTML = L(`${Math.ceil(left / 1000)}초 뒤 알아서 고릅니다 · <b>카드를 누르면 멈춰요</b>`, `It will choose in ${Math.ceil(left / 1000)}s · <b>tap a card to stop it</b>`);
         if (left <= 0) {
           clearInterval(APP.decTimer); APP.decTimer = null;
-          choose(autoPick(dec));
+          choose(pickIdx);
         }
       }, 100);
     }
   }
 
+  function reflStatNote(age, life) {
+    const nw = E.netWorth(life);
+    const wp = nw > 0 ? (100 - E.wealthPercentile(nw)).toFixed(1) : null;
+    if (age === 5) return L('5세 전 영유아 생존율 99.7% · 다섯 살 무렵 형성된 기질과 가정 환경은 평생의 바탕이 됩니다.', 'Under-5 survival 99.7% · temperament and home environment at age five lay the foundation for life.');
+    if (age === 15) return L('고교 진학률 99% 이상 · 같은 해 태어난 아이들이 진로와 입시의 문턱을 함께 건넙니다.', 'Over 99% advance to high school · classmates born the same year cross into the exam years together.');
+    if (age === 30) return L(`평균 초혼연령 남 33.9세 · 여 31.6세${wp ? ` · 현재 순자산 국내 상위 ${wp}%` : ''}`, `Avg first marriage age 33.9 (M) / 31.6 (F)${wp ? ` · current wealth top ${wp}%` : ''}`);
+    if (age === 50) return L(`건강과 가계 부채·노후 준비가 갈리는 시기${wp ? ` · 순자산 국내 상위 ${wp}%` : ''}`, `A turning point for health and retirement${wp ? ` · current wealth top ${wp}%` : ''}`);
+    return L(`65세 이상 인구 비중 20.7% · 기대수명 ${lifeExpectancy(life)}세`, `65+ population share 20.7% · life expectancy ${lifeExpectancy(life)} yrs`);
+  }
   function showReflection(age) {
     const life = APP.life;
+    const nm = en() ? life.name.en : life.name.ko;
+    const promptKo = age === 5
+      ? '당신의 다섯 살은 어땠나요? 그때 당연하게 누렸던 것 하나를 떠올려 보세요.'
+      : age === 15
+      ? `${nm}이(가) 꿈꿀 수 있는 미래와, 열다섯의 당신이 꿈꾸던 미래는 얼마나 달랐을까요?`
+      : age === 30
+      ? `${nm}의 삶과 당신의 삶은 무엇이 같고, 무엇이 다른가요?`
+      : age === 50
+      ? '쉰. 몸이 먼저 다른 이야기를 시작합니다. 지금 곁에 무엇이 남아 있나요?'
+      : '일흔. 지나온 날을 돌아볼 때, 끝내 지키고 싶은 것은 무엇인가요?';
+    const promptEn = age === 5
+      ? 'What was five like for you? Think of one thing you took for granted then.'
+      : age === 15
+      ? `How different is the future ${nm} can imagine from what you imagined at fifteen?`
+      : age === 30
+      ? `What is the same between ${nm}'s life and yours, and what is different?`
+      : age === 50
+      ? 'Fifty. The body starts a different conversation first. What is beside you now?'
+      : 'Seventy. Looking back across the years, what do you still hold on to?';
+    const peerItems = (life.peers || []).map(p => {
+      const ms = p.milestones.filter(m => m.age <= age);
+      const last = ms[ms.length - 1];
+      const one = last ? String(U.L(last)).split('. ')[0] : L('조용히 성장하는 중', 'Growing up quietly');
+      return `<li><b>${en() && p.nameEn ? p.nameEn : p.name}</b> (${en() && p.regEn ? p.regEn : p.reg})${p.alive === false ? ' †' : ''} — ${U.esc(one)}</li>`;
+    }).join('');
     openModal(`
-      <div class="dec-top"><span class="lbl">${L('돌아보기', 'A pause')}</span><span class="dec-meta">${L(age + '세', 'age ' + age)} · ${L(life.year + '년', life.year)}</span></div>
-      <h2>${L(`${age}살, 잠깐 멈춰 앉아`, `At ${age} a chair is pulled out`) }</h2>
-      <p class="dec-b">${L(
-          age === 5 ? '다섯 살. 놀이와 식탁과 잠자리가 이 사람의 바탕을 만듭니다. 지금 무엇이 가장 기억에 남나요?' : age === 30 ? '서른. 일과 사랑과 돈이 서로 자리를 다투는 때입니다. 무엇을 남기고 무엇을 접었나요?' : age === 50 ? '쉰. 몸이 먼저 다른 이야기를 시작합니다. 지금 곁에 무엇이 있나요?' : '일흔. 남은 시간의 무게가 달라집니다. 무엇을 붙잡고 있나요?',
-          age === 5 ? 'Five. Play, the table, the bed you sleep in: this is what a person is built from. What do you remember most?' : age === 30 ? 'Thirty. Work, love and money are all fighting for the same room. What did you keep, and what did you put down?' : age === 50 ? 'Fifty. The body starts a different conversation first. What is beside you now?' : 'Seventy. The time that is left weighs differently. What are you still holding on to?')}</p>
+      <div class="dec-top"><span class="lbl">${L('잠시 멈춤', 'A pause')}</span><span class="dec-meta">${L(age + '세', 'age ' + age)} · ${L(life.year + '년', life.year)}</span></div>
+      <h2>${L(`${age}살, 잠깐 멈춰 앉아`, `At ${age} a chair is pulled out`)}</h2>
+      <p class="dec-b">${L(promptKo, promptEn)}</p>
+      <div class="refl-brief">
+        <span class="rb-stat">${reflStatNote(age, life)}</span>
+        <span class="lbl">${L('같은 1초에 태어난 동기들은 지금', 'Born the same second, right now')}</span>
+        <ul>${peerItems}</ul>
+      </div>
       <div class="reflect">
         <textarea id="reflText" placeholder="${L('한 줄이면 충분해요.', 'One line is enough.')}"></textarea>
         <div class="qs"><button data-q="${L('지금 가장 고마운 사람은?', 'Who are you most grateful to right now?')}">${L('지금 가장 고마운 사람은?', 'Who are you most grateful to?')}</button>
           <button data-q="${L('이 나이에 가장 잘한 선택은?', 'What is the best choice you made at this age?')}">${L('가장 잘한 선택은?', 'The best choice you made?')}</button>
           <button data-q="${L('지키고 싶은 것은?', 'What do you want to keep?')}">${L('지키고 싶은 것은?', 'What do you want to keep?')}</button></div>
+        <label class="refl-opt"><input type="checkbox" id="reflMute"/> ${L('다음부터 이 성찰 창 띄우지 않기', 'Do not show reflection pauses again')}</label>
       </div>
-      <div class="dec-foot"><button class="ghost" id="reflSkip">${L('그냥 지나가기', 'Let it pass')}</button><button class="cta sm" id="reflSave">${L('남기고 계속 살기', 'Leave it and live on')}</button></div>`, { kind: 'reflect' });
+      <div class="dec-foot"><button class="ghost" id="reflSkip">${L('마음속에 담고 계속 살기', 'Keep it to yourself and live on')}</button><button class="cta sm" id="reflSave">${L('적어 두고 계속 살기', 'Write it down and live on')}</button></div>`, { kind: 'reflect' });
     $('#reflText').focus();
     document.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { $('#reflText').value = b.dataset.q; $('#reflText').focus(); });
     const done = (txt) => {
+      const mute = $('#reflMute');
+      if (mute && mute.checked) {
+        APP.skipRefl = true;
+        try { localStorage.setItem('oifm2_skip_refl', '1'); } catch (e) {}
+      }
       if (txt) { life.reflections.push({ age, text: txt }); pushFeed(age, { ko: L(`남긴 말: “${txt}”`, `You wrote: “${txt}”`) }, 'note'); }
       closeModal(); life.pendingReflection = false; APP.playing = true; APP.hold = 600; refreshControls(); save();
     };
@@ -1453,6 +1534,25 @@
         <section class="rec-sec">
           <h3>${L('기억에 남는 순간', 'Moments kept')} <span class="lbl">${L(`${(life.history || []).length}해 중에서`, `from ${(life.history || []).length} years`)}</span></h3>
           <ul class="moments">${moments(life).map(m => `<li><span class="a">${AGE(m.age)}</span><span>${m.text}</span></li>`).join('')}</ul>
+        </section>
+
+        <section class="rec-sec">
+          <h3>${L('같은 1초에 태어난 네 사람', 'Four lives born the same second')} <span class="lbl">${L('동시 출생 동기 비교', 'cohort comparison')}</span></h3>
+          <ul class="rec-peers">${(life.peers || []).map(p => {
+            const deathM = p.milestones.find(m => m.death);
+            const lastM = p.milestones[p.milestones.length - 1];
+            const fate = deathM
+              ? L(`${deathM.age}세 · ${causeName(deathM.death)}`, `aged ${deathM.age} · ${causeName(deathM.death)}`)
+              : L(`${life.age}세까지 생존`, `living at ${life.age}`);
+            const jobStr = p.finalJob ? (en() ? p.finalJob.en : p.finalJob.ko) : '';
+            const ep = p.epitaph ? U.L(p.epitaph) : '';
+            return `<li>
+              <div class="rp-h"><b>${en() && p.nameEn ? p.nameEn : p.name}</b><span>${fate}</span></div>
+              <div>${en() && p.regEn ? p.regEn : p.reg}${jobStr ? ' · ' + U.esc(jobStr) : ''}</div>
+              ${lastM ? `<div style="margin-top:4px;color:var(--ink2)">${U.esc(U.L(lastM))}</div>` : ''}
+              ${ep ? `<div class="rp-ep">“${U.esc(ep)}”</div>` : ''}
+            </li>`;
+          }).join('')}</ul>
         </section>
 
         <section class="rec-sec">
