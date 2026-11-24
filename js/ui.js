@@ -11,7 +11,18 @@
   const en = () => U.lang() === 'en';
   const L = (ko, e) => (U.lang() === 'en' ? e : ko);
   // 숫자 뒤에 붙는 단위(세·명·년)는 언어마다 다르다
-  const AGE = (n) => en() ? `${n}` : `${n}세`;
+  // 나이는 숫자 하나로 오기도 하고(23), 결정 카드처럼 범위로 오기도 한다([12, 18]).
+  // 범위를 그대로 문자열에 붙이면 '12,18세'가 되므로 여기서 '12–18'로 만든다.
+  const ageRange = (n) => {
+    if (Array.isArray(n)) {
+      const a = Number(n[0]) || 0;
+      const b = Number(n[1] != null ? n[1] : n[0]) || a;
+      return a === b ? `${a}` : `${Math.min(a, b)}–${Math.max(a, b)}`;
+    }
+    return n == null || n === '' ? '' : `${n}`;
+  };
+  // 숫자 뒤에 붙는 단위(세·명·년)는 언어마다 다르다
+  const AGE = (n) => { const s = ageRange(n); return !s ? '' : en() ? s : `${s}세`; };
   // 영어에서는 지역명과 구 이름이 겹치면 한 번만 쓴다(Jeju Jeju City → Jeju City)
   const place = (r, d) => {
     if (!en()) return `${r.ko} ${d.ko}`;
@@ -61,7 +72,7 @@
         const s = localStorage.getItem('oifm2_lang');
         if (s === 'en' || s === 'ko') return s;
       } catch (e) {}
-      return 'ko';
+      return (window.APP_LANG_DEFAULT || (U.autoLang ? U.autoLang() : 'ko'));
     })(),
     pace: localStorage.getItem('oifm2_pace') || 'normal',
     speed: 1, playing: false, auto: false, ff: false,
@@ -1077,6 +1088,8 @@
 
   function pushFeed(age, ev, kind) {
     const life = APP.life; if (!life) return;
+    // 결정 카드는 나이를 범위로 갖고 오지만, 기록에는 그 결정을 내린 실제 나이로 남긴다
+    if (Array.isArray(age)) age = Number(life.age);
     const src = ev && ev.src && C.sources[ev.src] ? C.sources[ev.src] : null;
     const title = ev && ev.t ? U.L(ev.t) : '';
     const body = ev && ev.b ? U.L(ev.b) : '';
@@ -1244,7 +1257,7 @@
     const card = openModal(`
       <div class="decbar" id="decbar"></div>
       <div class="dec-top"><span class="lbl">${U.L(dec.badge)}</span>
-        <span class="dec-meta">${L(dec.age + '세', 'age ' + dec.age)} · ${L(life.year + '년', life.year)}</span>
+        <span class="dec-meta">${L(AGE(dec.age), `age ${AGE(dec.age)}`)} · ${L(life.year + '년', life.year)}</span>
         <button class="dec-min" id="decMin">${L('잠깐 내려 두기 ▾', 'Set it aside ▾')}</button></div>
       <h2>${U.L(dec.t)}</h2>
       <p class="dec-b">${U.L(dec.b)}</p>
@@ -1254,7 +1267,7 @@
         return `
         <button class="opt${av.ok ? '' : ' locked'}" data-ch="${i}" aria-pressed="${APP.auto && i === 0}" ${av.ok ? '' : 'disabled'}>
           <i>${i + 1}</i><span class="ot">${U.L(c.t)}</span>
-          <span class="oe">${deltaText(c, dec.age)}</span>
+          <span class="oe">${deltaText(c, Array.isArray(dec.age) ? life.age : dec.age)}</span>
           ${av.ok ? (c.n && U.L(c.n) ? `<span class="on">${U.L(c.n)}</span>` : '') : `<span class="on lockednote">${U.tr(av.why || '지금은 고를 수 없습니다')}</span>`}
         </button>`; }).join('')}</div>
       <p class="dec-count" id="decCount">${APP.auto ? L('잠시 후 알아서 고릅니다 · 카드를 누르면 멈춰요', 'It will choose in a moment · tap a card to stop it') : L('고르면 이 해가 이어집니다', 'Choose, and the year goes on')}</p>
@@ -1275,7 +1288,7 @@
       APP.playing = false; APP.hold = 0; refreshControls();
       const peek = document.createElement('div');
       peek.className = 'decpeek'; peek.id = 'decpeek';
-      peek.innerHTML = `<span class="dp-t"><b>${t}</b><small>${L(`${dec.age}세 · ${life.year}년 · 결정을 기다립니다`, `age ${dec.age} · ${life.year} · waiting on a decision`)}</small></span>
+      peek.innerHTML = `<span class="dp-t"><b>${t}</b><small>${L(`${AGE(dec.age)} · ${life.year}년 · 결정을 기다립니다`, `age ${AGE(dec.age)} · ${life.year} · waiting on a decision`)}</small></span>
         <button class="cta" id="decOpen">${L('결정하기', 'Decide')}</button>`;
       document.body.appendChild(peek);
       APP.peekDec = dec;
@@ -1457,7 +1470,8 @@
         </section>
 
         <div class="rec-foot">
-          <button class="cta" id="againBtn">${L('다시 태어나기', 'Be born again')}</button>
+          <button class="cta" id="copyResult">${L('결과 복사', 'Copy result')}</button>
+          <button class="ghost" id="againBtn">${L('다시 태어나기', 'Be born again')}</button>
           <button class="ghost" id="shareBtn">${L('이번 생 공유하기', 'Share this life')}</button>
           <button class="ghost" id="coverBtn">${L('처음 화면으로', 'Back to the cover')}</button>
         </div>
@@ -1482,16 +1496,18 @@
     }
     // 10년 단위
     const dec = $('#decades');
-    const ages = [...new Set((life.feed || []).map(f => Math.floor(f.age / 10) * 10))].sort((a, b) => a - b);
+    const ageNum = (v) => Array.isArray(v) ? (Number(v[0]) || 0) : (Number(v) || 0);
+    const ages = [...new Set((life.feed || []).map(f => Math.floor(ageNum(f.age) / 10) * 10))].sort((a, b) => a - b);
     const drawFeed = (from) => {
       const ul = $('#recFeed'); if (!ul) return;
-      ul.innerHTML = feedRows((life.feed || []).filter(f => f.age >= from && f.age < from + 10));
+      ul.innerHTML = feedRows((life.feed || []).filter(f => { const a = ageNum(f.age); return a >= from && a < from + 10; }));
       dec.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.from === from));
     };
     dec.innerHTML = ages.map(a => `<button data-from="${a}" aria-pressed="${a === ages[0]}">${decadeLabel(a)}</button>`).join('');
     dec.querySelectorAll('button').forEach(b => b.onclick = () => drawFeed(+b.dataset.from));
     if (ages.length) drawFeed(ages[0]);
 
+    $('#copyResult').onclick = () => copyResult(life);
     $('#againBtn').onclick = () => { APP.life = null; localStorage.removeItem('oifm2_life'); renderCover(); go('cover'); $('#startBtn').click(); };
     $('#coverBtn').onclick = () => { APP.life = null; localStorage.removeItem('oifm2_life'); renderCover(); go('cover'); };
     $('#shareBtn').onclick = () => openShare('record');
@@ -1556,6 +1572,58 @@
   }
 
   /* ---------- 공유 ---------- */
+  /* 결과 한 덩이: 워돌처럼 세 줄이면 끝난다. 사는 사람이 붙여넣을 곳에 그대로 들어간다. */
+  const playUrl = () => window.OIFM_PLAY_URL || 'reddit.com/r/oneinfiftymillion';
+
+  function resultText(life) {
+    const d = life.death || {};
+    const where = place(life.region, life.district);
+    const work = (life.lastJob && life.lastJob !== 'none') ? jobName(life.lastJob)
+      : (life.job && life.job !== 'none') ? jobName(life.job)
+      : (life.role && life.role !== 'none') ? roleName(life.role) : '';
+    const family = [];
+    if (life.married) family.push(L('결혼', 'married'));
+    else if (life.flags && life.flags.widowed) family.push(L('사별', 'widowed'));
+    const kids = Number(life.kids) || 0;
+    if (kids > 0) family.push(L(`자녀 ${kids}명`, kids === 1 ? '1 child' : `${kids} children`));
+    const cause = causeName(d.cause || '노환');
+    const mid = [work, family.join(', ')].filter(Boolean).join(' · ');
+    const tag = life.dailyDate || `${life.birthYear}–${life.year}`;
+    const head = en() ? `One in Fifty Million · ${tag}` : `5천만 분의 1 · ${tag}`;
+    const line = en()
+      ? `🇰🇷 Born in ${where} (${life.birthYear})${mid ? ' → ' + mid : ''} → died at ${d.age} (${String(cause).toLowerCase()})`
+      : `🇰🇷 ${where}에서 태어남 (${life.birthYear})${mid ? ' → ' + mid : ''} → ${d.age}세에 세상을 떠남 (${cause})`;
+    return `${head}\n${line}\n${playUrl()}`;
+  }
+
+  function legacyCopy(text) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0';
+      document.body.appendChild(ta);
+      ta.select(); ta.setSelectionRange(0, ta.value.length);
+      const ok = document.execCommand && document.execCommand('copy');
+      ta.remove();
+      return !!ok;
+    } catch (e) { return false; }
+  }
+
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(() => true).catch(() => legacyCopy(text));
+    }
+    return Promise.resolve(legacyCopy(text));
+  }
+
+  function copyResult(life) {
+    return copyToClipboard(resultText(life)).then(ok => {
+      U.toast(ok ? L('결과를 복사했습니다. 붙여넣을 곳에 그대로 붙습니다.', 'Result copied. Paste it anywhere.')
+                  : L('복사가 막혀 있어요', 'Copying is blocked here'));
+      return ok;
+    });
+  }
+
   function openShare(kind, fromCert) {
     const life = APP.life;
     const kinds = [['record', '인생 기록', 'Life record'], ['birth', '출생', 'Birth'], ['color', '이 삶의 결', 'Shape'], ['map', '인생 지도', 'Life map'], ['curve', '생존 곡선', 'Survival'], ['death', '마지막 순간', 'The end']];
@@ -1600,7 +1668,8 @@
     };
     $('#copyText').onclick = async () => {
       const txt = shareText(life, APP.shareKind);
-      try { await navigator.clipboard.writeText(txt); U.toast(L('글을 복사했습니다', 'Text copied')); } catch (e) { U.toast(L('복사가 막혀 있어요', 'Copying is blocked here')); }
+      const ok = await copyToClipboard(txt);
+      U.toast(ok ? L('글을 복사했습니다', 'Text copied') : L('복사가 막혀 있어요', 'Copying is blocked here'));
     };
     draw();
   }
@@ -1608,6 +1677,7 @@
   function shareText(life, kind) {
     const type = E.lifeType(life);
     const d = life.death;
+    if (kind === 'record') return resultText(life);
     if (en()) {
       const head = `${life.name.en} · ${U.L(life.region)} · ${life.birthYear}–${life.year}`;
       if (kind === 'birth') return `Born in ${U.L(life.district)}, ${U.L(life.region)}, ${life.birthYear}. One of the 254,341 children born in Korea that year. One in Fifty Million.`;

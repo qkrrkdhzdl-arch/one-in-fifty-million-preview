@@ -6,6 +6,20 @@
   U.el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
   U.esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+  /* 처음 온 사람에게 어느 언어로 열지: 한국어 브라우저면 한국어, 그 밖에는 영어.
+     주소에 붙은 ?lang=과 앞서 고른 언어가 언제나 이보다 먼저다. */
+  U.autoLang = () => {
+    try {
+      const list = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language || ""];
+      for (let i = 0; i < list.length; i++) {
+        const s = String(list[i] || "").toLowerCase();
+        if (!s) continue;
+        return s.indexOf("ko") === 0 ? "ko" : "en";
+      }
+    } catch (e) { /* 언어를 알 수 없으면 영어로 둔다 */ }
+    return "en";
+  };
+
   U.lang = () => {
     const a = window.APP && window.APP.lang;
     if (a === "en" || a === "ko") return a;
@@ -15,7 +29,7 @@
       const s = localStorage.getItem("oifm2_lang");
       if (s === "en" || s === "ko") return s;
     } catch (e) { /* file:// or blocked storage */ }
-    return "ko";
+    return U.autoLang();
   };
   U.T = (k, vars) => {
     const d = (window.I18N && window.I18N[U.lang()]) || (window.I18N && window.I18N.ko) || {};
