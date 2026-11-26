@@ -589,6 +589,7 @@
           <button type="button" class="ghost wide expbtn" id="expToggle" aria-expanded="false">${L('연소득·연지출 내역', 'Income and spending')}</button>
           <div class="expdetail" id="expDetail" hidden></div>
           <button type="button" class="ghost wide" id="selfCareBtn">${L('내 건강 관리', 'Look after my health')}</button>
+          <button type="button" class="ghost wide" id="lifeActBtn">${L('활동·계발·재무', 'Actions & growth')}</button>
         </div>
         <div class="panel p-fam" id="p-fam">
           <h3><span class="ttl">${L('가족과 삶', 'Family and life')}</span><span class="lbl" id="famLbl"></span></h3>
@@ -659,6 +660,7 @@
     $('#goStats').onclick = () => { const p = $('#p-stats'); if (p) p.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
     const fm2 = $('#famMore'); if (fm2) fm2.onclick = openFamilySheet;
     const scb = $('#selfCareBtn'); if (scb) scb.onclick = openSelfCare;
+    const lab = $('#lifeActBtn'); if (lab) lab.onclick = openLifeActions;
     const et = $('#expToggle');
     if (et) et.onclick = () => {
       const box = $('#expDetail'); if (!box) return;
@@ -823,7 +825,8 @@
       const v = it[k] || 0; if (!v) return '';
       return `<li><span class="el">${expName(k)}</span><span class="eb"><i style="width:${Math.round(v / totalE * 100)}%"></i></span><span class="ev">${U.money(v)}</span></li>`;
     }).join('');
-    const incRows = [[L('근로소득', 'Earned income'), inc.labor], [L('연금', 'Pension'), inc.pension], [L('이자·배당', 'Interest and dividends'), inc.asset], [L('기타', 'Other'), inc.other]]
+    const hasSpInc = life.married && life.family && life.family.spouse && life.family.spouse.alive && life.family.spouse.age < 65;
+    const incRows = [[L('근로소득', 'Earned income'), inc.labor], [L('연금', 'Pension'), inc.pension], [L('이자·배당', 'Interest and dividends'), inc.asset], [hasSpInc ? L('배우자 소득 보탬', 'Spouse contribution') : L('기타', 'Other'), inc.other]]
       .filter(x => x[1]).map(([n, v]) => `<li><span class="el">${n}</span><span class="eb"></span><span class="ev">${U.money(v)}</span></li>`).join('');
     const sm = life.spendMode || {};
     const SM_LABEL = { food: '식비', living: '생활·공과금', leisure: '여가·문화', health: '의료·건강' };
@@ -928,6 +931,51 @@
       if (r.ok) { renderPanels(); save(); }
       if (after) after();
     });
+  }
+
+  function openLifeActions() {
+    const life = APP.life; if (!life) return;
+    APP.playing = false; refreshControls();
+    const used = life.careUsed || {};
+    const hints = {
+      upskill: L('역량·지식↑, 소득↑ (스트레스 약간↑)', 'Skill & knowledge up, pay up'),
+      negotiate: L('역량·평판에 따라 연봉 인상 시도', 'Try raising pay based on skill & reputation'),
+      travel: L('행복↑, 스트레스 크게↓', 'Happiness up, stress down'),
+      hobby: L('행복·관계↑, 스트레스↓', 'Happiness & bonds up'),
+      repay: L(`남은 부채 ${U.money(life.debt || 0)} 중 최대 300만 원 상환`, `Pay down up to ₩3M of ${U.money(life.debt || 0)} debt`)
+    };
+    const rows = Object.keys(E.LIFE_ACTIONS).map(k => {
+      const d = E.LIFE_ACTIONS[k];
+      const done = used["act_" + k] === life.age;
+      const disabled = done || life.age < 19 || (d.needEmp && (!life.flags.employed || life.flags.retired)) || (d.needDebt && (life.debt || 0) <= 0);
+      const costTxt = k === "repay" ? U.money(Math.min(300, life.debt || 0)) : (d.cost ? U.money(d.cost) : L('비용 없음', 'Free'));
+      return `<button type="button" class="careb" data-act="${k}" ${disabled ? 'disabled' : ''}>
+        <span class="cb-t">${en() ? d.labelEn : d.label}</span>
+        <span class="cb-c">${done ? L('올해 완료', 'Done this year') : costTxt}</span>
+        <span class="cb-n">${hints[k]}</span></button>`;
+    }).join('');
+    openModal(`
+      <div class="dec-top"><span class="lbl">${L('캐릭터 운용', 'Direct actions')}</span><span class="dec-meta">${L(life.age + '세', 'age ' + life.age)} · ${L(life.year + '년', life.year)}</span></div>
+      <h2>${L('올해 직접 해 볼 일', 'What will you do this year?')}</h2>
+      <p class="dec-b">${L('결정 카드가 오지 않는 해에도 돈과 시간을 써서 커리어, 기분, 부채를 직접 관리할 수 있습니다. 각 항목은 한 해에 한 번씩 선택할 수 있습니다.',
+                            'Even between major decision cards, you can spend money and energy to steer your career, mood, or debt once per year.')}</p>
+      <div class="caregrid">${rows}</div>
+      <p class="hint">${L(`쓸 수 있는 돈 ${U.money((life.cash || 0) + (life.assets || 0))} · 부채 ${U.money(life.debt || 0)} · 역량 ${Math.round(life.stats.spec || 0)}`,
+                            `Available ${U.money((life.cash || 0) + (life.assets || 0))} · debt ${U.money(life.debt || 0)} · skill ${Math.round(life.stats.spec || 0)}`)}</p>
+      <div class="dec-foot"><button class="cta sm" id="actClose">${L('닫고 이어 살기', 'Close and live on')}</button></div>`, { kind: 'actions' });
+    document.querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
+      const r = E.lifeAction(life, b.dataset.act);
+      if (r.ok) {
+        const msg = r.msg ? (en() ? r.msgEn : r.msg) : `${U.tr(r.label)} · ${U.money(r.cost)}`;
+        U.toast(msg);
+        pushFeed(life.age, { ko: L(`직접 선택한 행동: ${msg}`, `Action taken: ${msg}`) }, 'dec');
+        renderPanels(); paintTop(); save();
+      } else {
+        U.toast(U.tr(r.why || '지금은 할 수 없습니다'));
+      }
+      openLifeActions();
+    });
+    $('#actClose').onclick = () => { closeModal(); APP.playing = true; refreshControls(); };
   }
 
   function openSelfCare() {

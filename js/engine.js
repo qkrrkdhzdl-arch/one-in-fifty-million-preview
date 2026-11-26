@@ -397,12 +397,14 @@
     const fam = sp && sp.fam ? (en ? (sp.famEn || sp.fam) : sp.fam) : (en ? "their family" : "그 집안");
     const h = homeRef(life);
     const homeName = h ? (en ? h.en : h.ko) : (en ? "home" : "집");
+    const dreamName = life.dream ? (en ? (life.dream.en || life.dream.ko) : life.dream.ko) : (en ? "that dream" : "그 꿈");
     return text
       .split("{spouse}").join(en ? spEn : spKo)
       .split("{inlaw}").join(en ? inlawEn : inlawKo)
       .split("{spjob}").join(job)
       .split("{spfam}").join(fam)
-      .split("{home}").join(homeName);
+      .split("{home}").join(homeName)
+      .split("{dream}").join(dreamName);
   }
   function filledEvent(e, life) {
     const hasTpl = e.tpl || (e.b && (String(e.b.ko || "").indexOf("{") >= 0 || String(e.b.en || "").indexOf("{") >= 0));
@@ -412,19 +414,70 @@
     out.b = { ko: tplFill(e.b && e.b.ko, life, false), en: tplFill(e.b && e.b.en, life, true) };
     return out;
   }
+  const DREAM_ROLES = {
+    teacher: ["edu"], doctor: ["med"], nurse: ["med"], scientist: ["research", "dev"],
+    boss: ["self"], writer: ["free", "mkt"], judge: ["public"], soldier: ["public"],
+    cook: ["self"], singer: ["free"], athlete: ["free", "edu"], pilot: ["trade", "dev"]
+  };
+  const TALENT_MAJORS = {
+    number: ["eng", "biz", "sci"], word: ["hum", "edu"], hand: ["eng", "art", "med"],
+    talk: ["biz", "hum", "edu"], draw: ["art"], song: ["art"], body: ["art", "edu"], memory: ["med", "sci", "edu"]
+  };
+  const TALENT_ROLES = {
+    number: ["dev", "finance", "research"], word: ["mkt", "edu", "free"], hand: ["trade", "med", "free"],
+    talk: ["sales", "mkt", "public"], draw: ["free", "mkt"], song: ["free"], body: ["trade", "edu"], memory: ["med", "research", "public"]
+  };
+  const MAJOR_EXTRA_ROLE = {
+    med: { id: "med", tag: "career", t: { ko: "의료·돌봄", en: "Health Care" }, n: { ko: "의약·보건 전공을 살려 병원·약국·보건 현장에 들어갑니다.", en: "You enter hospitals, clinics, or health care matching your medical studies." }, st: { health: -1, happiness: 1, reputation: 4, spec: 6, stress: 5 }, money: 0, inc: 0, set: { role: "med", employed: true } },
+    edu: { id: "edu", tag: "career", t: { ko: "교사·교육", en: "Teaching & Education" }, n: { ko: "사범·교육 전공을 살려 학교와 교육 현장을 택합니다.", en: "You step into schools and teaching matching your education degree." }, st: { health: 0, happiness: 2, relation: 2, reputation: 3, spec: 4, stress: 2 }, money: 0, inc: 0, set: { role: "edu", employed: true } },
+    art: { id: "free", tag: "career", t: { ko: "프리랜서·예술", en: "Freelance & Arts" }, n: { ko: "예체능 전공을 살려 작업실·디자인·공연 일을 시작합니다.", en: "You start studio, design, or creative work matching your arts background." }, st: { health: 0, happiness: 3, spec: 4, stress: 3 }, money: 0, inc: 0, set: { role: "free", employed: true } }
+  };
+
   function filledDecision(d, life) {
     if (!d) return d;
     const out = Object.assign({}, d);
     if (d.t) out.t = { ko: tplFill(d.t.ko, life, false), en: tplFill(d.t.en, life, true) };
     if (d.b) out.b = { ko: tplFill(d.b.ko, life, false), en: tplFill(d.b.en, life, true) };
-    if (Array.isArray(d.ch)) {
-      out.ch = d.ch.map(c => {
-        const nc = Object.assign({}, c);
-        if (c.t) nc.t = { ko: tplFill(c.t.ko, life, false), en: tplFill(c.t.en, life, true) };
-        if (c.n) nc.n = { ko: tplFill(c.n.ko, life, false), en: tplFill(c.n.en, life, true) };
-        return nc;
-      });
+    let baseCh = Array.isArray(d.ch) ? d.ch.slice() : [];
+    if (d.id === "d_24_role" && MAJOR_EXTRA_ROLE[life.major]) {
+      const extra = MAJOR_EXTRA_ROLE[life.major];
+      if (!baseCh.some(c => c.set && c.set.role === extra.set.role)) {
+        baseCh.unshift(extra);
+      }
     }
+    const talId = life.talent && life.talent.id;
+    const drmId = life.dream && life.dream.id;
+    out.ch = baseCh.map(c => {
+      const nc = Object.assign({}, c);
+      if (c.t) nc.t = { ko: tplFill(c.t.ko, life, false), en: tplFill(c.t.en, life, true) };
+      if (c.n) nc.n = { ko: tplFill(c.n.ko, life, false), en: tplFill(c.n.en, life, true) };
+      if (d.id === "d_19_major" && c.set && c.set.major) {
+        const fitTal = (TALENT_MAJORS[talId] || []).includes(c.set.major);
+        if (fitTal) {
+          const tName = life.talent ? life.talent.ko : "";
+          const tNameEn = life.talent ? life.talent.en : "";
+          nc.n = {
+            ko: (nc.n && nc.n.ko ? nc.n.ko + " " : "") + `(타고난 소질 ‘${tName}’과 잘 맞습니다)`,
+            en: (nc.n && nc.n.en ? nc.n.en + " " : "") + `(Fits your knack for ${tNameEn})`
+          };
+        }
+      }
+      if (d.id === "d_24_role" && c.set && c.set.role) {
+        const r = c.set.role;
+        const fitMaj = life.major && (MAJORS[life.major] && (MAJORS[life.major].bias || []).includes(r));
+        const fitDrm = (DREAM_ROLES[drmId] || []).includes(r);
+        const notesKo = [], notesEn = [];
+        if (fitMaj) { notesKo.push("전공과 연결됨"); notesEn.push("matches your major"); }
+        if (fitDrm) { notesKo.push(`어릴 적 꿈 ‘${life.dream.ko}’과 맞닿음`); notesEn.push(`aligns with childhood dream (${life.dream.en})`); }
+        if (notesKo.length) {
+          nc.n = {
+            ko: (nc.n && nc.n.ko ? nc.n.ko + " " : "") + `(${notesKo.join(" · ")})`,
+            en: (nc.n && nc.n.en ? nc.n.en + " " : "") + `(${notesEn.join(" · ")})`
+          };
+        }
+      }
+      return nc;
+    });
     return out;
   }
 
@@ -476,7 +529,11 @@
       job: c.job, jobEn: c.jobEn, fam: c.fam, famEn: c.famEn,
       trait: c.trait, traitEn: c.traitEn, route: c.route, routeEn: c.routeEn,
       tags: c.tags, intro: c.intro, first: c.first, fit: c.fit, met: c.met,
-      income: Math.round((life.income || 2800) * (0.55 + R() * 0.6))
+      income: (function () {
+        const tg = c.tags || [];
+        const mult = tg.includes("medical") ? 2.05 : tg.includes("rich") ? 1.55 : (tg.includes("corp") || tg.includes("research")) ? 1.2 : (tg.includes("public") || tg.includes("teacher") || tg.includes("nurse")) ? 1.05 : (tg.includes("free") || tg.includes("arts") || tg.includes("poor")) ? 0.68 : 0.95;
+        return Math.round(Math.max(2400, life.income || 3000) * mult * (0.85 + R() * 0.3));
+      })()
     };
     life.flags.dating = true;
     life.flags.partnerTags = (c.tags || []).slice();
@@ -687,7 +744,10 @@
     }
     const rate = { safe: 0.021, stock: 0.045, coin: 0.02, none: 0.015 }[life.alloc] || 0.02;
     items.asset = Math.round((life.cash * 0.016 + life.assets * rate) * 1);
-    if (life.home === "own" && life.married === 0 && life.age > 70) items.other = 0;
+    if (life.married && life.family && life.family.spouse && life.family.spouse.alive && life.family.spouse.age < 65) {
+      const spBase = life.family.spouse.income || 2400;
+      items.other = Math.round(spBase * 0.45 * nom);
+    }
     items.total = items.labor + items.pension + items.asset + items.other;
     return items;
   }
@@ -865,10 +925,17 @@
         const p = fam.partner;
         life.flags.dating = false; life.flags.exPartner = p.name; life.flags.partnerTags = null;
         fam.partner = null;
+        const splitNo = life.flags.splitCount || 0;
+        life.flags.splitCount = splitNo + 1;
+        const splitVars = [
+          { t: { ko: "마지막 통화", en: "The Last Call" }, b: { ko: "몇 해를 만난 사람과 헤어졌습니다. 돌려받은 우산과 충전기를 상자에 넣고, 문 앞에 놓인 택배를 대신 받아 주던 이웃에게 인사를 했습니다.", en: "After several years, the two of you end it. You put the returned umbrella and charger in a box, and greet the neighbour who used to take in your deliveries." } },
+          { t: { ko: "돌려받은 열쇠", en: "Returned Keys" }, b: { ko: "서로의 일정이 어긋난 끝에 각자의 자리로 돌아가기로 합니다. 공유하던 달력 앱을 지우고, 현관 선반에 놓여 있던 여분의 열쇠를 정리합니다.", en: "After schedules drift too far apart, you agree to part ways, clearing shared calendars and spare keys from the shelf." } },
+          { t: { ko: "각자의 계절", en: "Separate Seasons" }, b: { ko: "오래 붙잡고 있던 인연을 조용히 내려놓습니다. 함께 찍은 사진을 폴더 하나에 모아 둔 뒤, 다시 혼자만의 주말을 맞습니다.", en: "You quietly let go of a relationship you held onto for years, archiving old photos into one folder." } }
+        ];
+        const sv = splitVars[splitNo % splitVars.length];
         out.push({
-          id: "love_split", ic: "💔", src: "src_marriage", cat: "love",
-          t: { ko: "마지막 통화", en: "The Last Call" },
-          b: { ko: "몇 해를 만난 사람과 헤어졌습니다. 돌려받은 우산과 충전기를 상자에 넣고, 문 앞에 놓인 택배를 대신 받아 주던 이웃에게 인사를 했습니다.", en: "After several years, the two of you end it. You put the returned umbrella and charger in a box, and greet the neighbour who used to take in your deliveries." },
+          id: "love_split_" + splitNo, ic: "💔", src: "src_marriage", cat: "love",
+          t: sv.t, b: sv.b,
           st: { health: 0, happiness: -9, knowledge: 0, relation: -4, reputation: 0, spec: 0, stress: 8 }, money: 0, inc: 0
         });
       }
@@ -992,14 +1059,18 @@
   }
   // 이 삶에서 잠든 사건: 두 삶이 같은 사건 목록을 갖지 않게 하는 장치.
   // 씨앗마다 22%의 사건이 이번 생에는 일어나지 않는다.
-  function dormant(life, id) {
+  function hasSpecificCond(c) {
+    if (!c) return false;
+    return !!(c.partnerTags || c.role || c.major || c.flagIs || c.loc || c.stat || c.emp || c.ageKids || c.zone);
+  }
+  function dormant(life, id, spec) {
     if (!life._skip) life._skip = {};
-    if (life._skip[id] == null) life._skip[id] = hid(id + ":" + life.seed) < 0.28;
+    if (life._skip[id] == null) life._skip[id] = hid(id + ":" + life.seed) < (spec ? 0.14 : 0.42);
     return life._skip[id];
   }
   function eligiblePool(life, extra) {
     return C.events.filter(e => {
-      if (dormant(life, e.id)) return false;
+      if (dormant(life, e.id, hasSpecificCond(e.cond))) return false;
       if (e.age[0] > life.age) return false;
       if (life.age > e.age[1] + (extra || 0)) return false;
       if (!condOK(life, e.cond)) return false;
@@ -1007,7 +1078,7 @@
       // 되풀이되는 사건도 한 삶에 두 번까지만(같은 문장이 세 번 나오면 반복으로 읽힌다)
       if (life.usedIds[e.id] >= 2) return false;
       // 다른 id라도 제목이 같은 장면은 한 인생에 한 번만 보여 준다(같은 사건이 두 번 나오는 것처럼 읽히지 않게)
-      if (!e.repeat && life.seenTitles && life.seenTitles[e.t && e.t.ko]) return false;
+      if (life.seenTitles && e.t && e.t.ko && life.seenTitles[e.t.ko]) return false;
       return true;
     });
   }
@@ -1033,12 +1104,22 @@
       if (!pool.length) break;
       let cands = pool.filter(e => e !== forced && out.indexOf(e) < 0);
       if (!cands.length) break;
+      const ctxW = (x) => {
+        const c = x.cond;
+        if (!c) return 1;
+        let m = 1;
+        if (c.partnerTags) m *= 2.8;
+        if (c.role || c.major || c.flagIs || c.loc || c.ageKids) m *= 2.1;
+        if (c.emp || c.marital || c.kids) m *= 1.3;
+        return m;
+      };
       const e = forced && out.indexOf(forced) < 0 && i === 0 ? forced
-        : wpick(cands, x => x.w * memWeight(life, x.id) * focusWeight(life, x) * (x.age[1] === x.age[0] ? 1.2 : 1));
+        : wpick(cands, x => x.w * memWeight(life, x.id) * focusWeight(life, x) * ctxW(x) * (x.age[1] === x.age[0] ? 1.2 : 1));
       out.push(e);
       life.usedIds[e.id] = (life.usedIds[e.id] || 0) + 1;
       life.lastSeen[e.id] = life.age;
-      pool = pool.filter(x => x !== e);
+      if (e.t && e.t.ko) { life.seenTitles = life.seenTitles || {}; life.seenTitles[e.t.ko] = 1; }
+      pool = pool.filter(x => x !== e && !(e.t && e.t.ko && x.t && x.t.ko === e.t.ko));
     }
     return out;
   }
@@ -1079,13 +1160,24 @@
       if (s.edu === "grad") life.flags.inCollege = false;
     }
     if (s.path) life.flags.path = s.path;
-    if (s.major) { life.major = s.major; life.flags.majorChosen = true; life.flags.inCollege = true; life.history && (life.majorYear = life.year); }
+    if (s.major) {
+      life.major = s.major; life.flags.majorChosen = true; life.flags.inCollege = true; life.history && (life.majorYear = life.year);
+      const talId = life.talent && life.talent.id;
+      if (talId && (TALENT_MAJORS[talId] || []).includes(s.major)) bump(life, "spec", 4);
+    }
     if (s.role) {
       life.role = s.role; life.lastRole = s.role;
       life.flags.roleChosen = true;
       const r = ROLES[s.role];
       if (r && r.job) life.job = r.job;
       life.flags.empType = empTypeOf(life);
+      const drmId = life.dream && life.dream.id;
+      if (drmId) life.flags.dreamMatched = (DREAM_ROLES[drmId] || []).includes(s.role);
+      const talId = life.talent && life.talent.id;
+      if (talId && (TALENT_ROLES[talId] || []).includes(s.role)) {
+        bump(life, "spec", 4);
+        life.wageBonus = clamp((life.wageBonus || 0) + 0.04, -0.15, 0.25);
+      }
     }
     if ((s.role || s.job) && s.job !== "none" && s.employed !== false && !life.flags.entryGrade) {
       const g = gradeFor(life);
@@ -1154,8 +1246,25 @@
       } else {
         const sex = life.sex === "f" ? "m" : "f";
         const nm = koreanName(sex);
-        life.family.spouse = { name: nm.ko, nameEn: nm.en, sex, alive: true, age: life.age + ri(-2, 3), health: 72 + ri(-8, 10), relation: 74 + ri(-6, 8), job: pick(["회사원", "교사", "간호사", "자영업", "공무원", "프리랜서"]), income: 0 };
-        life.family.spouse.income = Math.round((life.income || 2600) * (0.6 + R() * 0.5));
+        const spPool = [
+          { ko: "회사원", en: "Office worker", tags: ["corp"] },
+          { ko: "교사", en: "Teacher", tags: ["teacher"] },
+          { ko: "간호사", en: "Nurse", tags: ["nurse"] },
+          { ko: "자영업", en: "Small business owner", tags: ["self"] },
+          { ko: "공무원", en: "Civil servant", tags: ["public"] },
+          { ko: "프리랜서", en: "Freelancer", tags: ["free"] },
+          { ko: "의사", en: "Doctor", tags: ["medical"] }
+        ];
+        const spDef = pick(spPool);
+        const mult = spDef.tags[0] === "medical" ? 2.0 : spDef.tags[0] === "corp" ? 1.15 : spDef.tags[0] === "free" ? 0.72 : 1.0;
+        life.family.spouse = {
+          name: nm.ko, nameEn: nm.en, sex, alive: true, age: life.age + ri(-2, 3),
+          health: 72 + ri(-8, 10), relation: 74 + ri(-6, 8),
+          job: spDef.ko, jobEn: spDef.en, tags: spDef.tags.slice(),
+          income: Math.round(Math.max(2400, life.income || 2800) * mult * (0.8 + R() * 0.35))
+        };
+        life.flags.partnerTags = spDef.tags.slice();
+        life.flags.partnerJob = spDef.ko;
       }
     }
   }
@@ -1251,7 +1360,11 @@
     }
     for (const d of C.decisions) {
       if (life.decisions.indexOf(d.id) >= 0 || queued(d)) continue;
-      if (d.age != null && (life.age < d.age || life.age > d.age + 1)) continue;
+      if (d.age != null) {
+        const a0 = Array.isArray(d.age) ? d.age[0] : d.age;
+        const a1 = Array.isArray(d.age) ? d.age[1] : d.age + 1;
+        if (life.age < a0 || life.age > a1) continue;
+      }
       const c = d.cond;
       if (c) {
         // 결정 카드의 cond도 같은 규칙으로 검사한다(성별·부모 생존 등)
@@ -1267,17 +1380,19 @@
       }
       if (!queued(d)) life.decQueue.push(d.id);
     }
-    // 예정된 결정이 없는 해에는 일상 결정이 가끔 온다
+    // 예정된 결정이 없는 해에는 상황별 일상 결정이 자주 온다 (맞춤 조건 가중치로 매 판 다른 선택지)
     if (!life.decQueue.length && life.age >= 8) {
-      const p = life.age < 19 ? 0.34 : 0.5;
+      const p = life.age < 19 ? 0.28 : 0.42;
       if (R() < p) {
         const pool = (C.daily || []).filter(d => {
+          const spec = hasSpecificCond(d.cond);
+          if (hid("dly:" + d.id + ":" + life.seed) < (spec ? 0.12 : 0.24)) return false;
           if (life.decisions.indexOf(d.id) >= 0 || queued(d)) return false;
           if (life.age < d.age[0] || life.age > d.age[1]) return false;
           if (d.usedIn && life.usedIds["dly_" + d.id]) return false;
           return condOK(life, d.cond);
         });
-        if (pool.length) life.decQueue.push(wpick(pool, x => x.w || 1).id);
+        if (pool.length) life.decQueue.push(wpick(pool, x => (x.w || 1) * (hasSpecificCond(x.cond) ? 2.2 : 1) * memWeight(life, x.id)).id);
       }
     }
     while (life.decQueue.length) {
@@ -1388,7 +1503,7 @@
       });
     }
     // 27세까지 일자리가 없으면 첫 직장을 구한다.
-    if (!life.flags.employed && !life.flags.retired && life.age >= 27 && life.role === "none" && life.age <= 29) {
+    if (!life.flags.employed && !life.flags.retired && life.job === "none" && life.role === "none" && life.age >= 27 && life.age <= 29) {
       const grade = entryGrade(life);
       life.role = grade.role;
       life.job = ROLES[grade.role].job;
@@ -1402,17 +1517,32 @@
         st: { health: -1, happiness: 2, knowledge: 1, relation: 1, reputation: 1, spec: 2, stress: 6 }, money: 0, inc: 0
       });
     }
-    if (!life.flags.retired && life.age >= 65) {
+    if (!life.flags.retired && !life.flags.retireEventShown && life.age >= 65) {
+      const wasEmployed = !!life.flags.employed && life.job !== "none";
+      const prevJob = life.job;
+      const prevRole = life.role;
       life.flags.retired = true; life.retired = 1; life.retireAge = life.age;
       if (life.job !== "none") life.lastJob = life.job;
       life.lastRole = life.role;
       life.job = "none"; life.flags.employed = false;
-      out.push({
-        id: "liv_retire", ic: "🕰", src: "src_income", cat: "work",
-        t: { ko: "마지막 출근", en: "The Last Commute" },
-        b: { ko: "정년이 되어 사무실 책상을 비웁니다. 서랍에서 오래된 명함과 회사 로고가 찍힌 머그잔을 꺼내 종이상자에 담고, 엘리베이터에서 동료들과 마지막으로 인사를 나눕니다.", en: "You clear your desk at retirement. Old business cards and a company mug go into a cardboard box, and you say a last goodbye in the elevator." },
-        st: { health: 1, happiness: -2, knowledge: 0, relation: 1, reputation: 0, spec: 0, stress: -8 }, money: 0, inc: 0
-      });
+      if (wasEmployed && !life.flags.retireEventShown) {
+        life.flags.retireEventShown = true;
+        const isSelf = prevJob === "self" || prevRole === "self";
+        const isFree = prevJob === "free" || prevRole === "free";
+        const isFarm = prevJob === "farm" || prevRole === "farm";
+        const rText = isSelf
+          ? { t: { ko: "가게 불을 끄는 저녁", en: "Closing the Shop for Good" }, b: { ko: "오래 지켜 온 가게의 간판 불을 마지막으로 내립니다. 단골손님에게 남은 재고를 챙겨 주고 열쇠 꾸러미를 서랍에 넣습니다.", en: "You switch off the shop sign for the last time, hand leftover stock to a regular, and leave the keys in the drawer." } }
+          : isFree
+          ? { t: { ko: "마지막 마감", en: "The Final Deadline" }, b: { ko: "마지막 의뢰 작업을 마치고 계약 폴더를 닫습니다. 수십 년 동안 닳은 작업 노트와 명함을 정리하며 일에서 한 걸음 물러납니다.", en: "You deliver your last commission and close the project folder, stepping back from decades of freelance deadlines." } }
+          : isFarm
+          ? { t: { ko: "밭을 내어주는 계절", en: "Handing Over the Fields" }, b: { ko: "예전 같지 않은 무릎과 허리를 느끼며 올해 농사를 끝으로 일손을 내려놓습니다. 창고의 농기계를 닦아 두고 마루에 앉습니다.", en: "Feeling the years in your knees and back, you finish one last harvest, clean the tools in the shed, and sit on the porch." } }
+          : { t: { ko: "마지막 출근", en: "The Last Commute" }, b: { ko: "정년이 되어 사무실 책상을 비웁니다. 서랍에서 오래된 명함과 회사 로고가 찍힌 머그잔을 꺼내 종이상자에 담고, 엘리베이터에서 동료들과 마지막으로 인사를 나눕니다.", en: "You clear your desk at retirement. Old business cards and a company mug go into a cardboard box, and you say a last goodbye in the elevator." } };
+        out.push({
+          id: "liv_retire", ic: "🕰", src: "src_income", cat: "work",
+          t: rText.t, b: rText.b,
+          st: { health: 1, happiness: -2, knowledge: 0, relation: 1, reputation: 0, spec: 0, stress: -8 }, money: 0, inc: 0
+        });
+      }
     }
     return out;
   }
@@ -1488,9 +1618,15 @@
     if (life.flags.justMet) {
       const p = life.family && life.family.partner;
       if (p) {
+        const meetRound = Math.max(0, (life.loveRound || 1) - 1);
+        const meetTitles = [
+          { ko: "사귀기로 한 첫 주", en: "The First Week Together" },
+          { ko: "새로 맞춘 저녁 약속", en: "A New Evening Together" },
+          { ko: "다시 열어 둔 자리", en: "Making Room Again" }
+        ];
         evs.unshift({
-          id: "meet_first_" + (life.flags.partnerId || "x"), ic: "💌", src: "src_marriage", cat: "love",
-          t: { ko: "사귀기로 한 첫 주", en: "The First Week Together" }, b: p.first
+          id: "meet_first_" + (life.flags.partnerId || "x") + "_" + meetRound, ic: "💌", src: "src_marriage", cat: "love",
+          t: meetTitles[meetRound % meetTitles.length], b: p.first
         });
       }
       life.flags.justMet = 0;
@@ -1741,6 +1877,48 @@
   }
 
   // ---------- 직접 관리 (돈과 시간을 써서 지표를 올린다) ----------
+  const LIFE_ACTIONS = {
+    upskill:   { cost: 50,  label: "직무 공부·자격증", labelEn: "Study & certification", st: { spec: 4.5, knowledge: 3.5, stress: 2.2 }, inc: 0.025 },
+    negotiate: { cost: 0,   label: "연봉·처우 협상",   labelEn: "Negotiate pay",         st: { stress: 3.0 }, needEmp: true },
+    travel:    { cost: 90,  label: "짧은 여행·리프레시", labelEn: "Short trip",          st: { health: 1.5, happiness: 5.5, stress: -6.5 } },
+    hobby:     { cost: 35,  label: "취미·모임 활동",   labelEn: "Hobby & meetup",        st: { happiness: 3.0, relation: 3.8, stress: -3.0 } },
+    repay:     { cost: 300, label: "부채 원금 상환",   labelEn: "Pay down debt",         st: { happiness: 1.5, stress: -3.5 }, needDebt: true }
+  };
+  function lifeAction(life, kind) {
+    const def = LIFE_ACTIONS[kind];
+    if (!def) return { ok: false, why: "알 수 없는 활동" };
+    if (life.age < 19) return { ok: false, why: "성인이 된 뒤 직접 고를 수 있습니다" };
+    life.careUsed = life.careUsed || {};
+    if (life.careUsed["act_" + kind] === life.age) return { ok: false, why: "올해는 이미 했습니다" };
+    if (def.needEmp && (!life.flags.employed || life.flags.retired)) return { ok: false, why: "현재 일하는 중이 아닙니다" };
+    if (def.needDebt && (life.debt || 0) <= 0) return { ok: false, why: "갚을 부채가 없습니다" };
+    const cost = kind === "repay" ? Math.min(300, life.debt || 0) : def.cost;
+    const have = (life.cash || 0) + (life.assets || 0);
+    if (have < cost) return { ok: false, why: "돈이 모자랍니다", need: cost - have };
+    const fromCash = Math.min(life.cash || 0, cost);
+    life.cash -= fromCash;
+    if (cost - fromCash > 0) life.assets = Math.max(0, life.assets - (cost - fromCash));
+    life.careUsed["act_" + kind] = life.age;
+    if (kind === "repay") {
+      life.debt = Math.max(0, (life.debt || 0) - cost);
+    }
+    if (kind === "negotiate") {
+      const chance = clamp(0.28 + ((life.stats.spec || 0) + (life.stats.reputation || 0) - 80) * 0.006, 0.15, 0.85);
+      if (R() < chance) {
+        life.wageBonus = clamp((life.wageBonus || 0) + 0.045, -0.15, 0.30);
+        bump(life, "happiness", 3); bump(life, "reputation", 2);
+        return { ok: true, cost: 0, label: def.label, msg: "협상 성공 · 소득이 오릅니다 (+4.5%)", msgEn: "Pay raise agreed (+4.5%)" };
+      } else {
+        bump(life, "happiness", -1.5); bump(life, "stress", 3);
+        return { ok: true, cost: 0, label: def.label, msg: "이번엔 보류되었습니다", msgEn: "Held off this time" };
+      }
+    }
+    const st = def.st || {};
+    for (const k in st) bump(life, k, st[k]);
+    if (def.inc) life.wageBonus = clamp((life.wageBonus || 0) + def.inc, -0.15, 0.30);
+    return { ok: true, cost, label: def.label };
+  }
+
   const SELF_CARE = {
     exercise:   { cost: 45, label: "운동·PT", st: { health: 4.2, happiness: 1, stress: -3.2 } },
     checkup:    { cost: 30, label: "정기검진", st: { health: 1.2, stress: -1.4 } },
@@ -1797,7 +1975,7 @@
   prepAll();
 
   window.ENGINE = {
-    careAction, SELF_CARE, FAMILY_CARE, empTypeOf, applyEvent, bump, stressLink,
+    careAction, lifeAction, LIFE_ACTIONS, SELF_CARE, FAMILY_CARE, empTypeOf, applyEvent, bump, stressLink,
     setSpend(life, k, v) {
       if (!life.spendMode) life.spendMode = { food: "normal", leisure: "normal", living: "normal", health: "normal" };
       if (["save", "normal", "generous"].indexOf(v) < 0) return;
