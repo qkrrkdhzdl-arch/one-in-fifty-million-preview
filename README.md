@@ -12,7 +12,7 @@ A browser life simulator set in South Korea. You are born as one of the 254,341 
 
 - **Birth draw**: Province birth shares from Statistics Korea's 2025 birth statistics; 17 provinces, 62 districts, 25 kinds of home.
 - **Life table & distributions**: Life expectancy from the 2024 life table adjusted for district type, household and generation; income and wealth percentiles from Korean distributions.
-- **Events & decisions**: Around 1,040 events and 42 decision cards gated on region, household, era, parents, marriage, children and earlier choices.
+- **Events & decisions**: 1,062 events and 58 decision cards gated on region, household, era, parents, marriage, children and earlier choices, plus six scenes that pay off an early choice (a childhood passbook, an after-school club, a teenage part-time job) years later.
 - **Bilingual**: Korean and English are written as separate texts; browser language defaults to Korean for `ko` and English otherwise.
 - **Zero-backend static build**: Plain HTML, CSS and JavaScript, seeded runs, and a one-click shareable death record.
 
