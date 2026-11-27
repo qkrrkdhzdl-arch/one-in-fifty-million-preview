@@ -766,7 +766,7 @@
           <span class="fn">${U.esc(U.tr(p.role))}</span>
           <span class="fst">${state}</span>
           <span class="fbar" title="${L('나와의 관계', 'closeness to you')} ${p.relation}"><i style="width:${p.relation}%"></i></span>
-          <span class="fmeta">${p.alive ? `${L('건강', 'health')} ${p.health} · ${U.esc(U.tr(p.job))}${p.fam ? ' · ' + U.esc(p.fam) : ''}${p.trait ? ' · ' + U.esc(p.trait) : ''}` : `${p.health < 100 ? L('생전 건강 ', 'health at the end ') + p.health : ''}`}</span>
+          <span class="fmeta">${p.alive ? `${L('건강', 'health')} ${p.health} · ${U.esc(en() && p.jobEn ? p.jobEn : U.tr(p.job))}${p.fam ? ' · ' + U.esc(en() && p.famEn ? p.famEn : p.fam) : ''}${p.trait ? ' · ' + U.esc(en() && p.traitEn ? p.traitEn : p.trait) : ''}` : `${p.health < 100 ? L('생전 건강 ', 'health at the end ') + p.health : ''}`}</span>
         </div>`;
       }).join('') : `<p class="hint">${L('기록 없음', 'No record')}</p>`;
       const fl = $('#famLbl'); if (fl) fl.textContent = L(`${view.filter(p => p.alive).length}명`, `${view.filter(p => p.alive).length}`);
@@ -867,7 +867,7 @@
           <span class="fstate">${p.alive ? L('생존', 'Alive') : L('고인', 'Deceased')}</span></div>
         <dl>
           <dt>${L('나이', 'Age')}</dt><dd>${p.alive ? AGE(p.age) : '—'}</dd>
-          <dt>${L('직업', 'Work')}</dt><dd>${p.alive ? U.esc(U.tr(p.job)) : '—'}</dd>
+          <dt>${L('직업', 'Work')}</dt><dd>${p.alive ? U.esc(en() && p.jobEn ? p.jobEn : U.tr(p.job)) : '—'}</dd>
           <dt>${L('건강', 'Health')}</dt><dd>${bar(p.health)}<span class="fv">${p.alive ? p.health : '—'}</span></dd>
           <dt>${L('나와의 관계', 'Closeness to you')}</dt><dd>${bar(p.relation, 'rel')}<span class="fv">${p.relation}</span></dd>
         </dl>

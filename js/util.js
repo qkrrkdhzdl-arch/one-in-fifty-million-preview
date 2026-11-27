@@ -89,7 +89,13 @@
     // 주거
     "얹혀 삶": "Living with family", "월세": "Monthly rent", "전세": "Jeonse", "내 집": "Owned home",
     // 기타 화면 낱말
-    "없음": "None", "생존": "Alive", "기록 없음": "No record"
+    "없음": "None", "생존": "Alive", "기록 없음": "No record", "연인": "Partner",
+    "직무 공부·자격증": "Study & certification", "연봉·처우 협상": "Negotiate pay",
+    "짧은 여행·리프레시": "Short trip", "취미·모임 활동": "Hobby & meetup",
+    "부채 원금 상환": "Pay down debt", "알 수 없는 활동": "Unknown action",
+    "성인이 된 뒤 직접 고를 수 있습니다": "Available once you reach adulthood",
+    "현재 일하는 중이 아닙니다": "You are not currently employed",
+    "갚을 부채가 없습니다": "You have no debt to pay down"
   };
   U.en = (s) => EN[s] != null ? EN[s] : String(s == null ? "" : s);
   U.tr = (s) => {

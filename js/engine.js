@@ -1801,12 +1801,12 @@
     }
     if (f.spouse) {
       out.push({ who: "spouse", role: "배우자", name: f.spouse.name, nameEn: f.spouse.nameEn || "", alive: f.spouse.alive, age: f.spouse.age,
-        health: Math.round(f.spouse.health), relation: Math.round(f.spouse.relation), job: f.spouse.alive ? f.spouse.job : "—", income: f.spouse.income || 0,
+        health: Math.round(f.spouse.health), relation: Math.round(f.spouse.relation), job: f.spouse.alive ? f.spouse.job : "—", jobEn: f.spouse.alive ? (f.spouse.jobEn || "") : "—", income: f.spouse.income || 0,
         fam: f.spouse.fam || "", famEn: f.spouse.famEn || "", trait: f.spouse.trait || "", traitEn: f.spouse.traitEn || "" });
     } else if (f.partner && f.partner.alive) {
       out.push({ who: "partner", role: "연인", name: f.partner.name, nameEn: f.partner.nameEn || "", alive: true, age: f.partner.age,
         health: Math.round(f.partner.health), relation: Math.round(f.partner.relation),
-        job: f.partner.job || "—", income: f.partner.income || 0,
+        job: f.partner.job || "—", jobEn: f.partner.jobEn || "", income: f.partner.income || 0,
         fam: f.partner.fam || "", famEn: f.partner.famEn || "", trait: f.partner.trait || "", traitEn: f.partner.traitEn || "" });
     }
     (f.children || []).forEach((k, i) => {
